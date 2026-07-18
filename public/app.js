@@ -236,12 +236,12 @@ const UI = {
     }
     const backBtn = document.getElementById('headerBack');
     backBtn.classList.toggle('hidden', pageStack.length <= 1);
-    document.getElementById('headerTitle').textContent = page === 'customer-detail' ? 'Customer' : page === 'dashboard' ? 'TechTrove' : page.charAt(0).toUpperCase() + page.slice(1);
+    document.getElementById('headerTitle').textContent = page === 'customer-detail' ? 'Customer' : page === 'dashboard' ? 'TechTrove' : page === 'more' ? 'Settings' : page.charAt(0).toUpperCase() + page.slice(1);
     document.getElementById('fabAdd').classList.toggle('hidden', page !== 'inventory');
   },
 
   goBack() {
-    if (pageStack.length > 1) { pageStack.pop(); const p = pageStack[pageStack.length - 1]; currentPage = p.page; this._renderPage(p.page, p.params); document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === p.page)); document.getElementById('bottomNav').classList.toggle('hidden', p.page === 'customer-detail'); document.getElementById('headerBack').classList.toggle('hidden', pageStack.length <= 1); document.getElementById('headerTitle').textContent = p.page === 'customer-detail' ? 'Customer' : p.page === 'dashboard' ? 'TechTrove' : p.page.charAt(0).toUpperCase() + p.page.slice(1); document.getElementById('fabAdd').classList.toggle('hidden', p.page !== 'inventory'); }
+    if (pageStack.length > 1) { pageStack.pop(); const p = pageStack[pageStack.length - 1]; currentPage = p.page; this._renderPage(p.page, p.params); document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === p.page)); document.getElementById('bottomNav').classList.toggle('hidden', p.page === 'customer-detail'); document.getElementById('headerBack').classList.toggle('hidden', pageStack.length <= 1); document.getElementById('headerTitle').textContent = p.page === 'customer-detail' ? 'Customer' : p.page === 'dashboard' ? 'TechTrove' : p.page === 'more' ? 'Settings' : p.page.charAt(0).toUpperCase() + p.page.slice(1); document.getElementById('fabAdd').classList.toggle('hidden', p.page !== 'inventory'); }
   },
 
   _renderPage(page, params) {
@@ -256,6 +256,7 @@ const UI = {
       case 'customer-detail': this.renderCustomerDetail(params); break;
       case 'inventory': this.renderInventory(); break;
       case 'search': this.renderSearch(); break;
+      case 'more': this.renderMore(); break;
     }
   },
 
@@ -514,6 +515,43 @@ const UI = {
     }
 
     document.getElementById('page-inventory').innerHTML = html;
+  },
+
+  /* MORE */
+  renderMore() {
+    const html = `
+      <div class="card" style="margin-top:4px">
+        <div class="detail-header" style="padding:8px 0 12px">
+          <h2 style="font-size:1.05rem;color:var(--gray-600)">TechTrove</h2>
+          <div style="font-size:.8rem;color:var(--gray-400);margin-top:2px">Rental Tracker</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+          <div class="stat-card"><div class="stat-value" style="font-size:1.3rem">${state.customers.length}</div><div class="stat-label">Customers</div></div>
+          <div class="stat-card"><div class="stat-value" style="font-size:1.3rem">${state.items.length}</div><div class="stat-label">Items</div></div>
+          <div class="stat-card"><div class="stat-value" style="font-size:1.3rem">${state.rentals.length}</div><div class="stat-label">Rentals</div></div>
+          <div class="stat-card"><div class="stat-value" style="font-size:1.3rem">${state.payments.length}</div><div class="stat-label">Payments</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-header"><h3>Notifications</h3></div>
+        <div class="toggle-row"><label>Payment Due Reminders</label><label class="toggle-switch"><input type="checkbox" id="moreNotifToggle" ${notifEnabled ? 'checked' : ''} onchange="UI.toggleNotifications(this.checked)"><span class="toggle-slider"></span></label></div>
+        <div style="font-size:.8rem;color:var(--gray-500)">Shows browser notifications for overdue/due payments</div>
+      </div>
+
+      <div class="card">
+        <div class="section-header"><h3>Data</h3></div>
+        <button class="btn btn-outline btn-block btn-sm" onclick="Data.exportJSON()" style="margin-bottom:8px">Export Backup (JSON)</button>
+        <div class="form-group" style="margin-bottom:0"><label style="font-size:.8rem;color:var(--gray-500)">Restore from backup</label><input type="file" id="moreImportFile" accept=".json" style="font-size:.85rem" onchange="UI.handleImport(this)"></div>
+        <hr style="margin:14px 0;border:none;border-top:1px solid var(--gray-200)">
+        <button class="btn btn-success btn-block btn-sm" onclick="UI.showBulkImportModal()">Bulk Import from Excel/CSV</button>
+      </div>
+
+      <div class="card">
+        <button class="btn btn-outline btn-block btn-sm" onclick="Auth.logout()" style="color:var(--danger);border-color:var(--danger)">Lock &amp; Logout</button>
+      </div>
+      <div style="text-align:center;padding:16px;font-size:.7rem;color:var(--gray-400)">TechTrove v1.0</div>`;
+    document.getElementById('page-more').innerHTML = html;
   },
 
   /* SEARCH */
