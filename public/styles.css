@@ -240,14 +240,14 @@ header h1{font-size:1rem;font-weight:600;flex:1;text-align:center;letter-spacing
   html{font-size:15px}
   body{background:var(--gray-200)}
   #app{max-width:none;margin:0;border:none;flex-direction:row}
-  #bottomNav{flex-direction:column;width:200px;height:100%;border-top:none;border-right:1px solid var(--gray-200);padding-top:8px;padding-bottom:8px}
+  #bottomNav{order:-1;flex-direction:column;width:200px;height:100%;border-top:none;border-right:1px solid var(--gray-200);padding-top:8px;padding-bottom:8px}
   .nav-btn{flex-direction:row;gap:10px;padding:10px 16px;justify-content:flex-start}
   .nav-btn.active::after{display:none}
   .nav-btn.active{background:var(--gray-100);border-radius:8px;margin:0 8px}
   .nav-label{font-size:.75rem;text-transform:none;letter-spacing:0;margin:0}
   .nav-icon{width:20px;height:20px}
   header{display:none}
-  #mainContent{padding:24px}
+  #mainContent{padding:24px;flex:1}
   .login-screen{max-width:none}
   .stats-row{grid-template-columns:repeat(4,1fr)}
   .dash-metrics{gap:16px}
