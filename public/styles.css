@@ -17,14 +17,8 @@ html,body{height:100%;width:100%;font-family:var(--font);font-size:16px;line-hei
 .login-input-group input::placeholder{color:var(--gray-400);font-size:.95rem}
 .login-box .login-error{font-size:.8rem;color:var(--danger);margin-top:8px;padding:0}
 .login-box .login-error.hidden{display:none}
-.google-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:11px 16px;border:1px solid var(--gray-300);border-radius:4px;background:var(--white);color:var(--gray-700);font-size:.95rem;font-weight:500;font-family:var(--font);cursor:pointer;margin-top:24px;transition:background .15s,box-shadow .15s}
-.google-btn:hover{background:var(--gray-50);box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.google-btn:active{background:var(--gray-100)}
+.login-box .btn{padding:14px;font-size:1rem;font-weight:600;border-radius:12px;margin-top:18px}
 .login-hint{text-align:center;font-size:.78rem;color:var(--gray-400);margin-top:12px}
-.login-divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--gray-400);font-size:.8rem}
-.login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--gray-200)}
-.login-loading{position:fixed;inset:0;background:rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;z-index:50}
-.login-loading.hidden{display:none}
 .spinner{width:32px;height:32px;border:3px solid var(--gray-200);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite}
 .splash{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--white);z-index:999}
 @keyframes spin{to{transform:rotate(360deg)}}
