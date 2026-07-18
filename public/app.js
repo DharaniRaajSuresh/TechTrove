@@ -1250,18 +1250,14 @@ function escHtml(s) { if (!s) return ''; const d = document.createElement('div')
 document.addEventListener('DOMContentLoaded', async () => {
   Auth.restore();
 
-  /* Load Google Client ID and render button */
+  /* Set Google Client ID — hardcoded for deployment, updated from config if available */
+  const GOOGLE_CLIENT_ID = '743684664950-cqj0oq9ktbrch7jo3cqt0o8i8t5717gm.apps.googleusercontent.com';
+  document.getElementById('g_id_onload').dataset.client_id = GOOGLE_CLIENT_ID;
   try {
     const configRes = await fetch('/api/config');
     const config = await configRes.json();
     if (config.googleClientId) {
       document.getElementById('g_id_onload').dataset.client_id = config.googleClientId;
-    } else {
-      /* Hide Google button and show password-only version */
-      document.getElementById('googleBtn').style.display = 'none';
-      document.getElementById('loginPassword').parentElement.style.borderTop = 'none';
-      const divider = document.querySelector('.login-divider');
-      if (divider) divider.style.display = 'none';
     }
   } catch(e) {}
 
