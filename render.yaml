@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: techtrove-rental-tracker
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: APP_PASSWORD
+        value: rent123
+      - key: DATA_DIR
+        value: /data
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1

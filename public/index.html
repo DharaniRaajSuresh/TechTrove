@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TechTrove Rental Tracker</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="loginScreen" class="login-screen">
+  <div class="login-box">
+    <h1>TechTrove</h1>
+    <p class="login-sub">Rental Tracker</p>
+    <input type="password" id="loginPassword" placeholder="Enter password" autocomplete="off">
+    <div id="loginError" class="login-error hidden">Wrong password</div>
+    <button id="loginBtn" class="btn btn-primary btn-block">Unlock</button>
+  </div>
+</div>
+
+<div id="app" class="hidden">
+  <header id="appHeader">
+    <button id="headerBack" class="header-btn hidden" aria-label="Back">&#8592;</button>
+    <h1 id="headerTitle">TechTrove</h1>
+    <button id="headerAction" class="header-btn" aria-label="Settings">&#9881;</button>
+  </header>
+
+  <div id="dueBanner" class="due-alert-banner hidden" onclick="UI.navigate('dashboard')"></div>
+  <main id="mainContent">
+    <section id="page-dashboard" class="page active"></section>
+    <section id="page-customers" class="page"></section>
+    <section id="page-customer-detail" class="page"></section>
+    <section id="page-inventory" class="page"></section>
+    <section id="page-search" class="page"></section>
+  </main>
+
+  <nav id="bottomNav">
+    <button class="nav-btn active" data-page="dashboard">
+      <span class="nav-label">Home <span id="notifBadge" class="notif-badge hidden"></span></span>
+    </button>
+    <button class="nav-btn" data-page="customers">
+      <span class="nav-label">Clients</span>
+    </button>
+    <button class="nav-btn" data-page="inventory">
+      <span class="nav-label">Items</span>
+    </button>
+    <button class="nav-btn" data-page="search">
+      <span class="nav-label">Search</span>
+    </button>
+  </nav>
+</div>
+
+<div id="modalOverlay" class="modal-overlay hidden" onclick="if(event.target===this)UI.hideModal()">
+  <div id="modalContent" class="modal-content"></div>
+</div>
+
+<button id="fabAdd" class="fab hidden" aria-label="Add">+</button>
+<div id="toast" class="toast"></div>
+<div id="confirmOverlay" class="modal-overlay hidden" onclick="if(event.target===this)UI.hideConfirm()">
+  <div id="confirmContent" class="modal-content confirm-box"></div>
+</div>
+
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
