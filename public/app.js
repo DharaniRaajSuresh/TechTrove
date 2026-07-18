@@ -294,8 +294,9 @@ const UI = {
 
   /* DASHBOARD */
   renderDashboard() {
-    const now = new Date(); const todayStr = today();
+    const now = new Date();
     const monthStart = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-01';
+    const monthName = now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
     let monthlyCollected = 0;
     state.payments.forEach(p => { if (p.date >= monthStart) monthlyCollected += p.amount; });
@@ -308,34 +309,75 @@ const UI = {
       if (st.isOverdue) overdueList.push({ rental: r, status: st, customer: c });
       else if (st.isDueSoon) dueSoonList.push({ rental: r, status: st, customer: c });
     });
-
     overdueList.sort((a, b) => b.status.daysOverdue - a.status.daysOverdue);
     dueSoonList.sort((a, b) => a.status.daysUntilDue - b.status.daysUntilDue);
 
+    const activeRentals = state.rentals.filter(r => r.status === 'active').length;
+    const totalCustomers = state.customers.length;
+    const totalItems = state.items.length;
+
     let html = '';
 
-    /* Persistent due alert banner shown on all pages when there are dues */
-    if (overdueList.length > 0) {
-      html += `<div class="due-alert-banner" onclick="UI.navigate('dashboard')">
-        <span class="due-alert-icon">&#9888;</span>
-        <span><strong>${overdueList.length}</strong> overdue payment(s) — collect <strong>${fmtCurrency(overdueList.reduce((s, x) => s + x.status.outstanding, 0))}</strong></span>
-      </div>`;
-    }
-    if (dueSoonList.length > 0 && overdueList.length === 0) {
-      html += `<div class="due-alert-banner due-soon-banner" onclick="UI.navigate('dashboard')">
-        <span class="due-alert-icon">&#9201;</span>
-        <span><strong>${dueSoonList.length}</strong> payment(s) due within 7 days — <strong>${fmtCurrency(dueSoonList.reduce((s, x) => s + x.rental.rentAmount, 0))}</strong></span>
-      </div>`;
-    }
+    /* Hero section */
+    html += `<div class="dash-hero">
+      <div class="dash-hero-top">
+        <div>
+          <div class="dash-greeting">Good ${now.getHours() < 12 ? 'Morning' : now.getHours() < 18 ? 'Afternoon' : 'Evening'}</div>
+          <div class="dash-title">TechTrove</div>
+          <div class="dash-subtitle">Rental Management</div>
+        </div>
+        <div class="dash-hero-icon">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        </div>
+      </div>
+    </div>`;
 
-    html += `
-      <div class="stats-row">
-        <div class="stat-card success"><div class="stat-value">${fmtCurrency(monthlyCollected)}</div><div class="stat-label">Collected This Month</div></div>
-        <div class="stat-card warning"><div class="stat-value">${fmtCurrency(outstandingTotal)}</div><div class="stat-label">Outstanding</div></div>
-      </div>`;
+    /* Quick metrics row */
+    html += `<div class="dash-metrics">
+      <div class="dash-metric"><div class="dash-metric-value">${totalCustomers}</div><div class="dash-metric-label">Customers</div></div>
+      <div class="dash-metric"><div class="dash-metric-value">${activeRentals}</div><div class="dash-metric-label">Active Rentals</div></div>
+      <div class="dash-metric"><div class="dash-metric-value">${totalItems}</div><div class="dash-metric-label">Items</div></div>
+    </div>`;
 
+    /* Financial summary */
+    html += `<div class="card dash-fin-card">
+      <div class="dash-fin-row">
+        <div>
+          <div class="dash-fin-label">Collected in ${monthName.split(' ')[0]}</div>
+          <div class="dash-fin-value" style="color:var(--success)">${fmtCurrency(monthlyCollected)}</div>
+        </div>
+        <div class="dash-fin-divider"></div>
+        <div>
+          <div class="dash-fin-label">Outstanding</div>
+          <div class="dash-fin-value" style="color:var(--danger)">${fmtCurrency(outstandingTotal)}</div>
+        </div>
+      </div>
+    </div>`;
+
+    /* Quick actions */
+    html += `<div class="dash-actions">
+      <button class="dash-action" onclick="UI.showAddCustomerModal()">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        <span>Add Customer</span>
+      </button>
+      <button class="dash-action" onclick="UI.navigate('inventory')">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        <span>Add Item</span>
+      </button>
+      <button class="dash-action" onclick="UI.navigate('customers')">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        <span>Customers</span>
+      </button>
+      <button class="dash-action" onclick="UI.navigate('search')">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <span>Search</span>
+      </button>
+    </div>`;
+
+    /* Alerts section */
     if (overdueList.length > 0) {
-      html += `<div class="card"><div class="card-header"><span class="card-title" style="color:var(--danger)">Overdue (${overdueList.length})</span></div>`;
+      html += `<div class="card" style="border-left:3px solid var(--danger)">
+        <div class="card-header"><span class="card-title" style="color:var(--danger)">Overdue Payments <span class="badge badge-danger" style="margin-left:6px">${overdueList.length}</span></span></div>`;
       overdueList.forEach(({ rental, status, customer }) => {
         const item = getItem(rental.itemId);
         html += `<div class="list-item" onclick="UI.navigate('customer-detail','${customer.id}')">
@@ -347,19 +389,24 @@ const UI = {
     }
 
     if (dueSoonList.length > 0) {
-      html += `<div class="card"><div class="card-header"><span class="card-title" style="color:var(--warning)">Due Within 7 Days</span></div>`;
+      html += `<div class="card" style="border-left:3px solid var(--warning)">
+        <div class="card-header"><span class="card-title" style="color:var(--warning)">Due Within 7 Days</span></div>`;
       dueSoonList.forEach(({ rental, status, customer }) => {
         const item = getItem(rental.itemId);
         html += `<div class="list-item" onclick="UI.navigate('customer-detail','${customer.id}')">
           <div class="item-info"><div class="item-name">${escHtml(customer.name)}</div><div class="item-sub">${item ? escHtml(item.brand) : '—'} &middot; Due ${fmtDate(status.nextDueDate.toISOString().split('T')[0])}</div></div>
-          <div class="item-right"><div class="item-amount" style="color:var(--warning)">${fmtCurrency(rental.rentAmount)}</div><div class="item-date"><span class="badge badge-warning">${status.daysUntilDue === 0 ? 'Due today' : status.daysUntilDue === 1 ? 'Due tomorrow' : `In ${status.daysUntilDue}d`}</span></div></div>
+          <div class="item-right"><div class="item-amount" style="color:var(--warning)">${fmtCurrency(rental.rentAmount)}</div><div class="item-date"><span class="badge badge-warning">${status.daysUntilDue === 0 ? 'Today' : status.daysUntilDue === 1 ? 'Tomorrow' : `In ${status.daysUntilDue}d`}</span></div></div>
         </div>`;
       });
       html += `</div>`;
     }
 
     if (overdueList.length === 0 && dueSoonList.length === 0) {
-      html += `<div class="empty-state"><div class="empty-icon">&#10003;</div><p>All caught up! No pending or overdue payments.</p></div>`;
+      html += `<div class="card dash-all-clear">
+        <div class="dash-clear-icon">&#10003;</div>
+        <div class="dash-clear-text">All payments up to date</div>
+        <div class="dash-clear-sub">No overdue or due payments</div>
+      </div>`;
     }
 
     document.getElementById('page-dashboard').innerHTML = html;
