@@ -244,6 +244,7 @@ window.Data = Data;
 /* UI */
 const UI = {
   showLogin() {
+    document.getElementById('splash').classList.add('hidden');
     document.getElementById('loginScreen').classList.remove('hidden');
     document.getElementById('app').classList.add('hidden');
     document.getElementById('loginError').classList.add('hidden');
@@ -252,6 +253,7 @@ const UI = {
   },
 
   showApp() {
+    document.getElementById('splash').classList.add('hidden');
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
   },
