@@ -9,10 +9,4 @@
     { "src": "/", "dest": "public/index.html" },
     { "src": "/(.*\\.(js|css|html|png|jpg|ico|json))", "dest": "public/$1" },
     { "src": "/(.*)", "dest": "public/index.html" }
-  ],
-  "env": {
-    "UPSTASH_REDIS_REST_URL": "@upstash-redis-rest-url",
-    "UPSTASH_REDIS_REST_TOKEN": "@upstash-redis-rest-token",
-    "APP_PASSWORD": "@app-password"
-  }
-}
+  ]
