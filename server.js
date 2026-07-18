@@ -23,6 +23,7 @@ const UPSTASH_KEY = 'techtrove:data';
 /* Simple shared password auth */
 const APP_PASSWORD = process.env.APP_PASSWORD || 'rent123';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const ALLOWED_EMAILS = (process.env.ALLOWED_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
 app.use(express.json({ limit: '10mb' }));
@@ -120,11 +121,15 @@ app.post('/api/google-login', async (req, res) => {
       audience: GOOGLE_CLIENT_ID
     });
     const payload = ticket.getPayload();
+    const email = (payload.email || '').toLowerCase();
+    if (ALLOWED_EMAILS.length > 0 && !ALLOWED_EMAILS.includes(email)) {
+      return res.status(403).json({ error: 'This email is not authorized. Contact admin.' });
+    }
     res.json({
       success: true,
       method: 'google',
-      name: payload.name || payload.email,
-      email: payload.email,
+      name: payload.name || email,
+      email: email,
       picture: payload.picture
     });
   } catch (e) {
