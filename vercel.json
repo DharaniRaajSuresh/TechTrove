@@ -10,3 +10,4 @@
     { "src": "/(.*\\.(js|css|html|png|jpg|ico|json))", "dest": "public/$1" },
     { "src": "/(.*)", "dest": "public/index.html" }
   ]
+}
