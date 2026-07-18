@@ -9,7 +9,22 @@
     "dev": "node server.js"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
     "express": "^4.18.0",
     "xlsx": "^0.18.5"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DharaniRaajSuresh/TechTrove.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/DharaniRaajSuresh/TechTrove/issues"
+  },
+  "homepage": "https://github.com/DharaniRaajSuresh/TechTrove#readme"
 }

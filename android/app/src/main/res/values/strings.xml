@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TechTrove</string>
+    <string name="title_activity_main">TechTrove</string>
+    <string name="package_name">com.techtrove.app</string>
+    <string name="custom_url_scheme">com.techtrove.app</string>
+</resources>
