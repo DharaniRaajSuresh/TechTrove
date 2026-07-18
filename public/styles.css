@@ -21,6 +21,12 @@ html,body{height:100%;width:100%;font-family:var(--font);font-size:16px;line-hei
 .google-btn:hover{background:var(--gray-50);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .google-btn:active{background:var(--gray-100)}
 .login-hint{text-align:center;font-size:.78rem;color:var(--gray-400);margin-top:12px}
+.login-divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--gray-400);font-size:.8rem}
+.login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--gray-200)}
+.login-loading{position:fixed;inset:0;background:rgba(255,255,255,.8);display:flex;align-items:center;justify-content:center;z-index:50}
+.login-loading.hidden{display:none}
+.spinner{width:32px;height:32px;border:3px solid var(--gray-200);border-top-color:var(--primary);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* HEADER */
 header{display:flex;align-items:center;height:var(--header-h);padding:0 12px;background:var(--primary);color:var(--white);flex-shrink:0;gap:8px;z-index:10}

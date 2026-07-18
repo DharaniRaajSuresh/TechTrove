@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const { OAuth2Client } = require('google-auth-library');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -21,18 +22,26 @@ const UPSTASH_KEY = 'techtrove:data';
 
 /* Simple shared password auth */
 const APP_PASSWORD = process.env.APP_PASSWORD || 'rent123';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 /* Auth middleware for API routes */
-function requireAuth(req, res, next) {
-  if (req.path === '/api/login') return next();
-  const pw = req.headers['x-password'] || req.body?.password;
-  if (pw !== APP_PASSWORD) {
-    return res.status(401).json({ error: 'Invalid password' });
+async function requireAuth(req, res, next) {
+  if (req.path === '/api/login' || req.path === '/api/google-login' || req.path === '/api/config') return next();
+  const pw = req.headers['x-password'];
+  if (pw === APP_PASSWORD) return next();
+  /* Check for Google auth token */
+  const googleToken = req.headers['x-google-token'];
+  if (googleToken && googleClient) {
+    try {
+      const ticket = await googleClient.verifyIdToken({ idToken: googleToken, audience: GOOGLE_CLIENT_ID });
+      if (ticket.getPayload()) return next();
+    } catch (e) {}
   }
-  next();
+  return res.status(401).json({ error: 'Unauthorized' });
 }
 app.use('/api', requireAuth);
 
@@ -89,9 +98,37 @@ async function saveData(data) {
 app.post('/api/login', (req, res) => {
   const { password } = req.body;
   if (password === APP_PASSWORD) {
-    res.json({ success: true });
+    res.json({ success: true, method: 'password', name: 'Admin' });
   } else {
     res.status(401).json({ error: 'Invalid password' });
+  }
+});
+
+/* Google login endpoint */
+app.post('/api/google-login', async (req, res) => {
+  try {
+    const { credential } = req.body;
+    if (!credential || !googleClient) {
+      /* Fall back to password-based token if Google not configured */
+      if (credential === APP_PASSWORD) {
+        return res.json({ success: true, method: 'password', name: 'Admin' });
+      }
+      return res.status(401).json({ error: 'Google login not configured' });
+    }
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: GOOGLE_CLIENT_ID
+    });
+    const payload = ticket.getPayload();
+    res.json({
+      success: true,
+      method: 'google',
+      name: payload.name || payload.email,
+      email: payload.email,
+      picture: payload.picture
+    });
+  } catch (e) {
+    res.status(401).json({ error: 'Invalid Google token' });
   }
 });
 
@@ -107,6 +144,11 @@ app.post('/api/data', async (req, res) => {
   }
   await saveData(req.body);
   res.json({ success: true });
+});
+
+/* Config endpoint */
+app.get('/api/config', (req, res) => {
+  res.json({ googleClientId: GOOGLE_CLIENT_ID || '' });
 });
 
 /* Serve frontend */

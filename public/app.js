@@ -105,7 +105,9 @@ function rentalCustomer(rental) { return getCustomer(rental.customerId); }
 /* AUTH */
 const Auth = {
   _password: null,
-  isLoggedIn() { return !!this._password; },
+  _googleToken: null,
+  _userName: null,
+  isLoggedIn() { return !!this._password || !!this._googleToken; },
   async login(password) {
     try {
       const res = await fetch('/api/login', {
@@ -115,21 +117,71 @@ const Auth = {
       });
       if (!res.ok) return false;
       this._password = password;
+      this._googleToken = null;
+      this._userName = 'Admin';
       localStorage.setItem('tt_pass', password);
+      localStorage.removeItem('tt_google');
       return true;
+    } catch(e) { return false; }
+  },
+  async googleLogin(credential) {
+    try {
+      const res = await fetch('/api/google-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential })
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (data.method === 'google') {
+        this._googleToken = credential;
+        this._password = null;
+        this._userName = data.name;
+        localStorage.setItem('tt_google', credential);
+        localStorage.removeItem('tt_pass');
+        return true;
+      } else if (data.method === 'password') {
+        this._password = credential;
+        this._googleToken = null;
+        this._userName = data.name;
+        localStorage.setItem('tt_pass', credential);
+        localStorage.removeItem('tt_google');
+        return true;
+      }
+      return false;
     } catch(e) { return false; }
   },
   logout() {
     this._password = null;
+    this._googleToken = null;
+    this._userName = null;
     localStorage.removeItem('tt_pass');
+    localStorage.removeItem('tt_google');
     UI.showLogin();
   },
   restore() {
     const pw = localStorage.getItem('tt_pass');
-    if (pw) this._password = pw;
+    if (pw) { this._password = pw; return; }
+    const gt = localStorage.getItem('tt_google');
+    if (gt) { this._googleToken = gt; }
   },
   header() {
-    return this._password ? { 'Content-Type': 'application/json', 'x-password': this._password } : { 'Content-Type': 'application/json' };
+    if (this._password) return { 'Content-Type': 'application/json', 'x-password': this._password };
+    if (this._googleToken) return { 'Content-Type': 'application/json', 'x-google-token': this._googleToken };
+    return { 'Content-Type': 'application/json' };
+  }
+};
+window.handleGoogleCredential = async (response) => {
+  document.getElementById('loginLoading').classList.remove('hidden');
+  const ok = await Auth.googleLogin(response.credential);
+  document.getElementById('loginLoading').classList.add('hidden');
+  if (ok) {
+    UI.showApp();
+    await Data.load();
+    setupApp();
+  } else {
+    document.getElementById('loginError').textContent = 'Google sign-in failed';
+    document.getElementById('loginError').classList.remove('hidden');
   }
 };
 
@@ -1195,6 +1247,21 @@ function escHtml(s) { if (!s) return ''; const d = document.createElement('div')
 /* EVENT BINDING */
 document.addEventListener('DOMContentLoaded', async () => {
   Auth.restore();
+
+  /* Load Google Client ID and render button */
+  try {
+    const configRes = await fetch('/api/config');
+    const config = await configRes.json();
+    if (config.googleClientId) {
+      document.getElementById('g_id_onload').dataset.client_id = config.googleClientId;
+    } else {
+      /* Hide Google button and show password-only version */
+      document.getElementById('googleBtn').style.display = 'none';
+      document.getElementById('loginPassword').parentElement.style.borderTop = 'none';
+      const divider = document.querySelector('.login-divider');
+      if (divider) divider.style.display = 'none';
+    }
+  } catch(e) {}
 
   /* Login */
   document.getElementById('loginBtn').addEventListener('click', async () => {
