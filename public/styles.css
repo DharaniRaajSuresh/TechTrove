@@ -241,3 +241,24 @@ header h1{font-size:1rem;font-weight:600;flex:1;text-align:center;letter-spacing
 @media(min-width:768px){
   :root{--max-w:600px}
 }
+@media(min-width:1024px){
+  :root{--max-w:720px}
+  html{font-size:17px}
+  .dash-hero{margin:-12px -12px 16px;padding:24px 20px 28px;border-radius:0 0 24px 24px}
+  .dash-title{font-size:1.6rem}
+  .dash-metrics{gap:12px}
+  .dash-metric{padding:16px 12px}
+  .dash-metric-value{font-size:1.5rem}
+  .stats-row{gap:12px}
+  .stat-card{padding:18px}
+  .stat-card .stat-value{font-size:1.7rem}
+  .dash-actions{grid-template-columns:repeat(4,1fr);gap:12px}
+  .dash-action{padding:18px 12px;font-size:.85rem}
+  .login-box{max-width:380px;padding:40px 32px}
+  .login-box h1{font-size:1.7rem}
+}
+@media(min-width:1440px){
+  :root{--max-w:800px}
+  html{font-size:18px}
+  .dash-actions{grid-template-columns:repeat(4,1fr)}
+}
