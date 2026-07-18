@@ -1203,7 +1203,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('loginBtn').textContent = 'Checking...';
     const ok = await Auth.login(pw);
     document.getElementById('loginBtn').disabled = false;
-    document.getElementById('loginBtn').textContent = 'Unlock';
+    document.getElementById('loginBtn').textContent = 'Sign In';
     if (ok) {
       UI.showApp();
       await Data.load();
