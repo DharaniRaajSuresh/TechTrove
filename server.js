@@ -78,7 +78,7 @@ async function saveData(data) {
           Authorization: `Bearer ${UPSTASH_TOKEN}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(payload)
+        body: payload
       });
     } catch (e) { console.error('Upstash write error:', e.message); }
   }

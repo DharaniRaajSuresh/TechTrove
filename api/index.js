@@ -50,7 +50,7 @@ async function saveData(data) {
       await fetch(`${UPSTASH_URL}/set/${UPSTASH_KEY}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${UPSTASH_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: payload
       });
     } catch(e) { console.error('Upstash write error:', e.message); }
   }
