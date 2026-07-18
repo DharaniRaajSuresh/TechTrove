@@ -4,3 +4,6 @@ import-data.json
 all-names.txt
 name-groups.txt
 *.log
+
+techtrove.env
+
