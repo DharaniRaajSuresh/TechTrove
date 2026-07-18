@@ -238,12 +238,12 @@ const UI = {
     }
     const backBtn = document.getElementById('headerBack');
     backBtn.classList.toggle('hidden', pageStack.length <= 1);
-    document.getElementById('headerTitle').textContent = page === 'customer-detail' ? 'Customer' : page === 'dashboard' ? 'TechTrove' : page === 'more' ? 'Settings' : page.charAt(0).toUpperCase() + page.slice(1);
+    document.getElementById('headerTitle').textContent = page === 'customer-detail' ? 'Customer' : page === 'dashboard' ? 'TechTrove Systems' : page === 'more' ? 'Settings' : page.charAt(0).toUpperCase() + page.slice(1);
     document.getElementById('fabAdd').classList.toggle('hidden', page !== 'inventory');
   },
 
   goBack() {
-    if (pageStack.length > 1) { pageStack.pop(); const p = pageStack[pageStack.length - 1]; currentPage = p.page; this._renderPage(p.page, p.params); document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === p.page)); document.getElementById('bottomNav').classList.toggle('hidden', p.page === 'customer-detail'); document.getElementById('headerBack').classList.toggle('hidden', pageStack.length <= 1); document.getElementById('headerTitle').textContent = p.page === 'customer-detail' ? 'Customer' : p.page === 'dashboard' ? 'TechTrove' : p.page === 'more' ? 'Settings' : p.page.charAt(0).toUpperCase() + p.page.slice(1); document.getElementById('fabAdd').classList.toggle('hidden', p.page !== 'inventory'); }
+    if (pageStack.length > 1) { pageStack.pop(); const p = pageStack[pageStack.length - 1]; currentPage = p.page; this._renderPage(p.page, p.params); document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.page === p.page)); document.getElementById('bottomNav').classList.toggle('hidden', p.page === 'customer-detail'); document.getElementById('headerBack').classList.toggle('hidden', pageStack.length <= 1); document.getElementById('headerTitle').textContent = p.page === 'customer-detail' ? 'Customer' : p.page === 'dashboard' ? 'TechTrove Systems' : p.page === 'more' ? 'Settings' : p.page.charAt(0).toUpperCase() + p.page.slice(1); document.getElementById('fabAdd').classList.toggle('hidden', p.page !== 'inventory'); }
   },
 
   _renderPage(page, params) {
@@ -323,8 +323,8 @@ const UI = {
       <div class="dash-hero-top">
         <div>
           <div class="dash-greeting">Good ${now.getHours() < 12 ? 'Morning' : now.getHours() < 18 ? 'Afternoon' : 'Evening'}</div>
-          <div class="dash-title">TechTrove</div>
-          <div class="dash-subtitle">Rental Management</div>
+          <div class="dash-title">TechTrove Systems</div>
+          <div class="dash-subtitle">Rental Management System</div>
         </div>
         <div class="dash-hero-icon">
           <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
@@ -571,7 +571,7 @@ const UI = {
     const html = `
       <div class="card" style="margin-top:4px">
         <div class="detail-header" style="padding:8px 0 12px">
-          <h2 style="font-size:1.05rem;color:var(--gray-600)">TechTrove</h2>
+          <h2 style="font-size:1.05rem;color:var(--gray-600)">TechTrove Systems</h2>
           <div style="font-size:.8rem;color:var(--gray-400);margin-top:2px">Rental Tracker</div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
@@ -599,7 +599,7 @@ const UI = {
       <div class="card">
         <button class="btn btn-outline btn-block btn-sm" onclick="Auth.logout()" style="color:var(--danger);border-color:var(--danger)">Lock &amp; Logout</button>
       </div>
-      <div style="text-align:center;padding:16px;font-size:.7rem;color:var(--gray-400)">TechTrove v1.0</div>`;
+      <div style="text-align:center;padding:16px;font-size:.7rem;color:var(--gray-400)">TechTrove Systems v1.0</div>`;
     document.getElementById('page-more').innerHTML = html;
   },
 

@@ -1,7 +1,7 @@
 {
-  "name": "TechTrove Rental Tracker",
-  "short_name": "TechTrove",
-  "description": "Rental tracking app for TechTrove",
+  "name": "TechTrove Systems Rental Tracker",
+  "short_name": "TechTrove Systems",
+  "description": "Rental tracking app for TechTrove Systems",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

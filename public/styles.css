@@ -30,7 +30,7 @@ html,body{height:100%;width:100%;font-family:var(--font);font-size:16px;line-hei
 
 /* HEADER */
 header{display:flex;align-items:center;height:var(--header-h);padding:0 12px;background:var(--primary);color:var(--white);flex-shrink:0;gap:8px;z-index:10}
-header h1{font-size:1.1rem;font-weight:600;flex:1;text-align:center;letter-spacing:-.3px}
+header h1{font-size:1rem;font-weight:600;flex:1;text-align:center;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .header-btn{background:none;border:none;color:var(--white);font-size:1.3rem;padding:6px 10px;cursor:pointer;border-radius:var(--radius);min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center}
 .header-btn:active{background:rgba(255,255,255,.15)}
 .header-btn.hidden{visibility:hidden;pointer-events:none}
