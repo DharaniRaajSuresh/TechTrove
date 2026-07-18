@@ -115,17 +115,17 @@ const Auth = {
       });
       if (!res.ok) return false;
       this._password = password;
-      sessionStorage.setItem('tt_pass', password);
+      localStorage.setItem('tt_pass', password);
       return true;
     } catch(e) { return false; }
   },
   logout() {
     this._password = null;
-    sessionStorage.removeItem('tt_pass');
+    localStorage.removeItem('tt_pass');
     UI.showLogin();
   },
   restore() {
-    const pw = sessionStorage.getItem('tt_pass');
+    const pw = localStorage.getItem('tt_pass');
     if (pw) this._password = pw;
   },
   header() {
