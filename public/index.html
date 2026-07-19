@@ -89,13 +89,13 @@
   <div id="modalContent" class="modal-content"></div>
 </div>
 
+<div id="loadingOverlay" class="loading-overlay hidden"><div class="spinner"></div></div>
 <button id="fabAdd" class="fab hidden" aria-label="Add">+</button>
 <div id="toast" class="toast"></div>
 <div id="confirmOverlay" class="modal-overlay hidden" onclick="if(event.target===this)UI.hideConfirm()">
   <div id="confirmContent" class="modal-content confirm-box"></div>
 </div>
 
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="app.js?v=1.1"></script>
 <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');</script>
 </body>

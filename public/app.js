@@ -101,6 +101,17 @@ function customerPayments(customerId) {
 
 function rentalItem(rental) { return getItem(rental.itemId); }
 function rentalCustomer(rental) { return getCustomer(rental.customerId); }
+function parseCSVLine(line) {
+  const vals = [];
+  let inQuote = false, cur = '';
+  for (const ch of line) {
+    if (ch === '"') { inQuote = !inQuote; continue; }
+    if (ch === ',' && !inQuote) { vals.push(cur.trim()); cur = ''; continue; }
+    cur += ch;
+  }
+  vals.push(cur.trim());
+  return vals;
+}
 
 /* AUTH */
 const Auth = {
@@ -159,6 +170,7 @@ const Data = {
     });
   },
   async load() {
+    UI.showLoading(true);
     try {
       const res = await this._fetch('/api/data', { headers: Auth.header() });
       const d = await res.json();
@@ -169,6 +181,7 @@ const Data = {
         state.payments = d.payments || [];
       }
     } catch(e) { if (e.message !== 'Unauthorized') console.error('Server load failed', e); }
+    finally { UI.showLoading(false); }
   },
   exportJSON() {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
@@ -210,6 +223,10 @@ const UI = {
     const t = document.getElementById('toast');
     t.textContent = msg; t.className = 'toast ' + type; t.classList.add('visible');
     clearTimeout(this._toastTimer); this._toastTimer = setTimeout(() => t.classList.remove('visible'), 2500);
+  },
+
+  showLoading(show) {
+    document.getElementById('loadingOverlay').classList.toggle('hidden', !show);
   },
 
   showModal(html) {
@@ -868,22 +885,6 @@ const UI = {
     UI.renderAll();
   },
 
-  /* SETTINGS */
-  showSettingsModal() {
-    this.showModal(`<button class="modal-close" onclick="UI.hideModal()">&times;</button><h2>Settings</h2>
-      <div class="toggle-row"><label>Payment Due Reminders</label><label class="toggle-switch"><input type="checkbox" id="notifToggle" ${notifEnabled ? 'checked' : ''} onchange="UI.toggleNotifications(this.checked)"><span class="toggle-slider"></span></label></div>
-      <p style="font-size:.8rem;color:var(--gray-500);margin-bottom:12px">Shows browser notifications when payments are overdue or due soon.</p>
-      <hr style="margin:16px 0;border:none;border-top:1px solid var(--gray-200)">
-      <div style="margin-bottom:12px"><p style="font-size:.9rem;color:var(--gray-600);margin-bottom:12px">Export, import, or bulk-add from CSV.</p></div>
-      <div class="form-group"><button class="btn btn-primary btn-block" onclick="Data.exportJSON();UI.hideModal()">Export Backup (JSON)</button></div>
-      <div class="form-group"><label>Restore Backup</label><input type="file" id="importFile" accept=".json" style="font-size:.85rem" onchange="UI.handleImport(this)"></div>
-      <hr style="margin:16px 0;border:none;border-top:1px solid var(--gray-200)">
-      <div class="form-group"><button class="btn btn-success btn-block" onclick="UI.showBulkImportModal()">Bulk Import from CSV</button></div>
-      <div style="margin-top:8px;padding:8px;background:var(--gray-100);border-radius:var(--radius);font-size:.8rem;color:var(--gray-500);word-break:break-all"><strong>Stats:</strong> ${state.customers.length} customers, ${state.items.length} items, ${state.rentals.length} rentals, ${state.payments.length} payments</div>
-      <hr style="margin:16px 0;border:none;border-top:1px solid var(--gray-200)">
-      <button class="btn btn-outline btn-block btn-sm" onclick="Auth.logout();UI.hideModal()" style="color:var(--gray-500)">Lock &amp; Logout</button>`);
-  },
-
   toggleNotifications(enabled) {
     notifEnabled = enabled;
     localStorage.setItem('notifEnabled', enabled);
@@ -947,7 +948,11 @@ const UI = {
     }
 
     if (typeof XLSX === 'undefined') {
-      document.getElementById('csvResult').innerHTML = '<span style="color:var(--danger)">Excel parser not loaded. Refresh and try again, or save as CSV.</span>';
+      document.getElementById('csvResult').innerHTML = '<span style="color:var(--warning)">Loading Excel parser...</span>';
+      const script = document.createElement('script');
+      script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+      script.onload = () => { UI.handleExcelFile(input); };
+      document.body.appendChild(script);
       return;
     }
 
@@ -1001,14 +1006,7 @@ const UI = {
       }
 
       const rows = lines.slice(1).map(line => {
-        const vals = [];
-        let inQuote = false, cur = '';
-        for (const ch of line) {
-          if (ch === '"') { inQuote = !inQuote; continue; }
-          if (ch === ',' && !inQuote) { vals.push(cur.trim()); cur = ''; continue; }
-          cur += ch;
-        }
-        vals.push(cur.trim());
+        const vals = parseCSVLine(line);
         const row = {};
         headers.forEach((h, i) => row[h] = vals[i] || '');
         return row;
@@ -1025,14 +1023,7 @@ const UI = {
         if (phoneIdx < 0) { result.innerHTML = '<span style="color:var(--danger)">Could not find a "phone" column. Expected: name, phone, address</span>'; return; }
 
         for (const line of lines.slice(1)) {
-          const vals = [];
-          let inQuote = false, cur = '';
-          for (const ch of line) {
-            if (ch === '"') { inQuote = !inQuote; continue; }
-            if (ch === ',' && !inQuote) { vals.push(cur.trim()); cur = ''; continue; }
-            cur += ch;
-          }
-          vals.push(cur.trim());
+          const vals = parseCSVLine(line);
           const name = vals[nameIdx] || '';
           const phone = String(vals[phoneIdx] || '').replace(/[^0-9]/g,'');
           const address = addrIdx >= 0 ? (vals[addrIdx] || '') : '';
@@ -1052,14 +1043,7 @@ const UI = {
         if (serialIdx < 0) { result.innerHTML = '<span style="color:var(--danger)">Could not find "serial" column. Expected: type, brand, serial</span>'; return; }
 
         for (const line of lines.slice(1)) {
-          const vals = [];
-          let inQuote = false, cur = '';
-          for (const ch of line) {
-            if (ch === '"') { inQuote = !inQuote; continue; }
-            if (ch === ',' && !inQuote) { vals.push(cur.trim()); cur = ''; continue; }
-            cur += ch;
-          }
-          vals.push(cur.trim());
+          const vals = parseCSVLine(line);
           const itemType = String(vals[typeIdx] || '').toLowerCase();
           const brand = vals[brandIdx] || '';
           const serial = String(vals[serialIdx] || '');
@@ -1081,14 +1065,7 @@ const UI = {
         if (rentIdx < 0) { result.innerHTML = '<span style="color:var(--danger)">Could not find "rent" column. Expected: name, rent, brand, start, cycle</span>'; return; }
 
         for (const line of lines.slice(1)) {
-          const vals = [];
-          let inQuote = false, cur = '';
-          for (const ch of line) {
-            if (ch === '"') { inQuote = !inQuote; continue; }
-            if (ch === ',' && !inQuote) { vals.push(cur.trim()); cur = ''; continue; }
-            cur += ch;
-          }
-          vals.push(cur.trim());
+          const vals = parseCSVLine(line);
           const custName = vals[nameIdx] || '';
           const rent = parseFloat(vals[rentIdx]);
           if (!custName || !rent) continue;
@@ -1135,15 +1112,7 @@ const UI = {
         let custCount = 0, itemCount = 0, rentalCount = 0, paymentCount = 0;
 
         for (const line of lines.slice(1)) {
-          const vals = [];
-          let inQuote = false, cur = '';
-          for (const ch of line) {
-            if (ch === '"') { inQuote = !inQuote; continue; }
-            if (ch === ',' && !inQuote) { vals.push(cur.trim()); cur = ''; continue; }
-            cur += ch;
-          }
-          vals.push(cur.trim());
-
+          const vals = parseCSVLine(line);
           const custName = vals[nameIdx] || '';
           if (!custName) continue;
 
@@ -1288,7 +1257,7 @@ function setupApp() {
   document.getElementById('headerBack').addEventListener('click', () => UI.goBack());
 
   /* Header settings */
-  document.getElementById('headerAction').addEventListener('click', () => UI.showSettingsModal());
+  document.getElementById('headerAction').addEventListener('click', () => { pageStack = [{ page: 'more', params: null }]; UI.navigate('more'); });
 
   /* FAB for inventory page */
   document.getElementById('fabAdd').addEventListener('click', () => UI.showAddItemModal());
