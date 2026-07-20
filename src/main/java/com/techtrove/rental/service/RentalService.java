@@ -70,8 +70,7 @@ public class RentalService {
         long completedCycles = Math.max(0, daysSince / cd);
 
         BigDecimal rentAmount = rental.getRentAmount();
-        long billedCycles = completedCycles + 1;
-        BigDecimal totalExpected = BigDecimal.valueOf(billedCycles).multiply(rentAmount);
+        BigDecimal totalExpected = BigDecimal.valueOf(completedCycles).multiply(rentAmount);
         BigDecimal totalPaid = payments.stream()
                 .map(Payment::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -84,7 +83,7 @@ public class RentalService {
         LocalDate currentCycleEnd = start.plusDays(completedCycles * cd);
         long daysOverdue = isOverdue ? ChronoUnit.DAYS.between(currentCycleEnd, now) : 0;
 
-        boolean nextCyclePaid = totalPaid.compareTo(BigDecimal.valueOf(billedCycles + 1).multiply(rentAmount)) >= 0;
+        boolean nextCyclePaid = totalPaid.compareTo(BigDecimal.valueOf(completedCycles + 1).multiply(rentAmount)) >= 0;
         boolean isDueSoon = !nextCyclePaid && daysUntilDue >= 0 && daysUntilDue <= 7;
 
         return new RentalStatusDto(

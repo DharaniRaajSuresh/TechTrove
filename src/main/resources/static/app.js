@@ -30,8 +30,7 @@ function rentalStatus(rental) {
   const now = rental.endDate ? parseDate(rental.endDate) : new Date();
   const daysSince = Math.floor((now - start) / 86400000);
   const completedCycles = Math.max(0, Math.floor(daysSince / cd));
-  const billedCycles = completedCycles + 1;
-  const totalExpected = billedCycles * rental.rentAmount;
+  const totalExpected = completedCycles * rental.rentAmount;
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
   const outstanding = Math.max(0, totalExpected - totalPaid);
   const currentCycleEnd = new Date(start.getTime() + completedCycles * cd * 86400000);
@@ -39,7 +38,7 @@ function rentalStatus(rental) {
   const daysUntilDue = Math.round((nextDueDate - now) / 86400000);
   const isOverdue = totalExpected > totalPaid && completedCycles > 0;
   const daysOverdue = isOverdue ? Math.round((now - currentCycleEnd) / 86400000) : 0;
-  const nextCyclePaid = totalPaid >= (billedCycles + 1) * rental.rentAmount;
+  const nextCyclePaid = totalPaid >= (completedCycles + 1) * rental.rentAmount;
   const isDueSoon = !nextCyclePaid && daysUntilDue >= 0 && daysUntilDue <= 7;
   return { totalExpected, totalPaid, outstanding, nextDueDate, daysUntilDue, isOverdue, daysOverdue, isDueSoon };
 }
