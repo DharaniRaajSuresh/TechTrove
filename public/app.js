@@ -3,13 +3,14 @@ let state = { customers: [], items: [], rentals: [], payments: [] };
 let currentPage = 'dashboard';
 let pageStack = [];
 let filterState = { inventory: 'all' };
-let notifEnabled = localStorage.getItem('notifEnabled') !== 'false';
-let lastNotifDate = localStorage.getItem('lastNotifDate') || '';
+let notifEnabled = true;
+let lastNotifDate = '';
+try { notifEnabled = localStorage.getItem('notifEnabled') !== 'false'; lastNotifDate = localStorage.getItem('lastNotifDate') || ''; } catch(e) {}
 
 /* UTILITY */
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
-const parseDate = (s) => { const p = s.split('-'); return new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2])); };
+const parseDate = (s) => { if (!s) return new Date(NaN); const p = s.split('-'); return new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2])); };
 const fmtDate = (s) => { if (!s) return '—'; const d = parseDate(s); return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); };
 const fmtCurrency = (n) => '₹' + Number(n).toLocaleString('en-IN');
 const daysBetween = (a, b) => Math.round((parseDate(b) - parseDate(a)) / 86400000);
@@ -53,7 +54,7 @@ function requestNotifPermission() {
 function sendDueNotification(title, body) {
   if (!notifEnabled) return;
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  try { new Notification(title, { body, icon: '/favicon.ico' }); } catch(e) {}
+  try { new Notification(title, { body, icon: '/icon.svg' }); } catch(e) {}
 }
 function checkAndNotifyDues() {
   if (!notifEnabled) return;
@@ -768,7 +769,7 @@ const UI = {
     const itemId = document.getElementById('rentalItem').value;
     const amount = parseFloat(document.getElementById('rentalAmount').value);
     const cycle = document.getElementById('rentalCycle').value;
-    const customDays = parseInt(document.getElementById('rentalCustomDays').value);
+    const customDays = parseInt(document.getElementById('rentalCustomDays').value) || 0;
     const start = document.getElementById('rentalStart').value;
     if (!itemId) { UI.showToast('Please select an item', 'error'); return; }
     if (!amount || amount <= 0) { UI.showToast('Please enter a valid rent amount', 'error'); return; }
@@ -793,7 +794,7 @@ const UI = {
     const r = getRental(rentalId); if (!r) return;
     const amount = parseFloat(document.getElementById('rentalAmount').value);
     const cycle = document.getElementById('rentalCycle').value;
-    const customDays = parseInt(document.getElementById('rentalCustomDays').value);
+    const customDays = parseInt(document.getElementById('rentalCustomDays').value) || 0;
     if (!amount || amount <= 0) { UI.showToast('Please enter a valid rent amount', 'error'); return; }
     r.rentAmount = amount; r.billingCycle = cycle; r.customDays = cycle === 'custom' ? customDays : null;
     Data.save(); UI.hideModal(); UI.showToast('Rental updated', 'success'); UI.renderAll();
@@ -878,6 +879,7 @@ const UI = {
     const r = getRental(rentalId); if (!r) return;
     const endDate = document.getElementById('closeEndDate').value;
     if (!endDate) { UI.showToast('Please select an end date', 'error'); return; }
+    if (endDate < r.startDate) { UI.showToast('End date cannot be before start date', 'error'); return; }
     r.status = 'closed'; r.endDate = endDate;
     const item = getItem(r.itemId);
     if (item) item.status = 'available';
@@ -929,9 +931,13 @@ const UI = {
         <button class="btn btn-outline" onclick="UI.hideModal()">Cancel</button>
         <button class="btn btn-success" onclick="UI.doBulkImport()">Import</button>
       </div>
-      <div id="csvResult" style="margin-top:8px;font-size:.85rem"></div>
-      <script>document.getElementById('hasHeaders').addEventListener('change',function(){document.getElementById('colMapping').style.display=this.checked?'none':'block'})</script>`);
-    setTimeout(() => document.getElementById('csvInput').focus(), 300);
+      <div id="csvResult" style="margin-top:8px;font-size:.85rem"></div>`);
+    setTimeout(() => {
+      document.getElementById('csvInput').focus();
+      document.getElementById('hasHeaders').addEventListener('change', function() {
+        /* column mapping UI not yet implemented */
+      });
+    }, 300);
   },
 
   handleExcelFile(input) {
@@ -963,9 +969,11 @@ const UI = {
         const ws = wb.Sheets[wb.SheetNames[0]];
         const csv = XLSX.utils.sheet_to_csv(ws);
         document.getElementById('csvInput').value = csv;
-        document.getElementById('csvResult').innerHTML = '<span style="color:var(--success)">Loaded ' + (csv.split('\n').length - 1) + ' rows from ' + file.name + '</span>';
+        document.getElementById('csvResult').textContent = 'Loaded ' + (csv.split('\n').length - 1) + ' rows from ' + file.name;
+        document.getElementById('csvResult').style.color = 'var(--success)';
       } catch(err) {
-        document.getElementById('csvResult').innerHTML = '<span style="color:var(--danger)">Error reading file: ' + err.message + '</span>';
+        document.getElementById('csvResult').textContent = 'Error reading file: ' + err.message;
+        document.getElementById('csvResult').style.color = 'var(--danger)';
       }
     };
     reader.readAsArrayBuffer(file);
@@ -1070,7 +1078,7 @@ const UI = {
           const rent = parseFloat(vals[rentIdx]);
           if (!custName || !rent) continue;
           const cust = state.customers.find(c => c.name.toLowerCase().includes(custName.toLowerCase()));
-          if (!cust) { result.innerHTML = `<span style="color:var(--danger)">Customer "${custName}" not found. Import customers first.</span>`; return; }
+          if (!cust) { result.textContent = 'Customer "' + custName + '" not found. Import customers first.'; result.style.color = 'var(--danger)'; return; }
           const itemBrand = brandIdx >= 0 ? (vals[brandIdx] || '') : '';
           const item = itemBrand ? state.items.find(i => i.brand.toLowerCase().includes(itemBrand.toLowerCase())) : null;
           if (item) item.status = 'rented';
@@ -1189,26 +1197,30 @@ const UI = {
         }
 
         added = custCount + rentalCount + paymentCount;
-        result.innerHTML = `<span style="color:var(--success)">Imported ${custCount} customers, ${itemCount} items, ${rentalCount} rentals, ${paymentCount} payments</span>`;
+        result.textContent = 'Imported ' + custCount + ' customers, ' + itemCount + ' items, ' + rentalCount + ' rentals, ' + paymentCount + ' payments';
+        result.style.color = 'var(--success)';
       }
 
       if (added > 0) {
         Data.save();
-        result.innerHTML = `<span style="color:var(--success)">Imported ${added} ${type} successfully!</span>`;
+        result.textContent = 'Imported ' + added + ' ' + type + ' successfully!';
+        result.style.color = 'var(--success)';
         UI.renderAll();
         setTimeout(() => UI.hideModal(), 1500);
       } else {
-        result.innerHTML = '<span style="color:var(--warning)">No valid rows found. Check your data.</span>';
+        result.textContent = 'No valid rows found. Check your data.';
+        result.style.color = 'var(--warning)';
       }
     } catch(e) {
-      result.innerHTML = `<span style="color:var(--danger)">Error: ${e.message}</span>`;
+      result.textContent = 'Error: ' + e.message;
+      result.style.color = 'var(--danger)';
     }
   }
 };
 window.UI = UI;
 
 /* HELPERS */
-function escHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function escHtml(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 /* EVENT BINDING */
 document.addEventListener('DOMContentLoaded', async () => {
