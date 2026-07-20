@@ -8,3 +8,11 @@ name-groups.txt
 techtrove.env
 
 .vercel
+
+# Maven / Java
+target/
+*.jar
+*.war
+*.class
+.mvn/
+

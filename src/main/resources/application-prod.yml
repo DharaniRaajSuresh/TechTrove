@@ -1,0 +1,25 @@
+server:
+  port: 8080
+  ssl:
+    enabled: ${SSL_ENABLED:true}
+    key-store: ${SSL_KEYSTORE:classpath:keystore.p12}
+    key-store-password: ${SSL_KEYSTORE_PASSWORD:}
+    key-store-type: PKCS12
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/techtrove}
+    username: ${SPRING_DATASOURCE_USERNAME:techtrove}
+    password: ${SPRING_DATASOURCE_PASSWORD:techtrove}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+  h2:
+    console:
+      enabled: false
+
+logging:
+  level:
+    com.techtrove: WARN

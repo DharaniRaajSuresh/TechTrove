@@ -1,0 +1,37 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:techtrove
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false  # disable in production; enable locally for debugging
+  h2:
+    console:
+      enabled: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+app:
+  password: ${APP_PASSWORD:rent123}
+  jwt:
+    secret: ${JWT_SECRET:techtrove-rental-tracker-secret-key-change-in-prod-2026}
+    expiration-ms: 86400000
+
+logging:
+  level:
+    com.techtrove: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized
