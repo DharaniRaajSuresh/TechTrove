@@ -8,7 +8,7 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface RentalMapper {
 
-    @Mapping(target = "customerId", expression = "java(rental.getCustomer().getId())")
+    @Mapping(target = "customerId", expression = "java(rental.getCustomer() != null ? rental.getCustomer().getId() : null)")
     @Mapping(target = "itemId", expression = "java(rental.getItem() != null ? rental.getItem().getId() : null)")
     @Mapping(target = "rentAmount", source = "rentAmount")
     @Mapping(target = "billingCycle", expression = "java(rental.getBillingCycle().name().toLowerCase())")

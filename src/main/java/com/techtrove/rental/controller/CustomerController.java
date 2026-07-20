@@ -10,10 +10,10 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -47,6 +47,7 @@ public class CustomerController {
     }
 
     @PostMapping
+    @Transactional
     public ResponseEntity<CustomerDto> createCustomer(@Valid @RequestBody CustomerDto dto) {
         Customer entity = customerMapper.toEntity(dto);
         Customer saved = customerRepository.save(entity);
@@ -55,6 +56,7 @@ public class CustomerController {
     }
 
     @PutMapping("/{id}")
+    @Transactional
     public CustomerDto updateCustomer(@PathVariable String id, @Valid @RequestBody CustomerDto dto) {
         Customer existing = customerRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
@@ -66,6 +68,7 @@ public class CustomerController {
     }
 
     @DeleteMapping("/{id}")
+    @Transactional
     public ResponseEntity<?> deleteCustomer(@PathVariable String id) {
         Customer existing = customerRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));

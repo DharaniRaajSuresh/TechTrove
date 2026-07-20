@@ -8,7 +8,7 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface PaymentMapper {
 
-    @Mapping(target = "rentalId", expression = "java(payment.getRental().getId())")
+    @Mapping(target = "rentalId", expression = "java(payment.getRental() != null ? payment.getRental().getId() : null)")
     @Mapping(target = "amount", source = "amount")
     @Mapping(target = "date", expression = "java(payment.getDate().toString())")
     @Mapping(target = "createdAt", expression = "java(payment.getCreatedAt().toString())")

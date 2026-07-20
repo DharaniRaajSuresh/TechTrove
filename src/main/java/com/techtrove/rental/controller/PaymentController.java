@@ -9,11 +9,10 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -52,6 +51,7 @@ public class PaymentController {
     }
 
     @PostMapping
+    @Transactional
     public ResponseEntity<PaymentDto> createPayment(@Valid @RequestBody PaymentDto dto) {
         Rental rental = rentalRepo.findById(dto.getRentalId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rental not found"));
@@ -65,6 +65,7 @@ public class PaymentController {
     }
 
     @PutMapping("/{id}")
+    @Transactional
     public PaymentDto updatePayment(@PathVariable String id, @Valid @RequestBody PaymentDto dto) {
         Payment existing = paymentRepo.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));
@@ -82,6 +83,7 @@ public class PaymentController {
     }
 
     @DeleteMapping("/{id}")
+    @Transactional
     public ResponseEntity<?> deletePayment(@PathVariable String id) {
         Payment existing = paymentRepo.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Payment not found"));

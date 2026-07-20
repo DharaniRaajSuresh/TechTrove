@@ -154,17 +154,29 @@ const Data = {
     if (res.status === 401) { Auth.logout(); throw new Error('Unauthorized'); }
     return res;
   },
+  _saveQueue: Promise.resolve(),
   save() {
     this._dirty = true;
     if (this._saving) return;
     this._saving = true;
     this._dirty = false;
-    fetch('/api/data', {
-      method: 'POST',
-      headers: Auth.header(),
-      body: JSON.stringify(state)
-    }).then(r => { if (r.status === 401) Auth.logout(); return r; })
-    .catch(e => console.error('Save failed', e)).finally(() => {
+    const snapshot = JSON.parse(JSON.stringify(state));
+    this._saveQueue = this._saveQueue.then(() =>
+      fetch('/api/data', {
+        method: 'POST',
+        headers: Auth.header(),
+        body: JSON.stringify(state)
+      }).then(r => {
+        if (r.status === 401) Auth.logout();
+        if (!r.ok) throw new Error('Save failed with status ' + r.status);
+        return r;
+      })
+      .catch(e => {
+        console.error('Save failed', e);
+        Object.assign(state, snapshot);
+        UI.showToast('Save failed — changes reverted', 'error');
+      })
+    ).finally(() => {
       this._saving = false;
       if (this._dirty) this.save();
       else { dashboardCache = null; this.loadDashboard(); checkAndNotifyDues(); UI.updateDueBanner(); }
@@ -174,7 +186,9 @@ const Data = {
     UI.showLoading(true);
     try {
       const res = await this._fetch('/api/data', { headers: Auth.header() });
+      if (!res.ok) throw new Error('Load failed with status ' + res.status);
       const d = await res.json();
+      if (d && d.error) throw new Error(d.error);
       if (d && d.customers) {
         state.customers = d.customers || [];
         state.items = d.items || [];
@@ -955,9 +969,14 @@ const UI = {
         <button class="btn btn-outline" onclick="UI.hideModal()">Cancel</button>
         <button class="btn btn-success" onclick="UI.doBulkImport()">Import</button>
       </div>
-      <div id="csvResult" style="margin-top:8px;font-size:.85rem"></div>
-      <script>document.getElementById('hasHeaders').addEventListener('change',function(){document.getElementById('colMapping').style.display=this.checked?'none':'block'})</script>`);
-    setTimeout(() => document.getElementById('csvInput').focus(), 300);
+      <div id="csvResult" style="margin-top:8px;font-size:.85rem"></div>`);
+    setTimeout(() => {
+      document.getElementById('csvInput').focus();
+      document.getElementById('hasHeaders').addEventListener('change', function() {
+        const el = document.getElementById('colMapping');
+        if (el) el.style.display = this.checked ? 'none' : 'block';
+      });
+    }, 300);
   },
 
   handleExcelFile(input) {
@@ -966,35 +985,42 @@ const UI = {
     document.getElementById('fileName').textContent = 'File: ' + file.name;
     const ext = file.name.split('.').pop().toLowerCase();
 
-    if (ext === 'csv') {
-      const reader = new FileReader();
-      reader.onload = (e) => { document.getElementById('csvInput').value = e.target.result; };
-      reader.readAsText(file);
-      return;
-    }
-
-    if (typeof XLSX === 'undefined') {
-      document.getElementById('csvResult').innerHTML = '<span style="color:var(--warning)">Loading Excel parser...</span>';
-      const script = document.createElement('script');
-      script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
-      script.onload = () => { UI.handleExcelFile(input); };
-      document.body.appendChild(script);
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const wb = XLSX.read(e.target.result, { type: 'array' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-        const csv = XLSX.utils.sheet_to_csv(ws);
-        document.getElementById('csvInput').value = csv;
-        document.getElementById('csvResult').innerHTML = '<span style="color:var(--success)">Loaded ' + (csv.split('\n').length - 1) + ' rows from ' + file.name + '</span>';
-      } catch(err) {
-        document.getElementById('csvResult').innerHTML = '<span style="color:var(--danger)">Error reading file: ' + err.message + '</span>';
+      if (ext === 'csv') {
+        const reader = new FileReader();
+        reader.onload = (e) => { document.getElementById('csvInput').value = e.target.result; };
+        reader.readAsText(file);
+        return;
       }
-    };
-    reader.readAsArrayBuffer(file);
+
+      if (typeof XLSX === 'undefined') {
+        document.getElementById('csvResult').textContent = 'Loading Excel parser...';
+        document.getElementById('csvResult').style.color = 'var(--warning)';
+        const script = document.createElement('script');
+        script.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+        script.integrity = 'sha256-YKRCe7Q5zBykzTz5SfXrGyqphozqDx5Kw+SiT1OBmW0=';
+        script.crossOrigin = 'anonymous';
+        script.onload = () => { UI.handleExcelFile(input); };
+        document.body.appendChild(script);
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const wb = XLSX.read(e.target.result, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const csv = XLSX.utils.sheet_to_csv(ws);
+          document.getElementById('csvInput').value = csv;
+          const resultEl = document.getElementById('csvResult');
+          resultEl.textContent = 'Loaded ' + (csv.split('\n').length - 1) + ' rows from ' + file.name;
+          resultEl.style.color = 'var(--success)';
+        } catch(err) {
+          const resultEl = document.getElementById('csvResult');
+          resultEl.textContent = 'Error reading file: ' + err.message;
+          resultEl.style.color = 'var(--danger)';
+        }
+      };
+      reader.readAsArrayBuffer(file);
   },
 
   doBulkImport() {
@@ -1002,7 +1028,7 @@ const UI = {
     const hasHeaders = document.getElementById('hasHeaders').checked;
     const raw = document.getElementById('csvInput').value.trim();
     const result = document.getElementById('csvResult');
-    if (!raw) { result.innerHTML = '<span style="color:var(--danger)">Upload an Excel file or paste CSV data first</span>'; return; }
+    if (!raw) { result.textContent = 'Upload an Excel file or paste CSV data first'; result.style.color = 'var(--danger)'; return; }
 
     try {
       let lines = raw.split('\n').map(l => l.trim()).filter(l => l);
@@ -1012,7 +1038,7 @@ const UI = {
         const headerRow = Array.from({length: colCount}, (_, i) => 'col' + i).join(',');
         lines = [headerRow, ...lines];
       }
-      if (lines.length < 2) { result.innerHTML = '<span style="color:var(--danger)">Need at least a header row + 1 data row</span>'; return; }
+      if (lines.length < 2) { result.textContent = 'Need at least a header row + 1 data row'; result.style.color = 'var(--danger)'; return; }
 
       const rawHeaders = lines[0].split(',').map(h => h.trim());
       const headers = rawHeaders.map(h => h.toLowerCase());
@@ -1045,8 +1071,8 @@ const UI = {
         const phoneIdx = findCol(['phone', 'mobile', 'phone number', 'mobile number', 'contact', 'phone_number', 'mobile_number', 'contact number', 'tel', 'telephone']);
         const addrIdx = findCol(['address', 'address/notes', 'notes', 'addr']);
 
-        if (nameIdx < 0) { result.innerHTML = '<span style="color:var(--danger)">Could not find a "name" column. Expected: name, phone, address</span>'; return; }
-        if (phoneIdx < 0) { result.innerHTML = '<span style="color:var(--danger)">Could not find a "phone" column. Expected: name, phone, address</span>'; return; }
+        if (nameIdx < 0) { result.textContent = 'Could not find a "name" column. Expected: name, phone, address'; result.style.color = 'var(--danger)'; return; }
+        if (phoneIdx < 0) { result.textContent = 'Could not find a "phone" column. Expected: name, phone, address'; result.style.color = 'var(--danger)'; return; }
 
         for (const line of lines.slice(1)) {
           const vals = parseCSVLine(line);
@@ -1064,9 +1090,9 @@ const UI = {
         const brandIdx = findCol(['brand', 'model', 'brand/model', 'brand_model', 'brand model', 'name']);
         const serialIdx = findCol(['serial', 'serial number', 'asset tag', 'serial_number', 'asset_tag', 'sn', 's.no', 'sno']);
 
-        if (typeIdx < 0) { result.innerHTML = '<span style="color:var(--danger)">Could not find "type" column. Expected: type, brand, serial</span>'; return; }
-        if (brandIdx < 0) { result.innerHTML = '<span style="color:var(--danger)">Could not find "brand" column. Expected: type, brand, serial</span>'; return; }
-        if (serialIdx < 0) { result.innerHTML = '<span style="color:var(--danger)">Could not find "serial" column. Expected: type, brand, serial</span>'; return; }
+        if (typeIdx < 0) { result.textContent = 'Could not find "type" column. Expected: type, brand, serial'; result.style.color = 'var(--danger)'; return; }
+        if (brandIdx < 0) { result.textContent = 'Could not find "brand" column. Expected: type, brand, serial'; result.style.color = 'var(--danger)'; return; }
+        if (serialIdx < 0) { result.textContent = 'Could not find "serial" column. Expected: type, brand, serial'; result.style.color = 'var(--danger)'; return; }
 
         for (const line of lines.slice(1)) {
           const vals = parseCSVLine(line);
@@ -1087,8 +1113,8 @@ const UI = {
         const startIdx = findCol(['start', 'start date', 'start_date', 'from', 'from date']);
         const statusIdx = findCol(['status', 'rental status', 'rental_status']);
 
-        if (nameIdx < 0) { result.innerHTML = '<span style="color:var(--danger)">Could not find "name" column. Expected: name, rent, brand, start, cycle</span>'; return; }
-        if (rentIdx < 0) { result.innerHTML = '<span style="color:var(--danger)">Could not find "rent" column. Expected: name, rent, brand, start, cycle</span>'; return; }
+        if (nameIdx < 0) { result.textContent = 'Could not find "name" column. Expected: name, rent, brand, start, cycle'; result.style.color = 'var(--danger)'; return; }
+        if (rentIdx < 0) { result.textContent = 'Could not find "rent" column. Expected: name, rent, brand, start, cycle'; result.style.color = 'var(--danger)'; return; }
 
         for (const line of lines.slice(1)) {
           const vals = parseCSVLine(line);
@@ -1096,7 +1122,7 @@ const UI = {
           const rent = parseFloat(vals[rentIdx]);
           if (!custName || !rent) continue;
           const cust = state.customers.find(c => c.name.toLowerCase().includes(custName.toLowerCase()));
-          if (!cust) { result.innerHTML = `<span style="color:var(--danger)">Customer "${custName}" not found. Import customers first.</span>`; return; }
+          if (!cust) { result.textContent = 'Customer "' + custName + '" not found. Import customers first.'; result.style.color = 'var(--danger)'; return; }
           const itemBrand = brandIdx >= 0 ? (vals[brandIdx] || '') : '';
           const item = itemBrand ? state.items.find(i => i.brand.toLowerCase().includes(itemBrand.toLowerCase())) : null;
           if (item) item.status = 'rented';
@@ -1215,26 +1241,30 @@ const UI = {
         }
 
         added = custCount + rentalCount + paymentCount;
-        result.innerHTML = `<span style="color:var(--success)">Imported ${custCount} customers, ${itemCount} items, ${rentalCount} rentals, ${paymentCount} payments</span>`;
+        result.textContent = 'Imported ' + custCount + ' customers, ' + itemCount + ' items, ' + rentalCount + ' rentals, ' + paymentCount + ' payments';
+        result.style.color = 'var(--success)';
       }
 
       if (added > 0) {
         Data.save();
-        result.innerHTML = `<span style="color:var(--success)">Imported ${added} ${type} successfully!</span>`;
+        result.textContent = 'Imported ' + added + ' ' + type + ' successfully!';
+        result.style.color = 'var(--success)';
         UI.renderAll();
         setTimeout(() => UI.hideModal(), 1500);
       } else {
-        result.innerHTML = '<span style="color:var(--warning)">No valid rows found. Check your data.</span>';
+        result.textContent = 'No valid rows found. Check your data.';
+        result.style.color = 'var(--warning)';
       }
     } catch(e) {
-      result.innerHTML = `<span style="color:var(--danger)">Error: ${e.message}</span>`;
+      result.textContent = 'Error: ' + e.message;
+      result.style.color = 'var(--danger)';
     }
   }
 };
 window.UI = UI;
 
 /* HELPERS */
-function escHtml(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function escHtml(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 /* EVENT BINDING */
 document.addEventListener('DOMContentLoaded', async () => {

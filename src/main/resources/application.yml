@@ -11,7 +11,7 @@ spring:
     show-sql: false  # disable in production; enable locally for debugging
   h2:
     console:
-      enabled: true
+      enabled: true  # Dev only — use application-prod.yml for production
   flyway:
     enabled: true
     locations: classpath:db/migration

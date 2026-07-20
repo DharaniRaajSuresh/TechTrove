@@ -12,6 +12,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
@@ -20,7 +23,9 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
     private final ConcurrentHashMap<String, AtomicInteger> requestCounts = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Long> blockTimes = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> resetScheduled = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
 
     private static final int MAX_REQUESTS = 20;
     private static final long WINDOW_MS = 60_000;
@@ -46,18 +51,20 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         } else if (blockUntil != null) {
             blockTimes.remove(ip);
             requestCounts.remove(ip);
+            resetScheduled.remove(ip);
         }
 
         AtomicInteger counter = requestCounts.computeIfAbsent(ip, k -> new AtomicInteger(0));
         int count = counter.incrementAndGet();
 
-        if (count == 1) {
-            scheduleReset(ip, counter);
+        if (count == 1 && resetScheduled.putIfAbsent(ip, now) == null) {
+            scheduleReset(ip);
         }
 
         if (count > MAX_REQUESTS) {
             blockTimes.put(ip, now + BLOCK_DURATION_MS);
             requestCounts.remove(ip);
+            resetScheduled.remove(ip);
             sendTooMany(response);
             return;
         }
@@ -65,11 +72,14 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private void scheduleReset(String ip, AtomicInteger counter) {
-        new Thread(() -> {
-            try { Thread.sleep(WINDOW_MS); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
-            counter.set(0);
-        }).start();
+    private void scheduleReset(String ip) {
+        scheduler.schedule(() -> {
+            AtomicInteger counter = requestCounts.get(ip);
+            if (counter != null) {
+                counter.set(0);
+            }
+            resetScheduled.remove(ip);
+        }, WINDOW_MS, TimeUnit.MILLISECONDS);
     }
 
     private void sendTooMany(HttpServletResponse response) throws IOException {

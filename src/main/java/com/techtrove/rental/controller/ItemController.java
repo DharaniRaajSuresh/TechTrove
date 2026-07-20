@@ -10,10 +10,10 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -47,6 +47,7 @@ public class ItemController {
     }
 
     @PostMapping
+    @Transactional
     public ResponseEntity<ItemDto> createItem(@Valid @RequestBody ItemDto dto) {
         Item entity = itemMapper.toEntity(dto);
         Item saved = itemRepository.save(entity);
@@ -55,6 +56,7 @@ public class ItemController {
     }
 
     @PutMapping("/{id}")
+    @Transactional
     public ItemDto updateItem(@PathVariable String id, @Valid @RequestBody ItemDto dto) {
         Item existing = itemRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found"));
@@ -66,6 +68,7 @@ public class ItemController {
     }
 
     @DeleteMapping("/{id}")
+    @Transactional
     public ResponseEntity<?> deleteItem(@PathVariable String id) {
         Item existing = itemRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found"));

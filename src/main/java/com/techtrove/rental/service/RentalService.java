@@ -185,10 +185,7 @@ public class RentalService {
         // Monthly collected: sum of payments where date >= first of current month
         LocalDate now = LocalDate.now();
         LocalDate monthStart = now.withDayOfMonth(1);
-        BigDecimal monthlyCollected = paymentRepo.findAll().stream()
-                .filter(p -> !p.getDate().isBefore(monthStart))
-                .map(Payment::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal monthlyCollected = paymentRepo.sumPaymentsSince(monthStart);
         dto.setMonthlyCollected(monthlyCollected);
 
         // Outstanding total: sum of outstanding across all active rentals

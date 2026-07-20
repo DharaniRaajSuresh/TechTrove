@@ -20,18 +20,28 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+function stripQuery(url) {
+  const idx = url.indexOf('?');
+  return idx >= 0 ? url.substring(0, idx) : url;
+}
+
 self.addEventListener('fetch', (e) => {
-  if (e.request.url.includes('/api/')) {
+  const url = new URL(e.request.url);
+  if (url.pathname.startsWith('/api/')) {
     e.respondWith(fetch(e.request).catch(() => new Response(JSON.stringify({ error: 'offline' }), { status: 503, headers: { 'Content-Type': 'application/json' } })));
-  } else {
+  } else if (ASSETS.includes(stripQuery(url.pathname))) {
     e.respondWith(
-      caches.match(e.request).then((cached) => cached || fetch(e.request).then((res) => {
+      caches.match(stripQuery(e.request.url)).then((cached) => cached || fetch(e.request).then((res) => {
         if (res.ok && res.type === 'basic') {
           const clone = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, clone));
+          caches.open(CACHE).then((c) => c.put(stripQuery(e.request.url), clone));
         }
         return res;
       }).catch(() => caches.match('/')))
+    );
+  } else {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match('/'))
     );
   }
 });

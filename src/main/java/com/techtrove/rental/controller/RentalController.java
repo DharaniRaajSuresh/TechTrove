@@ -11,11 +11,10 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -66,6 +65,7 @@ public class RentalController {
     }
 
     @PostMapping
+    @Transactional
     public ResponseEntity<RentalDto> createRental(@Valid @RequestBody RentalDto dto) {
         Customer customer = customerRepo.findById(dto.getCustomerId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Customer not found"));
@@ -82,6 +82,7 @@ public class RentalController {
     }
 
     @PutMapping("/{id}")
+    @Transactional
     public RentalDto updateRental(@PathVariable String id, @Valid @RequestBody RentalDto dto) {
         Rental existing = rentalRepo.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Rental not found"));
@@ -102,6 +103,7 @@ public class RentalController {
     }
 
     @DeleteMapping("/{id}")
+    @Transactional
     public ResponseEntity<?> deleteRental(@PathVariable String id) {
         Rental existing = rentalRepo.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Rental not found"));

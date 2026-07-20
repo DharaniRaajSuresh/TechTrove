@@ -34,7 +34,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                .requestMatchers("/h2-console/**").permitAll()
+                .requestMatchers("/h2-console/**").hasIpAddress("127.0.0.1")
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/", "/index.html", "/app.js", "/style.css", "/styles.css", "/sw.js", "/favicon.ico").permitAll()
                 .requestMatchers("/api/**").authenticated()

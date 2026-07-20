@@ -6,7 +6,6 @@ import com.techtrove.rental.mapper.ItemMapper;
 import com.techtrove.rental.mapper.PaymentMapper;
 import com.techtrove.rental.mapper.RentalMapper;
 import com.techtrove.rental.model.*;
-import com.techtrove.rental.model.enums.*;
 import com.techtrove.rental.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,6 +21,7 @@ public class DataService {
     @Autowired private ItemRepository itemRepo;
     @Autowired private RentalRepository rentalRepo;
     @Autowired private PaymentRepository paymentRepo;
+    @Autowired private AuditService auditService;
 
     @Autowired
     private CustomerMapper customerMapper;
@@ -86,7 +86,7 @@ public class DataService {
         // Insert payments
         if (blob.getPayments() != null) {
             Map<String, Rental> rentalMap = new HashMap<>();
-            rentalRepo.findAll().forEach(r -> rentalMap.put(r.getId(), r));
+            for (Rental r : rentalRepo.findAll()) rentalMap.put(r.getId(), r);
 
             for (PaymentDto d : blob.getPayments()) {
                 Payment p = paymentMapper.toEntity(d);
@@ -94,11 +94,11 @@ public class DataService {
                 paymentRepo.save(p);
             }
         }
-    }
 
-    /** Safe enum parser — returns null for invalid values instead of crashing */
-    private <T extends Enum<T>> T safeEnum(Class<T> type, String value) {
-        try { return Enum.valueOf(type, value.toUpperCase()); }
-        catch (Exception e) { return null; }
+        auditService.log("BULK_SAVE", "DataBlob",
+            "all", "Saved " + (blob.getCustomers() != null ? blob.getCustomers().size() : 0) +
+            " customers, " + (blob.getItems() != null ? blob.getItems().size() : 0) +
+            " items, " + (blob.getRentals() != null ? blob.getRentals().size() : 0) +
+            " rentals, " + (blob.getPayments() != null ? blob.getPayments().size() : 0) + " payments");
     }
 }
