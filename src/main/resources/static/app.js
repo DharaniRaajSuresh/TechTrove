@@ -337,7 +337,14 @@ const UI = {
   /* DASHBOARD */
   renderDashboard() {
     const now = new Date();
-    const monthName = now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    const month = now.getMonth();
+    const year = now.getFullYear();
+    const monthStart = year + '-' + String(month+1).padStart(2,'0') + '-01';
+    const nextMonth = month === 11 ? 0 : month + 1;
+    const nextYear = month === 11 ? year + 1 : year;
+    const nextMonthStart = nextYear + '-' + String(nextMonth+1).padStart(2,'0') + '-01';
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const monthName = monthNames[month] + ' ' + year;
 
     /* Use server-computed data if available, fall back to client computation */
     let monthlyCollected = 0, outstandingTotal = 0;
@@ -357,9 +364,7 @@ const UI = {
         dueSoonList.push({ rental: d.rental, status: d.status, customer: d.customer });
       });
     } else {
-      /* Fallback: compute client-side (same as before) */
-      const monthStart = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-01';
-      state.payments.forEach(p => { if (p.date >= monthStart) monthlyCollected += p.amount; });
+      state.payments.forEach(p => { if (p.date >= monthStart && p.date < nextMonthStart) monthlyCollected += p.amount; });
       state.rentals.filter(isActiveRental).forEach(r => {
         const st = rentalStatus(r); const c = rentalCustomer(r);
         if (!c) return;
@@ -401,7 +406,7 @@ const UI = {
     html += `<div class="card dash-fin-card">
       <div class="dash-fin-row">
         <div>
-          <div class="dash-fin-label">Collected in ${monthName.split(' ')[0]}</div>
+          <div class="dash-fin-label">Collected in ${monthNames[month]}</div>
           <div class="dash-fin-value" style="color:var(--success)">${fmtCurrency(monthlyCollected)}</div>
         </div>
         <div class="dash-fin-divider"></div>

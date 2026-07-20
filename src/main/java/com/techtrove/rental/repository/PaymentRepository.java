@@ -13,6 +13,6 @@ import java.util.List;
 public interface PaymentRepository extends JpaRepository<Payment, String> {
     List<Payment> findByRentalId(String rentalId);
     List<Payment> findByRentalIdIn(List<String> rentalIds);
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.date >= :monthStart")
-    BigDecimal sumPaymentsSince(@Param("monthStart") LocalDate monthStart);
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.date >= :monthStart AND p.date < :nextMonthStart")
+    BigDecimal sumPaymentsSince(@Param("monthStart") LocalDate monthStart, @Param("nextMonthStart") LocalDate nextMonthStart);
 }
