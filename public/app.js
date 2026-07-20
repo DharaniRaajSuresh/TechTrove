@@ -418,7 +418,7 @@ const UI = {
       dueSoonList.forEach(({ rental, status, customer }) => {
         const item = getItem(rental.itemId);
         html += `<div class="list-item" onclick="UI.navigate('customer-detail','${customer.id}')">
-          <div class="item-info"><div class="item-name">${escHtml(customer.name)}</div><div class="item-sub">${item ? escHtml(item.brand) : '—'} &middot; Due ${fmtDate(status.nextDueDate.toISOString().split('T')[0])}</div></div>
+          <div class="item-info"><div class="item-name">${escHtml(customer.name)}</div><div class="item-sub">${item ? escHtml(item.brand) : '—'} &middot; Due ${fmtDate(status.nextDueDate.toLocaleDateString('en-CA'))}</div></div>
           <div class="item-right"><div class="item-amount" style="color:var(--warning)">${fmtCurrency(rental.rentAmount)}</div><div class="item-date"><span class="badge badge-warning">${status.daysUntilDue === 0 ? 'Today' : status.daysUntilDue === 1 ? 'Tomorrow' : `In ${status.daysUntilDue}d`}</span></div></div>
         </div>`;
       });
@@ -499,7 +499,7 @@ const UI = {
         html += `<div class="rental-card ${statusClass}">
           <div class="rental-row"><span class="rental-label">Item</span><span class="rental-value">${item ? escHtml(item.brand) + ' (' + item.type + ')' : 'Unknown item'}</span></div>
           <div class="rental-row"><span class="rental-label">Rent</span><span class="rental-value">${fmtCurrency(r.rentAmount)} / ${r.billingCycle}${r.billingCycle === 'custom' ? ` (${r.customDays}d)` : ''}</span></div>
-          <div class="rental-row"><span class="rental-label">Next Due</span><span class="rental-value">${fmtDate(st.nextDueDate.toISOString().split('T')[0])} ${st.isOverdue ? `<span class="badge badge-danger">${st.daysOverdue}d overdue</span>` : st.isDueSoon ? `<span class="badge badge-warning">${st.daysUntilDue === 0 ? 'Due today' : st.daysUntilDue === 1 ? 'Due tomorrow' : `In ${st.daysUntilDue}d`}</span>` : ''}</span></div>
+          <div class="rental-row"><span class="rental-label">Next Due</span><span class="rental-value">${fmtDate(st.nextDueDate.toLocaleDateString('en-CA'))} ${st.isOverdue ? `<span class="badge badge-danger">${st.daysOverdue}d overdue</span>` : st.isDueSoon ? `<span class="badge badge-warning">${st.daysUntilDue === 0 ? 'Due today' : st.daysUntilDue === 1 ? 'Due tomorrow' : `In ${st.daysUntilDue}d`}</span>` : ''}</span></div>
           <div class="rental-row"><span class="rental-label">Outstanding</span><span class="rental-value" style="color:${st.outstanding > 0 ? 'var(--danger)' : 'var(--success)'}">${st.outstanding > 0 ? fmtCurrency(st.outstanding) : fmtCurrency(0)}</span></div>
           <div class="rental-row"><span class="rental-label">Since</span><span class="rental-value" style="font-weight:400;font-size:.85rem">${fmtDate(r.startDate)}</span></div>
           ${st.outstanding > 0 ? `<div style="margin-top:8px;display:flex;gap:6px"><button class="btn btn-sm btn-primary" onclick="UI.showLogPaymentModal('${c.id}','${r.id}')">Log Payment</button>` : `<div style="margin-top:8px;display:flex;gap:6px">`}
