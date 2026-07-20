@@ -172,7 +172,7 @@ for (const sheetName of wb.SheetNames) {
         rentals.push(rentMap[rKey]);
       } else {
         const r = rentMap[rKey];
-        if (payDate && payDate > r.startDate) r.startDate = payDate;
+        if (payDate && payDate < r.startDate) r.startDate = payDate;
         if (isClosed) { r.status = 'closed'; if (!r.endDate) r.endDate = payDate || r.startDate; }
       }
 
