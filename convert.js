@@ -149,9 +149,19 @@ for (const sheetName of wb.SheetNames) {
       if (c && !c.phone) c.phone = phone;
     }
 
-    const amount = parseFloat(row[4]) || 0;
+    /* Detect column layout varies per sheet */
+    let amountCol = 4, dateCol = 5;
+    const raw4 = row[4];
+    const raw5 = row[5];
+    if (typeof raw4 === 'string' && /^\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4}$/.test(raw4.trim()) && typeof raw5 === 'number') {
+      amountCol = 5; dateCol = 4;
+    } else if (typeof raw4 === 'number' && typeof raw5 === 'number' && Number.isInteger(raw4) && raw4 < 500 && raw5 > 1000) {
+      amountCol = 5;
+    }
+    const amount = parseFloat(typeof row[amountCol] === 'string' ? row[amountCol].replace(/,/g, '') : row[amountCol]) || 0;
     const date1 = parseDate(row[3]);
-    const date2 = parseDate(row[5]);
+    const date2 = parseDate(row[dateCol]);
+    const date3 = parseDate(row[8]) || parseDate(row[7]);
     const paidTo = String(row[6] || '').trim();
     const note = String(row[7] || '').trim();
     const col8 = String(row[8] || '').trim();
@@ -159,7 +169,7 @@ for (const sheetName of wb.SheetNames) {
 
     if (amount > 0) {
       const rKey = cid + '-' + amount;
-      const payDate = date2 || date1;
+      const payDate = date2 || date1 || date3;
       if (!rentMap[rKey]) {
         rentMap[rKey] = {
           id: uid(), customerId: cid, itemId: '',

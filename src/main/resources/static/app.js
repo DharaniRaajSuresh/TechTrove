@@ -533,11 +533,11 @@ const UI = {
       activeRentals.forEach(r => {
         const st = rentalStatus(r);
         const item = getItem(r.itemId);
-        let statusClass = st.isOverdue ? 'overdue' : st.isDueSoon ? 'due-soon' : 'paid';
+        let statusClass = st.isOverdue ? 'overdue' : st.isDueSoon ? 'due-soon' : 'current';
         html += `<div class="rental-card ${statusClass}">
           <div class="rental-row"><span class="rental-label">Item</span><span class="rental-value">${item ? escHtml(item.brand) + ' (' + item.type + ')' : 'Unknown item'}</span></div>
           <div class="rental-row"><span class="rental-label">Rent</span><span class="rental-value">${fmtCurrency(r.rentAmount)} / ${r.billingCycle}${r.billingCycle === 'custom' ? ` (${r.customDays}d)` : ''}</span></div>
-          <div class="rental-row"><span class="rental-label">Next Due</span><span class="rental-value">${fmtDate(st.nextDueDate)} ${st.isOverdue ? `<span class="badge badge-danger">${st.daysOverdue}d overdue</span>` : st.isDueSoon ? `<span class="badge badge-warning">${st.daysUntilDue === 0 ? 'Due today' : st.daysUntilDue === 1 ? 'Due tomorrow' : `In ${st.daysUntilDue}d`}</span>` : ''}</span></div>
+          <div class="rental-row"><span class="rental-label">${st.isOverdue ? 'Due Date' : 'Next Due'}</span><span class="rental-value">${st.isOverdue ? `<span style="color:var(--danger)">${fmtDate(st.nextDueDate)}</span> <span class="badge badge-danger">${st.daysOverdue}d overdue</span>` : st.isDueSoon ? `${fmtDate(st.nextDueDate)} <span class="badge badge-warning">${st.daysUntilDue === 0 ? 'Due today' : st.daysUntilDue === 1 ? 'Due tomorrow' : `In ${st.daysUntilDue}d`}</span>` : fmtDate(st.nextDueDate)}</span></div>
           <div class="rental-row"><span class="rental-label">Outstanding</span><span class="rental-value" style="color:${st.outstanding > 0 ? 'var(--danger)' : 'var(--success)'}">${st.outstanding > 0 ? fmtCurrency(st.outstanding) : fmtCurrency(0)}</span></div>
           <div class="rental-row"><span class="rental-label">Since</span><span class="rental-value" style="font-weight:400;font-size:.85rem">${fmtDate(r.startDate)}</span></div>
           ${st.outstanding > 0 ? `<div style="margin-top:8px;display:flex;gap:6px"><button class="btn btn-sm btn-primary" onclick="UI.showLogPaymentModal('${c.id}','${r.id}')">Log Payment</button>` : `<div style="margin-top:8px;display:flex;gap:6px">`}
