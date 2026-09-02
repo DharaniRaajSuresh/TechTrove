@@ -7,6 +7,29 @@ let notifEnabled = true;
 let lastNotifDate = '';
 try { notifEnabled = localStorage.getItem('notifEnabled') !== 'false'; lastNotifDate = localStorage.getItem('lastNotifDate') || ''; } catch(e) {}
 
+/* OUTLINE SVG ICON SET (1.5px stroke, zero emoji) */
+const Icons = {
+  dashboard: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>`,
+  inventory: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>`,
+  rentals: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+  repairs: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
+  settings: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+  search: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+  plus: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+  whatsapp: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>`,
+  phone: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`,
+  payment: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>`,
+  check: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+  arrowRight: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`,
+  chevronRight: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`,
+  download: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+  upload: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
+  refresh: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>`,
+  lock: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+  bell: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
+  alert: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+};
+
 /* PRESET CATALOGUE FOR LAPTOPS, DESKTOPS & MONITORS */
 const PRESET_CATALOGUE = [
   // Dell Laptops & Desktops
@@ -577,19 +600,21 @@ const UI = {
     backBtn.classList.toggle('hidden', pageStack.length <= 1);
 
     const titles = {
-      'dashboard': 'TechTrove Systems',
-      'customers': 'Customers',
-      'customer-detail': 'Customer Details',
-      'inventory': 'Inventory & Specs',
+      'dashboard': 'TechTrove Console',
+      'customers': 'Rentals & Clients',
+      'customer-detail': 'Client Agreement',
+      'inventory': 'Fleet Inventory',
+      'repairs': 'Repairs Tracker',
       'search': 'Global Search',
       'more': 'Settings & Backup'
     };
-    document.getElementById('headerTitle').textContent = titles[page] || 'TechTrove';
+    document.getElementById('headerTitle').textContent = titles[page] || 'TechTrove Console';
 
     if (page === 'dashboard') this.renderDashboard();
     else if (page === 'customers') this.renderCustomers();
     else if (page === 'customer-detail') this.renderCustomerDetail(params);
     else if (page === 'inventory') this.renderInventory();
+    else if (page === 'repairs') this.renderRepairs();
     else if (page === 'search') this.renderSearch();
     else if (page === 'more') this.renderMore();
 
@@ -646,248 +671,250 @@ const UI = {
     this.navigate(currentPage, pageStack[pageStack.length - 1]?.params);
   },
 
-  /* DASHBOARD */
+  /* REPAIRS FILTER SHORTCUT */
+  openRepairsFilter() {
+    this.navigate('repairs');
+  },
+
+  /* DASHBOARD (OPS CONSOLE REDESIGN) */
   renderDashboard() {
-    const activeRentals = state.rentals.filter(isActiveRental).length;
-    const totalItems = state.items.length;
-    const availableItems = state.items.filter(i => i.status === 'available').length;
-    const repairItems = state.items.filter(i => i.status === 'repair').length;
+    const activeRentals = state.rentals.filter(isActiveRental);
+    const repairItems = state.items.filter(i => i.status === 'repair');
     const overdueList = getOverdueList();
     const dueSoonList = getDueSoonList();
 
-    const now = new Date();
-    const curYear = now.getFullYear();
-    const curMonth = now.getMonth();
-    const monthlyCollected = state.payments
-      .filter(p => {
-        const d = parseDate(p.date);
-        return d.getFullYear() === curYear && d.getMonth() === curMonth;
-      })
-      .reduce((s, p) => s + (p.amount || 0), 0);
+    // Total overdue outstanding across all rentals
+    const totalOverdueOutstanding = overdueList.reduce((sum, item) => sum + (item.status.outstanding || item.rental.rentAmount || 0), 0);
+    const criticalOverdueCount = overdueList.filter(x => x.status.daysOverdue > 30).length;
 
-    const outstandingTotal = state.rentals
-      .filter(isActiveRental)
-      .reduce((s, r) => s + rentalStatus(r).outstanding, 0);
-
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    // Combined "Needs attention" queue sorted by urgency (overdue days desc, then due soonest first)
+    const attentionList = [
+      ...overdueList.map(x => ({ type: 'overdue', ...x })),
+      ...dueSoonList.map(x => ({ type: 'dueSoon', ...x }))
+    ];
 
     let html = `
-    <div class="dash-hero">
-      <div class="dash-hero-top">
-        <div>
-          <div class="dash-greeting">Welcome to</div>
-          <div class="dash-title">TechTrove Systems</div>
-          <div class="dash-subtitle">Rental Tracker &amp; Inventory</div>
-        </div>
-        <div class="dash-hero-icon">
-          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-        </div>
+    <!-- Top Hero Section: The single most important financial figure at a glance -->
+    <div class="dash-hero-box">
+      <div class="dash-hero-label">Total overdue outstanding</div>
+      <div class="dash-hero-num ${totalOverdueOutstanding > 0 ? 'has-overdue' : ''}">
+        ${fmtCurrency(totalOverdueOutstanding)}
+      </div>
+      <div class="dash-hero-meta">
+        ${totalOverdueOutstanding > 0 ? `
+          <span class="status-pill danger">
+            <span class="status-dot danger"></span>
+            ${overdueList.length} overdue rental${overdueList.length === 1 ? '' : 's'}
+          </span>
+          ${criticalOverdueCount > 0 ? `<span style="color:var(--text-muted);font-size:0.75rem">&middot; ${criticalOverdueCount} critical (&gt;30d)</span>` : ''}
+        ` : `
+          <span class="status-pill ok">
+            <span class="status-dot ok"></span>
+            All active rentals are paid up to date
+          </span>
+        `}
       </div>
     </div>
 
-    <div class="dash-metrics">
-      <div class="dash-metric"><div class="dash-metric-value" style="color:var(--primary)">${activeRentals}</div><div class="dash-metric-label">Active Rentals</div></div>
-      <div class="dash-metric"><div class="dash-metric-value" style="color:var(--success)">${availableItems}</div><div class="dash-metric-label">Available</div></div>
-      <div class="dash-metric"><div class="dash-metric-value" style="color:${repairItems > 0 ? 'var(--purple)' : 'var(--gray-800)'}">${repairItems}</div><div class="dash-metric-label">Under Repair</div></div>
-    </div>
-
-    <div class="card dash-fin-card">
-      <div class="dash-fin-row">
-        <div>
-          <div class="dash-fin-label">Collected in ${monthNames[curMonth]}</div>
-          <div class="dash-fin-value" style="color:var(--success)">${fmtCurrency(monthlyCollected)}</div>
+    <!-- 3 Compact Stat Chips (1-tap filters) -->
+    <div class="dash-chips-row">
+      <div class="stat-chip" onclick="UI.navigate('customers')">
+        <div class="stat-chip-header">
+          <span class="status-dot ok"></span>
+          <span class="stat-chip-num">${activeRentals.length}</span>
         </div>
-        <div class="dash-fin-divider"></div>
-        <div>
-          <div class="dash-fin-label">Total Outstanding</div>
-          <div class="dash-fin-value" style="color:var(--danger)">${fmtCurrency(outstandingTotal)}</div>
+        <div class="stat-chip-label">Active rentals</div>
+      </div>
+      <div class="stat-chip" onclick="UI.navigate('customers')">
+        <div class="stat-chip-header">
+          <span class="status-dot ${dueSoonList.length > 0 ? 'warn' : 'ok'}"></span>
+          <span class="stat-chip-num">${dueSoonList.length}</span>
         </div>
+        <div class="stat-chip-label">Due this week</div>
+      </div>
+      <div class="stat-chip" onclick="UI.openRepairsFilter()">
+        <div class="stat-chip-header">
+          <span class="status-dot ${repairItems.length > 0 ? 'danger' : 'ok'}"></span>
+          <span class="stat-chip-num">${repairItems.length}</span>
+        </div>
+        <div class="stat-chip-label">Under repair</div>
       </div>
     </div>
 
-    <div class="dash-actions">
-      <button class="dash-action" onclick="UI.showAddCustomerModal()">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-        <span>Add Customer</span>
+    <!-- Quick Action Command Row -->
+    <div class="dash-cmd-row">
+      <button class="cmd-btn" onclick="UI.showAddRentalModal()">
+        ${Icons.rentals}
+        <span>+ Rent device</span>
       </button>
-      <button class="dash-action" onclick="UI.showAddItemModal()">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="8" x2="12" y2="14"/><line x1="9" y1="11" x2="15" y2="11"/></svg>
-        <span>+ Add Laptop / PC</span>
+      <button class="cmd-btn" onclick="UI.showAddItemModal()">
+        ${Icons.inventory}
+        <span>+ Add laptop</span>
       </button>
-      <button class="dash-action" onclick="UI.pushPage('inventory')">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-        <span>Inventory (${totalItems})</span>
+      <button class="cmd-btn" onclick="UI.showAddCustomerModal()">
+        ${Icons.plus}
+        <span>+ New client</span>
       </button>
-      <button class="dash-action" onclick="UI.pushPage('search')">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <span>Global Search</span>
-      </button>
-    </div>`;
+    </div>
 
-    /* OVERDUE PAYMENTS SECTION */
-    if (overdueList.length > 0) {
-      html += `<div class="card" style="border-left:4px solid var(--danger)">
-        <div class="card-header">
-          <span class="card-title" style="color:var(--danger);font-weight:700">
-            ⚠️ Overdue Payments <span class="badge badge-danger" style="margin-left:6px">${overdueList.length}</span>
-          </span>
-        </div>`;
-      
-      overdueList.forEach(({ rental, status, customer, item }) => {
-        const itemTitle = getItemFullTitle(item);
-        const waMsg = buildWaReminderMessage(customer, rental, item, status);
-        html += `
-        <div class="search-card-item" style="border-left:3px solid var(--danger)">
-          <div class="due-card-header">
-            <div>
-              <div style="font-weight:700;font-size:.95rem;color:var(--gray-900)">${escHtml(customer.name)}</div>
-              <div style="font-size:.82rem;margin-top:2px">
-                <a href="tel:${escHtml(customer.phone)}" class="phone-link">📞 ${escHtml(fmtPhone(customer.phone))}</a>
-                ${customer.address ? `<span class="loc-tag" style="margin-left:8px">📍 ${escHtml(customer.address)}</span>` : ''}
-              </div>
-            </div>
-            <div style="text-align:right">
-              <div style="font-weight:700;font-size:1rem;color:var(--danger)">${fmtCurrency(status.outstanding)}</div>
-              <span class="badge badge-danger">${status.daysOverdue}d overdue</span>
-            </div>
+    <!-- Needs Attention Queue -->
+    <div class="section-head">
+      <div class="section-title">Needs attention</div>
+      <div class="section-count">${attentionList.length} pending</div>
+    </div>
+
+    <div class="ops-list">
+      ${attentionList.length === 0 ? `
+        <div class="ops-empty">
+          <div class="ops-empty-icon">${Icons.check}</div>
+          <div class="ops-empty-title">No overdue rentals</div>
+          <div class="ops-empty-sub">All client payments are currently up to date.</div>
+        </div>
+      ` : attentionList.map(item => {
+        const c = item.customer;
+        const dev = item.item;
+        const st = item.status;
+        const isOverdue = item.type === 'overdue';
+        const itemTitle = getItemFullTitle(dev);
+        const waMsg = buildWaReminderMessage(c, item.rental, dev, st);
+
+        return `
+        <div class="ops-row" onclick="UI.pushPage('customer-detail', '${c.id}')">
+          <div class="ops-row-status">
+            <span class="ops-status-badge ${isOverdue ? 'danger' : 'warn'}">
+              <span class="status-dot ${isOverdue ? 'danger' : 'warn'}"></span>
+              ${isOverdue ? `Overdue ${st.daysOverdue}d` : `Due in ${st.daysUntilDue}d`}
+            </span>
           </div>
-
-          <div style="margin-top:6px;font-size:.82rem;color:var(--gray-700)">
-            <strong>${escHtml(itemTitle)}</strong>
-            ${item && item.specs ? `<div class="item-specs-chip">${escHtml(item.specs)}</div>` : ''}
-            <div style="font-size:.78rem;color:var(--gray-500);margin-top:3px">
-              Rent: ${fmtCurrency(rental.rentAmount)}/${rental.billingCycle} &middot; Due date: ${fmtDate(status.nextDueDate)}
-            </div>
+          <div class="ops-row-main">
+            <div class="ops-row-title">${escHtml(c.name)}</div>
+            <div class="ops-row-sub">${escHtml(itemTitle)}${dev && dev.specs ? ` &middot; ${escHtml(dev.specs)}` : ''}</div>
           </div>
-
-          <div class="due-action-bar">
-            <button class="btn btn-sm btn-whatsapp" onclick="openWhatsAppReminder('${customer.phone}', \`${waMsg.replace(/`/g, '\\`')}\`)">
-              💬 WhatsApp Reminder
-            </button>
-            <a href="tel:${escHtml(customer.phone)}" class="btn btn-sm btn-call-outline" style="text-decoration:none">
-              📞 Call
-            </a>
-            <button class="btn btn-sm btn-primary" onclick="UI.showLogPaymentModal('${customer.id}', '${rental.id}')">
-              💳 Log Payment
-            </button>
-            <button class="btn btn-sm btn-outline" onclick="UI.pushPage('customer-detail', '${customer.id}')">
-              Details
+          <div class="ops-row-end">
+            <div class="ops-row-amount ${isOverdue ? 'danger' : ''}">
+              ${fmtCurrency(st.outstanding || item.rental.rentAmount)}
+            </div>
+            <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppReminder('${c.phone}', \`${waMsg.replace(/`/g, '\\`')}\`)" title="Send WhatsApp Reminder">
+              ${Icons.whatsapp}
+              <span>WA</span>
             </button>
           </div>
         </div>`;
-      });
-      html += `</div>`;
-    }
-
-    /* DUE SOON SECTION */
-    if (dueSoonList.length > 0) {
-      html += `<div class="card" style="border-left:4px solid var(--warning)">
-        <div class="card-header">
-          <span class="card-title" style="color:var(--warning);font-weight:700">
-            ⏰ Due Within 7 Days <span class="badge badge-warning" style="margin-left:6px">${dueSoonList.length}</span>
-          </span>
-        </div>`;
-      
-      dueSoonList.forEach(({ rental, status, customer, item }) => {
-        const itemTitle = getItemFullTitle(item);
-        const waMsg = buildWaReminderMessage(customer, rental, item, status);
-        const dueText = status.daysUntilDue === 0 ? 'Due Today' : status.daysUntilDue === 1 ? 'Due Tomorrow' : `Due in ${status.daysUntilDue}d`;
-        html += `
-        <div class="search-card-item" style="border-left:3px solid var(--warning)">
-          <div class="due-card-header">
-            <div>
-              <div style="font-weight:700;font-size:.95rem;color:var(--gray-900)">${escHtml(customer.name)}</div>
-              <div style="font-size:.82rem;margin-top:2px">
-                <a href="tel:${escHtml(customer.phone)}" class="phone-link">📞 ${escHtml(fmtPhone(customer.phone))}</a>
-                ${customer.address ? `<span class="loc-tag" style="margin-left:8px">📍 ${escHtml(customer.address)}</span>` : ''}
-              </div>
-            </div>
-            <div style="text-align:right">
-              <div style="font-weight:700;font-size:1rem;color:var(--warning)">${fmtCurrency(rental.rentAmount)}</div>
-              <span class="badge badge-warning">${dueText}</span>
-            </div>
-          </div>
-
-          <div style="margin-top:6px;font-size:.82rem;color:var(--gray-700)">
-            <strong>${escHtml(itemTitle)}</strong>
-            ${item && item.specs ? `<div class="item-specs-chip">${escHtml(item.specs)}</div>` : ''}
-            <div style="font-size:.78rem;color:var(--gray-500);margin-top:3px">
-              Due Date: ${fmtDate(status.nextDueDate)}
-            </div>
-          </div>
-
-          <div class="due-action-bar">
-            <button class="btn btn-sm btn-whatsapp-outline" onclick="openWhatsAppReminder('${customer.phone}', \`${waMsg.replace(/`/g, '\\`')}\`)">
-              💬 Send Reminder
-            </button>
-            <a href="tel:${escHtml(customer.phone)}" class="btn btn-sm btn-call-outline" style="text-decoration:none">
-              📞 Call
-            </a>
-            <button class="btn btn-sm btn-primary" onclick="UI.showLogPaymentModal('${customer.id}', '${rental.id}')">
-              💳 Log Payment
-            </button>
-          </div>
-        </div>`;
-      });
-      html += `</div>`;
-    }
-
-    if (overdueList.length === 0 && dueSoonList.length === 0) {
-      html += `<div class="card dash-all-clear">
-        <div class="dash-clear-icon">&#10003;</div>
-        <div class="dash-clear-text">All payments up to date!</div>
-        <div class="dash-clear-sub">No overdue or pending rental payments at this moment.</div>
-      </div>`;
-    }
+      }).join('')}
+    </div>
+    `;
 
     document.getElementById('page-dashboard').innerHTML = html;
   },
 
-  /* CUSTOMERS */
-  renderCustomers(query) {
+  /* CUSTOMERS / RENTALS LIST (OPS CONSOLE REDESIGN) */
+  renderCustomers(query, filter = 'all') {
     let list = state.customers;
-    if (query) {
-      const q = query.toLowerCase().trim();
+    const q = (query !== undefined ? query : (document.getElementById('customerSearch')?.value || '')).trim().toLowerCase();
+    
+    if (q) {
       list = list.filter(c => c.name.toLowerCase().includes(q) || cleanPhone(c.phone).includes(cleanPhone(q)) || (c.address && c.address.toLowerCase().includes(q)));
     }
+
+    const activeList = state.customers.filter(c => customerActiveRentals(c.id).length > 0);
+    const overdueList = state.customers.filter(c => customerActiveRentals(c.id).some(r => rentalStatus(r).isOverdue));
+    const inactiveList = state.customers.filter(c => customerActiveRentals(c.id).length === 0);
+
+    if (filter === 'active') list = list.filter(c => customerActiveRentals(c.id).length > 0);
+    else if (filter === 'overdue') list = list.filter(c => customerActiveRentals(c.id).some(r => rentalStatus(r).isOverdue));
+    else if (filter === 'inactive') list = list.filter(c => customerActiveRentals(c.id).length === 0);
+
     list.sort((a, b) => a.name.localeCompare(b.name));
 
     let html = `
-    <div class="search-bar">
-      <input type="search" id="customerSearch" placeholder="Search by name, phone, or location..." value="${escHtml(query || '')}" oninput="UI.renderCustomers(this.value)">
-      <button onclick="UI.showAddCustomerModal()">+ Add</button>
+    <!-- Top Live Search Bar -->
+    <div class="search-input-wrap">
+      <div class="search-icon-inside">${Icons.search}</div>
+      <input type="search" id="customerSearch" class="ops-search-input" placeholder="Search clients, phone, address..." value="${escHtml(q)}" oninput="UI.renderCustomers(this.value, '${filter}')">
+    </div>
+
+    <!-- Client Status Filter Pills -->
+    <div class="brand-pills-scroll">
+      <button class="brand-pill ${filter === 'all' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'all')">All (${state.customers.length})</button>
+      <button class="brand-pill ${filter === 'active' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'active')">Active Rentals (${activeList.length})</button>
+      <button class="brand-pill ${filter === 'overdue' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'overdue')">Overdue (${overdueList.length})</button>
+      <button class="brand-pill ${filter === 'inactive' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'inactive')">No Active Rental (${inactiveList.length})</button>
+    </div>
+
+    <!-- Section Count & Add Client Command -->
+    <div class="section-head">
+      <div class="section-title">Client directory</div>
+      <div class="section-count">${list.length} client${list.length === 1 ? '' : 's'}</div>
     </div>`;
 
     if (list.length === 0) {
-      html += `<div class="empty-state"><div class="empty-icon">&#128100;</div><p>${query ? 'No matching customers found' : 'No customers registered yet. Tap "+ Add" to create your first customer.'}</p></div>`;
+      html += `
+      <div class="ops-list">
+        <div class="ops-empty">
+          <div class="ops-empty-icon">${Icons.rentals}</div>
+          <div class="ops-empty-title">No matching clients</div>
+          <div class="ops-empty-sub">${q ? 'Try a different search keyword.' : 'No clients registered yet in your console.'}</div>
+          <button class="btn btn-primary btn-micro" style="margin-top:12px;padding:8px 16px" onclick="UI.showAddCustomerModal()">+ Add client</button>
+        </div>
+      </div>`;
     } else {
-      html += `<div class="card">`;
+      html += `<div class="ops-list">`;
       list.forEach(c => {
         const active = customerActiveRentals(c.id);
-        const allRentals = customerAllRentals(c.id);
-        let statusBadge = '';
+        const hasOverdue = active.some(r => rentalStatus(r).isOverdue);
+        const totalOutstanding = active.reduce((s, r) => s + rentalStatus(r).outstanding, 0);
+
+        let statusText = 'No active rental';
+        let statusClass = 'muted';
         if (active.length > 0) {
-          const hasOverdue = active.some(r => rentalStatus(r).isOverdue);
-          statusBadge = hasOverdue 
-            ? `<span class="badge badge-danger">${active.length} active (Overdue)</span>` 
-            : `<span class="badge badge-success">${active.length} active</span>`;
-        } else if (allRentals.length > 0) {
-          statusBadge = `<span class="badge badge-gray">Closed</span>`;
-        } else {
-          statusBadge = `<span class="badge badge-gray">No rentals</span>`;
+          if (hasOverdue) {
+            const worstOverdue = Math.max(...active.map(r => rentalStatus(r).daysOverdue));
+            statusText = `Overdue ${worstOverdue}d`;
+            statusClass = 'danger';
+          } else {
+            statusText = `${active.length} active`;
+            statusClass = 'ok';
+          }
+        }
+
+        // Subtitle line summarizing active devices
+        let subText = `📞 ${escHtml(fmtPhone(c.phone))}`;
+        if (active.length > 0) {
+          const deviceNames = active.map(r => {
+            const it = getItem(r.itemId);
+            return it ? getItemFullTitle(it) : 'Device';
+          }).join(', ');
+          subText += ` &middot; ${escHtml(deviceNames)}`;
+        } else if (c.address) {
+          subText += ` &middot; ${escHtml(c.address)}`;
         }
 
         html += `
-        <div class="list-item" onclick="UI.pushPage('customer-detail', '${c.id}')">
-          <div class="item-info">
-            <div class="item-name">${escHtml(c.name)}</div>
-            <div class="item-sub">
-              📞 ${escHtml(fmtPhone(c.phone))}
-              ${c.address ? ` &middot; 📍 ${escHtml(c.address)}` : ''}
-            </div>
+        <div class="ops-row" onclick="UI.pushPage('customer-detail', '${c.id}')">
+          <div class="ops-row-status">
+            <span class="ops-status-badge ${statusClass}">
+              <span class="status-dot ${statusClass}"></span>
+              ${statusText}
+            </span>
           </div>
-          <div class="item-right">
-            ${statusBadge}
+          <div class="ops-row-main">
+            <div class="ops-row-title">${escHtml(c.name)}</div>
+            <div class="ops-row-sub">${subText}</div>
+          </div>
+          <div class="ops-row-end">
+            ${totalOutstanding > 0 ? `
+              <div class="ops-row-amount danger">
+                ${fmtCurrency(totalOutstanding)}
+              </div>
+            ` : active.length > 0 ? `
+              <div class="ops-row-amount" style="color:var(--status-ok)">
+                ${fmtCurrency(active.reduce((s, r) => s + (r.rentAmount || 0), 0))}
+              </div>
+            ` : ''}
+            <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppReminder('${c.phone}', 'Hello ${c.name}, from TechTrove Systems.')" title="Message Client">
+              ${Icons.whatsapp}
+              <span>WA</span>
+            </button>
           </div>
         </div>`;
       });
@@ -897,144 +924,255 @@ const UI = {
     document.getElementById('page-customers').innerHTML = html;
   },
 
-  /* CUSTOMER DETAIL */
+  /* CUSTOMER & RENTAL DETAIL (OPS CONSOLE REDESIGN) */
   renderCustomerDetail(customerId) {
     const c = getCustomer(customerId);
-    if (!c) { UI.showToast('Customer not found', 'error'); UI.goBack(); return; }
+    if (!c) { UI.showToast('Client not found', 'error'); UI.goBack(); return; }
 
     const rentals = customerAllRentals(customerId);
     const allPayments = customerPayments(customerId);
     const activeRentals = rentals.filter(isActiveRental);
+    const totalOutstanding = activeRentals.reduce((s, r) => s + rentalStatus(r).outstanding, 0);
 
     let html = `
-    <div class="detail-header card" style="text-align:left;padding:16px">
+    <!-- Top Client Card -->
+    <div class="card" style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
-          <h2>${escHtml(c.name)}</h2>
-          <div style="margin-top:4px">
-            <a href="tel:${escHtml(c.phone)}" class="detail-phone">📞 ${escHtml(fmtPhone(c.phone))}</a>
-            <button class="btn btn-sm btn-whatsapp" style="margin-left:8px;padding:4px 8px;min-height:28px" onclick="openWhatsAppReminder('${c.phone}', 'Hello ${c.name}, from TechTrove Systems.')">
-              💬 WhatsApp
-            </button>
+          <h2 style="font-size:1.15rem;font-weight:700;letter-spacing:-0.3px;color:var(--text-primary)">${escHtml(c.name)}</h2>
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-top:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <a href="tel:${escHtml(c.phone)}" style="color:var(--accent);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:3px">
+              ${Icons.phone}
+              <span>${escHtml(fmtPhone(c.phone))}</span>
+            </a>
+            ${c.address ? `<span>&middot; ${escHtml(c.address)}</span>` : ''}
           </div>
-          ${c.address ? `<div class="detail-address" style="margin-top:6px">📍 ${escHtml(c.address)}</div>` : ''}
+        </div>
+        <div style="text-align:right">
+          <span class="status-pill ${activeRentals.length > 0 ? (totalOutstanding > 0 ? 'danger' : 'ok') : 'muted'}">
+            <span class="status-dot ${activeRentals.length > 0 ? (totalOutstanding > 0 ? 'danger' : 'ok') : 'muted'}"></span>
+            ${activeRentals.length > 0 ? `${activeRentals.length} active rental${activeRentals.length === 1 ? '' : 's'}` : 'No active rentals'}
+          </span>
         </div>
       </div>
-      <div style="margin-top:14px;display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn btn-sm btn-primary" onclick="UI.showNewRentalModal('${c.id}')">+ New Rental</button>
-        <button class="btn btn-sm btn-outline-primary" onclick="UI.showEditCustomerModal('${c.id}')">Edit Customer</button>
-        ${activeRentals.length > 0 ? `<button class="btn btn-sm btn-success" onclick="UI.showLogPaymentModal('${c.id}')">Log Payment</button>` : ''}
-        <button class="btn btn-sm btn-outline" onclick="UI.deleteCustomer('${c.id}')" style="color:var(--danger);border-color:var(--danger)">Delete</button>
+
+      <!-- Quick Action Toolbar -->
+      <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-micro" onclick="openWhatsAppReminder('${c.phone}', 'Hello ${c.name}, from TechTrove Systems.')">
+          ${Icons.whatsapp}
+          <span>WhatsApp reminder</span>
+        </button>
+        <a href="tel:${escHtml(c.phone)}" class="btn btn-outline btn-micro" style="text-decoration:none">
+          ${Icons.phone}
+          <span>Call client</span>
+        </a>
+        <button class="btn btn-outline btn-micro" onclick="UI.showNewRentalModal('${c.id}')">
+          ${Icons.plus}
+          <span>+ New rental</span>
+        </button>
+        <button class="btn btn-outline btn-micro" onclick="UI.showEditCustomerModal('${c.id}')">
+          Edit
+        </button>
+        <button class="btn btn-outline btn-micro" onclick="UI.deleteCustomer('${c.id}')" style="color:var(--status-danger);border-color:var(--status-danger-border);margin-left:auto">
+          Delete
+        </button>
       </div>
     </div>`;
 
-    /* Active Rentals */
-    if (activeRentals.length > 0) {
-      html += `<div class="detail-section"><h3>Active Rentals (${activeRentals.length})</h3>`;
+    /* Active Rentals Section */
+    html += `
+    <div class="section-head">
+      <div class="section-title">Active agreements</div>
+      <div class="section-count">${activeRentals.length} device${activeRentals.length === 1 ? '' : 's'}</div>
+    </div>`;
+
+    if (activeRentals.length === 0) {
+      html += `
+      <div class="ops-list" style="margin-bottom:14px">
+        <div class="ops-empty">
+          <div class="ops-empty-icon">${Icons.rentals}</div>
+          <div class="ops-empty-title">No active rentals</div>
+          <div class="ops-empty-sub">This client currently has no equipment assigned.</div>
+          <button class="btn btn-primary btn-micro" style="margin-top:10px;padding:6px 14px" onclick="UI.showNewRentalModal('${c.id}')">+ Start new rental</button>
+        </div>
+      </div>`;
+    } else {
       activeRentals.forEach(r => {
         const st = rentalStatus(r);
         const item = getItem(r.itemId);
         const itemTitle = getItemFullTitle(item);
         const waMsg = buildWaReminderMessage(c, r, item, st);
-        let statusClass = st.isOverdue ? 'overdue' : st.isDueSoon ? 'due-soon' : 'current';
 
         html += `
-        <div class="rental-card ${statusClass}">
-          <div class="rental-row">
-            <span class="rental-label">Device</span>
-            <span class="rental-value">${escHtml(itemTitle)} <span class="badge badge-primary">${item ? item.type : 'Device'}</span></span>
-          </div>
-          ${item && item.specs ? `<div style="margin:4px 0"><span class="item-specs-chip">${escHtml(item.specs)}</span></div>` : ''}
-          ${item && item.serial ? `<div class="rental-row"><span class="rental-label">Serial / Asset</span><span class="rental-value">${escHtml(item.serial)}</span></div>` : ''}
-          <div class="rental-row">
-            <span class="rental-label">Rent Amount</span>
-            <span class="rental-value">${fmtCurrency(r.rentAmount)} / ${r.billingCycle}${r.billingCycle === 'custom' ? ` (${r.customDays}d)` : ''}</span>
-          </div>
-          <div class="rental-row">
-            <span class="rental-label">${st.isOverdue ? 'Overdue Since' : 'Next Due Date'}</span>
-            <span class="rental-value">
-              ${st.isOverdue 
-                ? `<span style="color:var(--danger)">${fmtDate(st.nextDueDate)}</span> <span class="badge badge-danger">${st.daysOverdue}d overdue</span>` 
-                : st.isDueSoon 
-                ? `${fmtDate(st.nextDueDate)} <span class="badge badge-warning">${st.daysUntilDue === 0 ? 'Due today' : `In ${st.daysUntilDue}d`}</span>` 
-                : fmtDate(st.nextDueDate)}
-            </span>
-          </div>
-          <div class="rental-row">
-            <span class="rental-label">Outstanding</span>
-            <span class="rental-value" style="color:${st.outstanding > 0 ? 'var(--danger)' : 'var(--success)'}">
-              ${fmtCurrency(st.outstanding)}
-            </span>
-          </div>
-          <div class="rental-row">
-            <span class="rental-label">Rental Started</span>
-            <span class="rental-value" style="font-weight:400;font-size:.85rem">${fmtDate(r.startDate)}</span>
+        <div class="card" style="margin-bottom:12px;border-left:3px solid ${st.isOverdue ? 'var(--status-danger)' : st.isDueSoon ? 'var(--status-warn)' : 'var(--status-ok)'}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-weight:700;font-size:0.96rem;color:var(--text-primary)">${escHtml(itemTitle)} <span class="status-pill muted" style="font-size:0.65rem;padding:1px 5px">${item ? item.type : 'Device'}</span></div>
+              <div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px">SN: <span class="tnum" style="color:var(--text-primary);font-weight:600">${escHtml(item ? item.serial : 'N/A')}</span>${item && item.specs ? ` &middot; ${escHtml(item.specs)}` : ''}</div>
+            </div>
+            <div style="text-align:right">
+              <span class="ops-status-badge ${st.isOverdue ? 'danger' : st.isDueSoon ? 'warn' : 'ok'}">
+                <span class="status-dot ${st.isOverdue ? 'danger' : st.isDueSoon ? 'warn' : 'ok'}"></span>
+                ${st.isOverdue ? `Overdue ${st.daysOverdue}d` : st.isDueSoon ? `Due in ${st.daysUntilDue}d` : 'Current'}
+              </span>
+            </div>
           </div>
 
-          <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn btn-sm btn-primary" onclick="UI.showLogPaymentModal('${c.id}','${r.id}')">💳 Log Payment</button>
-            <button class="btn btn-sm btn-whatsapp-outline" onclick="openWhatsAppReminder('${c.phone}', \`${waMsg.replace(/`/g, '\\`')}\`)">💬 WhatsApp</button>
-            <button class="btn btn-sm btn-outline" onclick="UI.showEditRentalModal('${r.id}')">Edit</button>
-            <button class="btn btn-sm btn-outline" onclick="UI.showCloseRentalModal('${r.id}')" style="color:var(--danger)">Close Rental</button>
+          <!-- Parameter Grid -->
+          <div class="ops-param-grid">
+            <div class="ops-param-item">
+              <span class="ops-param-label">Rent rate</span>
+              <span class="ops-param-value tnum">${fmtCurrency(r.rentAmount)} / ${r.billingCycle}${r.billingCycle === 'custom' ? ` (${r.customDays}d)` : ''}</span>
+            </div>
+            <div class="ops-param-item">
+              <span class="ops-param-label">Outstanding balance</span>
+              <span class="ops-param-value tnum" style="color:${st.outstanding > 0 ? 'var(--status-danger)' : 'var(--status-ok)'}">
+                ${fmtCurrency(st.outstanding)}
+              </span>
+            </div>
+            <div class="ops-param-item">
+              <span class="ops-param-label">Next due date</span>
+              <span class="ops-param-value tnum">${fmtDate(st.nextDueDate)}</span>
+            </div>
+            <div class="ops-param-item">
+              <span class="ops-param-label">Agreement started</span>
+              <span class="ops-param-value tnum">${fmtDate(r.startDate)}</span>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-micro" onclick="UI.showLogPaymentModal('${c.id}','${r.id}')">
+              ${Icons.payment}
+              <span>Log payment</span>
+            </button>
+            <button class="btn-micro btn-micro-wa" onclick="openWhatsAppReminder('${c.phone}', \`${waMsg.replace(/`/g, '\\`')}\`)">
+              ${Icons.whatsapp}
+              <span>WA reminder</span>
+            </button>
+            <button class="btn btn-outline btn-micro" onclick="UI.showEditRentalModal('${r.id}')">
+              Edit
+            </button>
+            <button class="btn btn-outline btn-micro" onclick="UI.showCloseRentalModal('${r.id}')" style="color:var(--status-danger)">
+              Close rental
+            </button>
+          </div>
+        </div>`;
+      });
+    }
+
+    /* Past Closed Rentals */
+    const closedRentals = rentals.filter(r => !isActiveRental(r));
+    if (closedRentals.length > 0) {
+      html += `
+      <div class="section-head">
+        <div class="section-title">Past agreements</div>
+        <div class="section-count">${closedRentals.length} closed</div>
+      </div>
+      <div class="ops-list" style="margin-bottom:14px">`;
+      closedRentals.forEach(r => {
+        const item = getItem(r.itemId);
+        html += `
+        <div class="ops-row">
+          <div class="ops-row-status">
+            <span class="ops-status-badge muted">
+              <span class="status-dot muted"></span>
+              Closed
+            </span>
+          </div>
+          <div class="ops-row-main">
+            <div class="ops-row-title">${escHtml(getItemFullTitle(item))}</div>
+            <div class="ops-row-sub">${fmtDate(r.startDate)} &mdash; ${fmtDate(r.endDate)}</div>
           </div>
         </div>`;
       });
       html += `</div>`;
     }
 
-    /* Past Rentals */
-    const closedRentals = rentals.filter(r => !isActiveRental(r));
-    if (closedRentals.length > 0) {
-      html += `<div class="detail-section"><h3>Past Rentals</h3><div class="card">`;
-      closedRentals.forEach(r => {
-        const item = getItem(r.itemId);
-        html += `
-        <div class="list-item">
-          <div class="item-info">
-            <div class="item-name">${escHtml(getItemFullTitle(item))}</div>
-            <div class="item-sub">${fmtDate(r.startDate)} — ${fmtDate(r.endDate)}</div>
-          </div>
-          <div class="item-right"><span class="badge badge-gray">Closed</span></div>
-        </div>`;
-      });
-      html += `</div></div>`;
-    }
+    /* Payment History Compact Timeline */
+    html += `
+    <div class="section-head">
+      <div class="section-title">Payment history</div>
+      <div class="section-count">${allPayments.length} record${allPayments.length === 1 ? '' : 's'}</div>
+    </div>`;
 
-    /* Payment History */
-    html += `<div class="detail-section"><h3>Payment History (${allPayments.length})</h3>`;
     if (allPayments.length === 0) {
-      html += `<div class="empty-state card" style="padding:20px"><p>No payments recorded yet.</p></div>`;
+      html += `
+      <div class="ops-list">
+        <div class="ops-empty">
+          <div class="ops-empty-icon">${Icons.payment}</div>
+          <div class="ops-empty-title">No payments logged</div>
+          <div class="ops-empty-sub">Payments logged for this client will appear on this timeline.</div>
+        </div>
+      </div>`;
     } else {
-      html += `<div class="card">`;
+      html += `<div class="ops-timeline">`;
       allPayments.forEach(p => {
         const r = getRental(p.rentalId);
         const item = r ? getItem(r.itemId) : null;
         html += `
-        <div class="payment-item">
-          <div class="pay-amount">${fmtCurrency(p.amount)}</div>
-          <div class="pay-info">
-            <div class="pay-date">${fmtDate(p.date)}${item ? ' &middot; ' + escHtml(getItemFullTitle(item)) : ''}</div>
-            <div class="pay-method">${escHtml(p.method || 'Cash / UPI')}${p.remarks ? ' &middot; ' + escHtml(p.remarks) : ''}</div>
-          </div>
-          <div class="pay-actions">
-            <button onclick="UI.showEditPaymentModal('${p.id}')" title="Edit">&#9998;</button>
-            <button onclick="UI.deletePayment('${p.id}')" title="Delete" style="color:var(--danger)">&#10005;</button>
+        <div class="ops-timeline-item">
+          <div class="ops-timeline-node"></div>
+          <div class="ops-timeline-content">
+            <div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span class="tnum" style="font-weight:700;font-size:0.95rem;color:var(--status-ok)">+ ${fmtCurrency(p.amount)}</span>
+                <span class="status-pill muted" style="font-size:0.68rem;padding:1px 6px">${escHtml(p.method || 'Cash / UPI')}</span>
+              </div>
+              <div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px">
+                <span class="tnum">${fmtDate(p.date)}</span>${item ? ` &middot; ${escHtml(getItemFullTitle(item))}` : ''}${p.remarks ? ` &middot; <em>${escHtml(p.remarks)}</em>` : ''}
+              </div>
+            </div>
+            <div style="display:flex;gap:4px">
+              <button class="btn-micro" onclick="UI.showEditPaymentModal('${p.id}')" title="Edit payment">
+                ✏️
+              </button>
+              <button class="btn-micro" onclick="UI.deletePayment('${p.id}')" style="color:var(--status-danger)" title="Delete payment">
+                &times;
+              </button>
+            </div>
           </div>
         </div>`;
       });
       html += `</div>`;
     }
-    html += `</div>`;
 
     document.getElementById('page-customer-detail').innerHTML = html;
   },
 
-  /* INVENTORY */
-  renderInventory(filter) {
-    if (filter) filterState.inventory = filter;
-    else filter = filterState.inventory;
+  /* INVENTORY (OPS CONSOLE REDESIGN) */
+  renderInventory(filter, brandFilter, searchQuery) {
+    if (filter !== undefined) filterState.inventory = filter;
+    else filter = filterState.inventory || 'all';
+    
+    if (brandFilter !== undefined) filterState.brand = brandFilter;
+    else brandFilter = filterState.brand || 'all';
+
     let list = state.items;
-    if (filter && filter !== 'all') list = list.filter(i => i.status === filter);
+    
+    // Status filter
+    if (filter && filter !== 'all') {
+      list = list.filter(i => i.status === filter);
+    }
+    
+    // Brand filter
+    if (brandFilter && brandFilter !== 'all') {
+      if (brandFilter === 'Monitors') {
+        list = list.filter(i => (i.type || '').toLowerCase() === 'monitor');
+      } else {
+        list = list.filter(i => (i.brand || '').toLowerCase().includes(brandFilter.toLowerCase()));
+      }
+    }
+
+    // Search query filter
+    const query = (searchQuery !== undefined ? searchQuery : (document.getElementById('inventorySearchInput')?.value || '')).trim().toLowerCase();
+    if (query) {
+      list = list.filter(i => {
+        const full = `${i.brand || ''} ${i.model || ''} ${i.serial || ''} ${i.specs || ''} ${i.type || ''}`.toLowerCase();
+        return full.includes(query);
+      });
+    }
+
     list.sort((a, b) => (a.brand || '').localeCompare(b.brand || ''));
 
     const availableCount = state.items.filter(i => i.status === 'available').length;
@@ -1042,93 +1180,127 @@ const UI = {
     const repairCount = state.items.filter(i => i.status === 'repair').length;
 
     let html = `
-    <div class="filter-bar">
-      <button class="filter-btn ${filter === 'all' ? 'active' : ''}" onclick="UI.renderInventory('all')">All (${state.items.length})</button>
-      <button class="filter-btn ${filter === 'available' ? 'active' : ''}" onclick="UI.renderInventory('available')">Available (${availableCount})</button>
-      <button class="filter-btn ${filter === 'rented' ? 'active' : ''}" onclick="UI.renderInventory('rented')">Rented (${rentedCount})</button>
-      <button class="filter-btn ${filter === 'repair' ? 'active' : ''}" onclick="UI.renderInventory('repair')" style="${repairCount > 0 ? 'color:var(--purple);border-color:var(--purple)' : ''}">Under Repair (${repairCount})</button>
+    <!-- Top Live Search Bar -->
+    <div class="search-input-wrap">
+      <div class="search-icon-inside">${Icons.search}</div>
+      <input type="text" id="inventorySearchInput" class="ops-search-input" placeholder="Search models, serials, specs..." value="${escHtml(query)}" oninput="UI.renderInventory(undefined, undefined, this.value)">
+    </div>
+
+    <!-- Brand & Status Filter Pills (Horizontal Scroll) -->
+    <div class="brand-pills-scroll">
+      <button class="brand-pill ${filter === 'all' && brandFilter === 'all' ? 'active' : ''}" onclick="UI.renderInventory('all', 'all')">All (${state.items.length})</button>
+      <button class="brand-pill ${filter === 'available' ? 'active' : ''}" onclick="UI.renderInventory('available', 'all')">Available (${availableCount})</button>
+      <button class="brand-pill ${filter === 'rented' ? 'active' : ''}" onclick="UI.renderInventory('rented', 'all')">Rented (${rentedCount})</button>
+      <button class="brand-pill ${filter === 'repair' ? 'active' : ''}" onclick="UI.renderInventory('repair', 'all')">In Repair (${repairCount})</button>
+      <button class="brand-pill ${brandFilter === 'Dell' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Dell')">Dell</button>
+      <button class="brand-pill ${brandFilter === 'Lenovo' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Lenovo')">Lenovo</button>
+      <button class="brand-pill ${brandFilter === 'HP' ? 'active' : ''}" onclick="UI.renderInventory('all', 'HP')">HP</button>
+      <button class="brand-pill ${brandFilter === 'Apple' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Apple')">Apple</button>
+      <button class="brand-pill ${brandFilter === 'Monitors' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Monitors')">Monitors</button>
+    </div>
+
+    <!-- Section Count & Add Device Command -->
+    <div class="section-head">
+      <div class="section-title">Fleet inventory</div>
+      <div class="section-count">${list.length} item${list.length === 1 ? '' : 's'}</div>
     </div>`;
 
     if (list.length === 0) {
-      html += `<div class="empty-state"><div class="empty-icon">&#128187;</div><p>${filter === 'all' ? 'No laptops or computers added yet. Tap "+ Add Laptop / PC" below!' : filter === 'repair' ? 'No machines currently under repair.' : 'No items found matching this filter.'}</p><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="UI.showAddItemModal()">+ Add Laptop / PC</button></div>`;
+      html += `
+      <div class="ops-list">
+        <div class="ops-empty">
+          <div class="ops-empty-icon">${Icons.inventory}</div>
+          <div class="ops-empty-title">No matching inventory</div>
+          <div class="ops-empty-sub">${query ? 'Try a different search query or clear filters.' : 'No devices found in this category.'}</div>
+          <button class="btn btn-primary btn-micro" style="margin-top:12px;padding:8px 16px" onclick="UI.showAddItemModal()">+ Add device</button>
+        </div>
+      </div>`;
     } else {
-      html += `<div class="card">`;
+      html += `<div class="ops-list">`;
       list.forEach(i => {
         const rental = getActiveRentalForItem(i.id);
         const customer = rental ? getCustomer(rental.customerId) : null;
-        const statusBadge = i.status === 'available' ? 'badge-success' : i.status === 'rented' ? 'badge-primary' : 'badge-purple';
-        const statusLabel = i.status === 'available' ? 'Available' : i.status === 'rented' ? 'Rented' : 'Under Repair';
+        const isAvail = i.status === 'available';
+        const isRented = i.status === 'rented';
+        const isRepair = i.status === 'repair';
         const itemTitle = getItemFullTitle(i);
 
-        let rentalInfoHtml = '';
-        if (rental && customer) {
+        let subLine = `SN: <span class="tnum" style="color:var(--text-primary);font-weight:600">${escHtml(i.serial)}</span>`;
+        if (i.specs) subLine += ` &middot; ${escHtml(i.specs)}`;
+
+        let secondaryInfoHtml = '';
+        if (isRented && customer && rental) {
           const st = rentalStatus(rental);
-          const waMsg = buildWaReminderMessage(customer, rental, i, st);
-          rentalInfoHtml = `
-          <div class="item-assigned-box">
-            <div class="item-assigned-header">
-              <span class="item-assigned-user">👤 ${escHtml(customer.name)}</span>
-              <span class="badge ${st.isOverdue ? 'badge-danger' : st.isDueSoon ? 'badge-warning' : 'badge-success'}">
-                ${st.isOverdue ? `${st.daysOverdue}d Overdue` : `Due ${fmtDate(st.nextDueDate)}`}
-              </span>
+          secondaryInfoHtml = `
+          <div style="margin-top:6px;padding:6px 8px;background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.74rem;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <span style="font-weight:600;color:var(--text-primary)">Rented to ${escHtml(customer.name)}</span>
+              <span style="color:var(--text-muted);margin-left:6px">&middot; ${fmtCurrency(rental.rentAmount)}/${rental.billingCycle}</span>
             </div>
-            <div class="item-assigned-meta">
-              <a href="tel:${escHtml(customer.phone)}" class="phone-link">📞 ${escHtml(fmtPhone(customer.phone))}</a>
-              ${customer.address ? `<span class="loc-tag">📍 ${escHtml(customer.address)}</span>` : ''}
-              <span>Rent: ${fmtCurrency(rental.rentAmount)}/${rental.billingCycle}</span>
-            </div>
-            <div style="margin-top:6px;display:flex;gap:6px">
-              <button class="btn btn-sm btn-whatsapp-outline" style="padding:2px 8px;min-height:26px;font-size:.75rem" onclick="event.stopPropagation();openWhatsAppReminder('${customer.phone}', \`${waMsg.replace(/`/g, '\\`')}\`)">💬 WhatsApp</button>
-              <button class="btn btn-sm btn-primary" style="padding:2px 8px;min-height:26px;font-size:.75rem" onclick="event.stopPropagation();UI.showLogPaymentModal('${customer.id}', '${rental.id}')">💳 Payment</button>
-              <button class="btn btn-sm btn-outline" style="padding:2px 8px;min-height:26px;font-size:.75rem" onclick="event.stopPropagation();UI.pushPage('customer-detail', '${customer.id}')">View Client</button>
+            <div style="display:flex;gap:4px">
+              <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppReminder('${customer.phone}', \`${buildWaReminderMessage(customer, rental, i, st).replace(/`/g, '\\`')}\`)">
+                ${Icons.whatsapp}
+                <span>WA</span>
+              </button>
+              <button class="btn-micro" onclick="event.stopPropagation();UI.pushPage('customer-detail', '${customer.id}')">
+                Client
+              </button>
             </div>
           </div>`;
-        }
-
-        /* UNDER REPAIR INFO BOX */
-        let repairInfoHtml = '';
-        if (i.status === 'repair' && i.repairInfo) {
+        } else if (isRepair && i.repairInfo) {
           const rep = i.repairInfo;
           const daysAtService = rep.givenToServiceDate ? Math.max(0, daysBetween(rep.givenToServiceDate, today())) : 0;
-          repairInfoHtml = `
-          <div class="item-repair-box">
-            <div class="item-repair-header">
-              <span class="item-repair-title">🛠️ Service Center: ${escHtml(rep.serviceCenter || 'Under Repair')}</span>
-              <span class="badge badge-purple">${daysAtService}d at service</span>
+          secondaryInfoHtml = `
+          <div style="margin-top:6px;padding:6px 8px;background:var(--surface-raised);border:1px dashed var(--status-danger-border);border-radius:var(--radius-sm);font-size:0.74rem">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:600;color:var(--status-danger)">${escHtml(rep.serviceCenter || 'Service Center')} &middot; ${daysAtService}d at service</span>
+              ${rep.repairCost ? `<span class="tnum" style="font-weight:600;color:var(--text-primary)">Est: ${fmtCurrency(rep.repairCost)}</span>` : ''}
             </div>
-            <div class="item-repair-meta">
-              ${rep.servicePerson || rep.servicePhone ? `
-                <div class="repair-detail-row">
-                  <span><strong>Technician:</strong> ${escHtml(rep.servicePerson || 'Service Tech')}</span>
-                  ${rep.servicePhone ? `<a href="tel:${escHtml(rep.servicePhone)}" class="phone-link" onclick="event.stopPropagation()">📞 ${escHtml(fmtPhone(rep.servicePhone))}</a>` : ''}
-                </div>` : ''}
-              ${rep.givenToServiceDate ? `<div class="repair-detail-row"><span><strong>Handover Date:</strong> ${fmtDate(rep.givenToServiceDate)}</span>${rep.expectedReturnDate ? `<span><strong>Return Est:</strong> ${fmtDate(rep.expectedReturnDate)}</span>` : ''}</div>` : ''}
-              ${rep.collectedFromCustomerDate ? `<div class="repair-detail-row"><span><strong>Collected from customer:</strong> ${fmtDate(rep.collectedFromCustomerDate)}</span></div>` : ''}
-              ${rep.repairIssue ? `<div style="margin-top:2px"><span class="repair-issue-tag">Issue: ${escHtml(rep.repairIssue)}</span></div>` : ''}
-              ${rep.repairCost ? `<div style="font-weight:600;color:var(--gray-800);margin-top:2px">Est. Cost: ${fmtCurrency(rep.repairCost)}</div>` : ''}
+            <div style="color:var(--text-muted);margin-top:2px">
+              Tech: ${escHtml(rep.servicePerson || 'Technician')}${rep.servicePhone ? ` (${escHtml(fmtPhone(rep.servicePhone))})` : ''}
+              ${rep.repairIssue ? ` &middot; Issue: ${escHtml(rep.repairIssue)}` : ''}
             </div>
-            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
-              ${rep.servicePhone ? `<button class="btn btn-sm btn-whatsapp-outline" style="padding:3px 8px;min-height:26px;font-size:.75rem" onclick="event.stopPropagation();openWhatsAppTech('${rep.servicePhone}', '${escHtml(itemTitle)}', '${escHtml(i.serial)}', '${escHtml(rep.servicePerson)}')">💬 WhatsApp Tech</button>` : ''}
-              ${rep.servicePhone ? `<a href="tel:${escHtml(rep.servicePhone)}" class="btn btn-sm btn-call-outline" style="padding:3px 8px;min-height:26px;font-size:.75rem;text-decoration:none" onclick="event.stopPropagation()">📞 Call</a>` : ''}
-              <button class="btn btn-sm btn-success" style="padding:3px 10px;min-height:26px;font-size:.75rem" onclick="event.stopPropagation();UI.markItemRepaired('${i.id}')">✅ Mark Repaired</button>
+            <div style="margin-top:6px;display:flex;gap:4px">
+              ${rep.servicePhone ? `
+                <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppTech('${rep.servicePhone}', '${escHtml(itemTitle)}', '${escHtml(i.serial)}', '${escHtml(rep.servicePerson)}')">
+                  ${Icons.whatsapp}
+                  <span>WA Tech</span>
+                </button>
+                <a href="tel:${escHtml(rep.servicePhone)}" class="btn-micro" style="text-decoration:none" onclick="event.stopPropagation()">
+                  ${Icons.phone}
+                  <span>Call</span>
+                </a>
+              ` : ''}
+              <button class="btn-micro btn-micro-primary" onclick="event.stopPropagation();UI.markItemRepaired('${i.id}')">
+                ${Icons.check}
+                <span>Mark repaired</span>
+              </button>
             </div>
           </div>`;
         }
 
         html += `
-        <div class="list-item" style="flex-direction:column;align-items:stretch" onclick="UI.showEditItemModal('${i.id}')">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start">
-            <div>
-              <div class="item-name">${escHtml(itemTitle)} <span class="badge badge-gray" style="font-size:.65rem">${escHtml(i.type || 'Laptop')}</span></div>
-              <div class="item-sub">SN: <strong>${escHtml(i.serial)}</strong></div>
-              ${i.specs ? `<div class="item-specs-chip">${escHtml(i.specs)}</div>` : ''}
+        <div class="ops-row" style="flex-direction:column;align-items:stretch" onclick="UI.showEditItemModal('${i.id}')">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+            <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">
+              <span class="status-dot ${isAvail ? 'ok' : isRented ? 'warn' : 'danger'}"></span>
+              <div style="min-width:0">
+                <div class="ops-row-title">${escHtml(itemTitle)} <span class="status-pill muted" style="font-size:0.65rem;padding:1px 5px">${escHtml(i.type || 'Laptop')}</span></div>
+                <div class="ops-row-sub">${subLine}</div>
+              </div>
             </div>
-            <div class="item-right">
-              <span class="badge ${statusBadge}">${statusLabel}</span>
+            <div class="ops-row-end">
+              <span class="ops-status-badge ${isAvail ? 'ok' : isRented ? 'warn' : 'danger'}">
+                ${isAvail ? 'Available' : isRented ? 'Rented' : 'In Repair'}
+              </span>
+              ${isAvail ? `
+                <button class="btn-micro btn-micro-primary" onclick="event.stopPropagation();UI.showAddRentalWithItem('${i.id}')">
+                  + Rent
+                </button>
+              ` : ''}
             </div>
           </div>
-          ${rentalInfoHtml}
-          ${repairInfoHtml}
+          ${secondaryInfoHtml}
         </div>`;
       });
       html += `</div>`;
@@ -1137,27 +1309,182 @@ const UI = {
     document.getElementById('page-inventory').innerHTML = html;
   },
 
-  /* GLOBAL SEARCH */
+  /* REPAIRS TRACKER (OPS CONSOLE REDESIGN) */
+  renderRepairs(filter = 'all', searchQuery) {
+    let list = state.items.filter(i => i.status === 'repair');
+    const q = (searchQuery !== undefined ? searchQuery : (document.getElementById('repairsSearchInput')?.value || '')).trim().toLowerCase();
+
+    if (q) {
+      list = list.filter(i => {
+        const rep = i.repairInfo || {};
+        const full = `${i.brand || ''} ${i.model || ''} ${i.serial || ''} ${rep.serviceCenter || ''} ${rep.servicePerson || ''} ${rep.repairIssue || ''}`.toLowerCase();
+        return full.includes(q);
+      });
+    }
+
+    const totalInRepair = state.items.filter(i => i.status === 'repair').length;
+    const criticalList = state.items.filter(i => {
+      if (i.status !== 'repair') return false;
+      const d = i.repairInfo?.givenToServiceDate ? daysBetween(i.repairInfo.givenToServiceDate, today()) : 0;
+      return d >= 7;
+    });
+    const totalEstCost = list.reduce((sum, i) => sum + (parseFloat(i.repairInfo?.repairCost) || 0), 0);
+
+    if (filter === 'critical') {
+      list = list.filter(i => {
+        const d = i.repairInfo?.givenToServiceDate ? daysBetween(i.repairInfo.givenToServiceDate, today()) : 0;
+        return d >= 7;
+      });
+    }
+
+    list.sort((a, b) => {
+      const da = a.repairInfo?.givenToServiceDate ? daysBetween(a.repairInfo.givenToServiceDate, today()) : 0;
+      const db = b.repairInfo?.givenToServiceDate ? daysBetween(b.repairInfo.givenToServiceDate, today()) : 0;
+      return db - da;
+    });
+
+    let html = `
+    <!-- Top Live Search Bar -->
+    <div class="search-input-wrap">
+      <div class="search-icon-inside">${Icons.search}</div>
+      <input type="text" id="repairsSearchInput" class="ops-search-input" placeholder="Search service centers, technicians, issues..." value="${escHtml(q)}" oninput="UI.renderRepairs('${filter}', this.value)">
+    </div>
+
+    <!-- Repair Status Filter Pills -->
+    <div class="brand-pills-scroll">
+      <button class="brand-pill ${filter === 'all' ? 'active' : ''}" onclick="UI.renderRepairs('all')">All In Repair (${totalInRepair})</button>
+      <button class="brand-pill ${filter === 'critical' ? 'active' : ''}" onclick="UI.renderRepairs('critical')">Critical &gt;7d (${criticalList.length})</button>
+    </div>
+
+    <!-- Section Head with Count & Total Est Cost -->
+    <div class="section-head">
+      <div class="section-title">Active repair queue</div>
+      <div class="section-count">${list.length} item${list.length === 1 ? '' : 's'} ${totalEstCost > 0 ? `&middot; Est. ${fmtCurrency(totalEstCost)}` : ''}</div>
+    </div>`;
+
+    if (list.length === 0) {
+      html += `
+      <div class="ops-list">
+        <div class="ops-empty">
+          <div class="ops-empty-icon">${Icons.check}</div>
+          <div class="ops-empty-title">No equipment under repair</div>
+          <div class="ops-empty-sub">${q ? 'No service tickets match your search keyword.' : 'All devices across your fleet are fully operational.'}</div>
+        </div>
+      </div>`;
+    } else {
+      html += `<div class="ops-list">`;
+      list.forEach(i => {
+        const rep = i.repairInfo || {};
+        const daysAtService = rep.givenToServiceDate ? Math.max(0, daysBetween(rep.givenToServiceDate, today())) : 0;
+        const isCritical = daysAtService >= 7;
+        const itemTitle = getItemFullTitle(i);
+
+        html += `
+        <div class="ops-row" style="flex-direction:column;align-items:stretch" onclick="UI.showEditItemModal('${i.id}')">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span class="status-dot ${isCritical ? 'danger' : 'warn'}"></span>
+              <div>
+                <div class="ops-row-title">${escHtml(itemTitle)} <span class="status-pill muted" style="font-size:0.65rem;padding:1px 5px">${escHtml(i.type || 'Laptop')}</span></div>
+                <div class="ops-row-sub">SN: <span class="tnum" style="color:var(--text-primary);font-weight:600">${escHtml(i.serial)}</span> &middot; ${escHtml(rep.serviceCenter || 'Service Center')}</div>
+              </div>
+            </div>
+            <div class="ops-row-end">
+              <span class="ops-status-badge ${isCritical ? 'danger' : 'warn'}">
+                ${daysAtService}d at service
+              </span>
+            </div>
+          </div>
+
+          <!-- Parameter Matrix -->
+          <div class="ops-param-grid">
+            <div class="ops-param-item">
+              <span class="ops-param-label">Service center &amp; tech</span>
+              <span class="ops-param-value">${escHtml(rep.serviceCenter || 'N/A')}${rep.servicePerson ? ` (${escHtml(rep.servicePerson)})` : ''}</span>
+            </div>
+            <div class="ops-param-item">
+              <span class="ops-param-label">Estimated cost</span>
+              <span class="ops-param-value tnum">${rep.repairCost ? fmtCurrency(rep.repairCost) : 'Pending quote'}</span>
+            </div>
+            <div class="ops-param-item">
+              <span class="ops-param-label">Handover date</span>
+              <span class="ops-param-value tnum">${fmtDate(rep.givenToServiceDate)}</span>
+            </div>
+            <div class="ops-param-item">
+              <span class="ops-param-label">Expected return</span>
+              <span class="ops-param-value tnum">${rep.expectedReturnDate ? fmtDate(rep.expectedReturnDate) : 'Not specified'}</span>
+            </div>
+          </div>
+
+          ${rep.repairIssue ? `
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px">
+              <span style="font-weight:600;color:var(--text-primary)">Reported issue:</span> ${escHtml(rep.repairIssue)}
+            </div>
+          ` : ''}
+
+          <!-- Footer Actions -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${rep.servicePhone ? `
+              <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppTech('${rep.servicePhone}', '${escHtml(itemTitle)}', '${escHtml(i.serial)}', '${escHtml(rep.servicePerson)}')">
+                ${Icons.whatsapp}
+                <span>WhatsApp tech</span>
+              </button>
+              <a href="tel:${escHtml(rep.servicePhone)}" class="btn btn-outline btn-micro" style="text-decoration:none" onclick="event.stopPropagation()">
+                ${Icons.phone}
+                <span>Call</span>
+              </a>
+            ` : ''}
+            <button class="btn btn-outline btn-micro" onclick="event.stopPropagation();UI.showEditItemModal('${i.id}')">
+              Edit service info
+            </button>
+            <button class="btn btn-primary btn-micro" style="background:var(--status-ok);margin-left:auto" onclick="event.stopPropagation();UI.markItemRepaired('${i.id}')">
+              ${Icons.check}
+              <span>Mark repaired</span>
+            </button>
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    document.getElementById('page-repairs').innerHTML = html;
+  },
+
+  /* GLOBAL SEARCH (OPS CONSOLE REDESIGN) */
   renderSearch() {
     let html = `
-    <div class="search-bar">
-      <input type="search" id="globalSearchInput" placeholder="Search customer, phone, laptop model, specs, repair, SN..." oninput="UI.doSearch(this.value)">
-      <button onclick="document.getElementById('globalSearchInput').value='';UI.doSearch('')">Clear</button>
+    <!-- Top Live Search Bar -->
+    <div class="search-input-wrap">
+      <div class="search-icon-inside">${Icons.search}</div>
+      <input type="search" id="globalSearchInput" class="ops-search-input" placeholder="Search clients, phone, hardware models, serials, repairs..." oninput="UI.doSearch(this.value)">
     </div>
     <div id="searchResults">
-      <div class="empty-state"><p>Search by customer name, phone number, location, laptop model, specs, technician, service center, or serial number.</p></div>
+      <div class="ops-list">
+        <div class="ops-empty">
+          <div class="ops-empty-icon">${Icons.search}</div>
+          <div class="ops-empty-title">Global Fleet Search</div>
+          <div class="ops-empty-sub">Type a client name, mobile number, serial number, processor, or service center.</div>
+        </div>
+      </div>
     </div>`;
     document.getElementById('page-search').innerHTML = html;
     setTimeout(() => {
       const input = document.getElementById('globalSearchInput');
       if (input) input.focus();
-    }, 200);
+    }, 150);
   },
 
   doSearch(query) {
     const el = document.getElementById('searchResults');
     if (!query || query.trim().length < 1) {
-      el.innerHTML = '<div class="empty-state"><p>Search by customer name, phone number, location, laptop model, specs, technician, service center, or serial number.</p></div>';
+      el.innerHTML = `
+      <div class="ops-list">
+        <div class="ops-empty">
+          <div class="ops-empty-icon">${Icons.search}</div>
+          <div class="ops-empty-title">Global Fleet Search</div>
+          <div class="ops-empty-sub">Type a client name, mobile number, serial number, processor, or service center.</div>
+        </div>
+      </div>`;
       return;
     }
     const q = query.toLowerCase().trim();
@@ -1188,7 +1515,14 @@ const UI = {
     });
 
     if (matchedCustomers.length === 0 && matchedItems.length === 0) {
-      el.innerHTML = `<div class="empty-state"><p>No results found matching "<strong>${escHtml(query)}</strong>"</p></div>`;
+      el.innerHTML = `
+      <div class="ops-list">
+        <div class="ops-empty">
+          <div class="ops-empty-icon">${Icons.alert}</div>
+          <div class="ops-empty-title">No matching records</div>
+          <div class="ops-empty-sub">No clients or inventory items matched &ldquo;<strong>${escHtml(query)}</strong>&rdquo;</div>
+        </div>
+      </div>`;
       return;
     }
 
@@ -1196,163 +1530,219 @@ const UI = {
 
     /* RENDER MATCHED INVENTORY DEVICES */
     if (matchedItems.length > 0) {
-      html += `<div class="search-group-title">💻 Laptops &amp; Equipment Found (${matchedItems.length})</div>`;
+      html += `
+      <div class="section-head">
+        <div class="section-title">Hardware equipment found</div>
+        <div class="section-count">${matchedItems.length} result${matchedItems.length === 1 ? '' : 's'}</div>
+      </div>
+      <div class="ops-list" style="margin-bottom:14px">`;
       matchedItems.forEach(i => {
         const itemTitle = getItemFullTitle(i);
-        const rental = getActiveRentalForItem(i.id);
-        const customer = rental ? getCustomer(rental.customerId) : null;
-        const statusBadge = i.status === 'available' ? 'badge-success' : i.status === 'rented' ? 'badge-primary' : 'badge-purple';
-        const statusLabel = i.status === 'available' ? 'Available' : i.status === 'rented' ? 'Rented' : 'Under Repair';
-
-        let assignedHtml = '';
-        if (rental && customer) {
-          const st = rentalStatus(rental);
-          const waMsg = buildWaReminderMessage(customer, rental, i, st);
-          assignedHtml = `
-          <div class="item-assigned-box">
-            <div class="item-assigned-header">
-              <span class="item-assigned-user">👤 Currently with: <strong>${escHtml(customer.name)}</strong></span>
-              <span class="badge ${st.isOverdue ? 'badge-danger' : 'badge-success'}">${st.isOverdue ? `${st.daysOverdue}d Overdue` : `Due: ${fmtDate(st.nextDueDate)}`}</span>
-            </div>
-            <div class="item-assigned-meta">
-              <a href="tel:${escHtml(customer.phone)}" class="phone-link">📞 ${escHtml(fmtPhone(customer.phone))}</a>
-              ${customer.address ? `<span>📍 ${escHtml(customer.address)}</span>` : ''}
-              <span>₹${rental.rentAmount}/${rental.billingCycle}</span>
-            </div>
-            <div style="margin-top:6px;display:flex;gap:6px">
-              <button class="btn btn-sm btn-whatsapp-outline" style="padding:2px 8px;min-height:26px;font-size:.75rem" onclick="event.stopPropagation();openWhatsAppReminder('${customer.phone}', \`${waMsg.replace(/`/g, '\\`')}\`)">💬 WhatsApp</button>
-              <button class="btn btn-sm btn-primary" style="padding:2px 8px;min-height:26px;font-size:.75rem" onclick="event.stopPropagation();UI.showLogPaymentModal('${customer.id}', '${rental.id}')">💳 Log Payment</button>
-              <button class="btn btn-sm btn-outline" style="padding:2px 8px;min-height:26px;font-size:.75rem" onclick="event.stopPropagation();UI.pushPage('customer-detail', '${customer.id}')">View Customer</button>
-            </div>
-          </div>`;
-        }
-
-        let repairHtml = '';
-        if (i.status === 'repair' && i.repairInfo) {
-          const rep = i.repairInfo;
-          repairHtml = `
-          <div class="item-repair-box">
-            <div class="item-repair-header">
-              <span class="item-repair-title">🛠️ Service: ${escHtml(rep.serviceCenter || 'Under Repair')}</span>
-              <span class="badge badge-purple">Under Repair</span>
-            </div>
-            <div class="item-repair-meta">
-              ${rep.servicePerson ? `<div>Technician: <strong>${escHtml(rep.servicePerson)}</strong> &middot; ${rep.servicePhone ? `📞 ${escHtml(fmtPhone(rep.servicePhone))}` : ''}</div>` : ''}
-              ${rep.repairIssue ? `<div><span class="repair-issue-tag">Issue: ${escHtml(rep.repairIssue)}</span></div>` : ''}
-            </div>
-          </div>`;
-        }
+        const isAvail = i.status === 'available';
+        const isRented = i.status === 'rented';
 
         html += `
-        <div class="search-card-item" onclick="UI.showEditItemModal('${i.id}')">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start">
-            <div>
-              <div style="font-weight:700;font-size:.95rem">${escHtml(itemTitle)} <span class="badge badge-gray" style="font-size:.65rem">${escHtml(i.type)}</span></div>
-              <div style="font-size:.8rem;color:var(--gray-500);margin-top:1px">Serial: <strong>${escHtml(i.serial)}</strong></div>
-              ${i.specs ? `<div class="item-specs-chip">${escHtml(i.specs)}</div>` : ''}
-            </div>
-            <div>
-              <span class="badge ${statusBadge}">${statusLabel}</span>
-            </div>
+        <div class="ops-row" onclick="UI.showEditItemModal('${i.id}')">
+          <div class="ops-row-status">
+            <span class="ops-status-badge ${isAvail ? 'ok' : isRented ? 'warn' : 'danger'}">
+              <span class="status-dot ${isAvail ? 'ok' : isRented ? 'warn' : 'danger'}"></span>
+              ${isAvail ? 'Available' : isRented ? 'Rented' : 'In Repair'}
+            </span>
           </div>
-          ${assignedHtml}
-          ${repairHtml}
+          <div class="ops-row-main">
+            <div class="ops-row-title">${escHtml(itemTitle)} <span class="status-pill muted" style="font-size:0.65rem;padding:1px 5px">${escHtml(i.type || 'Laptop')}</span></div>
+            <div class="ops-row-sub">SN: <span class="tnum" style="color:var(--text-primary);font-weight:600">${escHtml(i.serial)}</span>${i.specs ? ` &middot; ${escHtml(i.specs)}` : ''}</div>
+          </div>
+          <div class="ops-row-end">
+            <div class="ops-setting-chevron">${Icons.chevronRight}</div>
+          </div>
         </div>`;
       });
+      html += `</div>`;
     }
 
     /* RENDER MATCHED CUSTOMERS */
     if (matchedCustomers.length > 0) {
-      html += `<div class="search-group-title">👤 Customers Found (${matchedCustomers.length})</div>`;
+      html += `
+      <div class="section-head">
+        <div class="section-title">Clients found</div>
+        <div class="section-count">${matchedCustomers.length} result${matchedCustomers.length === 1 ? '' : 's'}</div>
+      </div>
+      <div class="ops-list">`;
       matchedCustomers.forEach(c => {
         const active = customerActiveRentals(c.id);
-        const activeItemNames = active.map(r => {
-          const item = getItem(r.itemId);
-          return item ? getItemFullTitle(item) : 'Device';
-        }).join(', ');
+        const hasOverdue = active.some(r => rentalStatus(r).isOverdue);
 
         html += `
-        <div class="search-card-item" onclick="UI.pushPage('customer-detail', '${c.id}')">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start">
-            <div>
-              <div style="font-weight:700;font-size:.95rem">${escHtml(c.name)}</div>
-              <div style="font-size:.82rem;margin-top:2px">
-                <a href="tel:${escHtml(c.phone)}" class="phone-link" onclick="event.stopPropagation()">📞 ${escHtml(fmtPhone(c.phone))}</a>
-                ${c.address ? `<span class="loc-tag" style="margin-left:6px">📍 ${escHtml(c.address)}</span>` : ''}
-              </div>
-              <div style="font-size:.78rem;color:var(--gray-600);margin-top:4px">
-                ${active.length > 0 ? `<strong>Renting:</strong> ${escHtml(activeItemNames)}` : '<em>No active rentals</em>'}
-              </div>
-            </div>
-            <div style="text-align:right">
-              <span class="badge ${active.length > 0 ? 'badge-success' : 'badge-gray'}">${active.length} Active</span>
-            </div>
+        <div class="ops-row" onclick="UI.pushPage('customer-detail', '${c.id}')">
+          <div class="ops-row-status">
+            <span class="ops-status-badge ${active.length > 0 ? (hasOverdue ? 'danger' : 'ok') : 'muted'}">
+              <span class="status-dot ${active.length > 0 ? (hasOverdue ? 'danger' : 'ok') : 'muted'}"></span>
+              ${active.length > 0 ? (hasOverdue ? 'Overdue' : `${active.length} active`) : 'No active'}
+            </span>
           </div>
-          <div style="margin-top:8px;display:flex;gap:6px">
-            <button class="btn btn-sm btn-whatsapp-outline" style="padding:2px 8px;min-height:26px;font-size:.75rem" onclick="event.stopPropagation();openWhatsAppReminder('${c.phone}', 'Hello ${c.name}, from TechTrove Systems.')">💬 WhatsApp</button>
-            <a href="tel:${escHtml(c.phone)}" class="btn btn-sm btn-call-outline" style="padding:2px 8px;min-height:26px;font-size:.75rem;text-decoration:none" onclick="event.stopPropagation()">📞 Call</a>
-            ${active.length > 0 ? `<button class="btn btn-sm btn-primary" style="padding:2px 8px;min-height:26px;font-size:.75rem" onclick="event.stopPropagation();UI.showLogPaymentModal('${c.id}')">💳 Payment</button>` : ''}
+          <div class="ops-row-main">
+            <div class="ops-row-title">${escHtml(c.name)}</div>
+            <div class="ops-row-sub">📞 ${escHtml(fmtPhone(c.phone))}${c.address ? ` &middot; ${escHtml(c.address)}` : ''}</div>
+          </div>
+          <div class="ops-row-end">
+            <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppReminder('${c.phone}', 'Hello ${c.name}, from TechTrove Systems.')" title="Message Client">
+              ${Icons.whatsapp}
+              <span>WA</span>
+            </button>
           </div>
         </div>`;
       });
+      html += `</div>`;
     }
 
     el.innerHTML = html;
   },
 
-  /* SETTINGS & BACKUP */
+  /* SETTINGS & BACKUP (OPS CONSOLE REDESIGN) */
   renderMore() {
     const html = `
-    <div class="card" style="margin-top:4px">
-      <div class="detail-header" style="padding:8px 0 12px">
-        <h2 style="font-size:1.1rem;color:var(--gray-800)">TechTrove Systems</h2>
-        <div style="font-size:.8rem;color:var(--gray-500);margin-top:2px">Rental &amp; Inventory Management</div>
+    <!-- Summary Metric Chips -->
+    <div class="dash-chips-row" style="margin-bottom:14px">
+      <div class="stat-chip" onclick="UI.navigate('customers')">
+        <div class="stat-chip-header">
+          <span class="status-dot ok"></span>
+          <span class="stat-chip-num">${state.customers.length}</span>
+        </div>
+        <div class="stat-chip-label">Clients</div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-        <div class="stat-card"><div class="stat-value" style="font-size:1.3rem">${state.customers.length}</div><div class="stat-label">Customers</div></div>
-        <div class="stat-card"><div class="stat-value" style="font-size:1.3rem">${state.items.length}</div><div class="stat-label">Inventory Laps</div></div>
-        <div class="stat-card"><div class="stat-value" style="font-size:1.3rem">${state.rentals.filter(isActiveRental).length}</div><div class="stat-label">Active Rentals</div></div>
-        <div class="stat-card"><div class="stat-value" style="font-size:1.3rem">${state.payments.length}</div><div class="stat-label">Payments Logged</div></div>
+      <div class="stat-chip" onclick="UI.navigate('inventory')">
+        <div class="stat-chip-header">
+          <span class="status-dot ok"></span>
+          <span class="stat-chip-num">${state.items.length}</span>
+        </div>
+        <div class="stat-chip-label">Fleet units</div>
+      </div>
+      <div class="stat-chip" onclick="UI.navigate('customers')">
+        <div class="stat-chip-header">
+          <span class="status-dot ok"></span>
+          <span class="stat-chip-num">${state.payments.length}</span>
+        </div>
+        <div class="stat-chip-label">Payments</div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="section-header"><h3>Automated Background Reminders</h3></div>
-      <div class="toggle-row">
-        <label>System &amp; Lockscreen Due Alerts</label>
-        <label class="toggle-switch">
+    <!-- Section 1: Background Alerts -->
+    <div class="section-head">
+      <div class="section-title">Background notifications</div>
+      <div class="section-count">OS-level</div>
+    </div>
+    <div class="ops-list" style="margin-bottom:14px">
+      <div class="ops-setting-row" onclick="const t = document.getElementById('moreNotifToggle'); t.checked = !t.checked; UI.toggleNotifications(t.checked);">
+        <div class="ops-setting-main">
+          <div class="ops-setting-icon">${Icons.bell}</div>
+          <div>
+            <div class="ops-setting-title">Daily 9:00 AM lockscreen alerts</div>
+            <div class="ops-setting-sub">Sends system notifications for due &amp; overdue rent outside app</div>
+          </div>
+        </div>
+        <label class="toggle-switch" onclick="event.stopPropagation()">
           <input type="checkbox" id="moreNotifToggle" ${notifEnabled ? 'checked' : ''} onchange="UI.toggleNotifications(this.checked)">
           <span class="toggle-slider"></span>
         </label>
       </div>
-      <div style="font-size:.8rem;color:var(--gray-500);margin-bottom:10px">Sends system-level alerts to your phone notification bar and lockscreen even when outside the app.</div>
-      <button class="btn btn-outline btn-block btn-sm" onclick="UI.testSystemNotification()" style="font-size:.8rem">
-        🔔 Test System Notification (Lockscreen Alert)
-      </button>
-    </div>
-
-    <div class="card">
-      <div class="section-header"><h3>Backup &amp; Restore</h3></div>
-      <p style="font-size:.8rem;color:var(--gray-500);margin-bottom:10px">Save a safe copy of your customers, inventory specs, and payment history.</p>
-      <button class="btn btn-outline btn-block btn-sm" onclick="Data.exportJSON()" style="margin-bottom:12px">
-        📥 Export Backup (JSON)
-      </button>
-      <div class="form-group" style="margin-bottom:0">
-        <label style="font-size:.8rem;color:var(--gray-500)">Restore data from backup file:</label>
-        <input type="file" id="moreImportFile" accept=".json" style="font-size:.85rem" onchange="UI.handleImport(this)">
+      <div class="ops-setting-row" onclick="UI.testSystemNotification()">
+        <div class="ops-setting-main">
+          <div class="ops-setting-icon">${Icons.alert}</div>
+          <div>
+            <div class="ops-setting-title">Test system notification</div>
+            <div class="ops-setting-sub">Triggers an immediate test alert on your lockscreen</div>
+          </div>
+        </div>
+        <div class="ops-setting-chevron">${Icons.chevronRight}</div>
       </div>
     </div>
 
-    <div class="card">
-      <button class="btn btn-outline btn-block btn-sm" onclick="UI.checkForUpdates()" style="color:var(--primary);border-color:var(--primary);margin-bottom:10px">
-        🔄 Check for Updates &amp; Reload Latest Version
-      </button>
-      <button class="btn btn-outline btn-block btn-sm" onclick="Auth.logout()" style="color:var(--danger);border-color:var(--danger)">
-        🔒 Sign Out &amp; Lock App
-      </button>
+    <!-- Section 2: Data Portability & Backup -->
+    <div class="section-head">
+      <div class="section-title">Data portability &amp; backup</div>
+      <div class="section-count">JSON snapshot</div>
     </div>
-    <div style="text-align:center;padding:16px;font-size:.75rem;color:var(--gray-400)">TechTrove Systems &middot; Version 3.0</div>`;
+    <div class="ops-list" style="margin-bottom:14px">
+      <div class="ops-setting-row" id="exportBackupRow" onclick="UI.handleExportBackup(this)">
+        <div class="ops-setting-main">
+          <div class="ops-setting-icon">${Icons.download}</div>
+          <div>
+            <div class="ops-setting-title">Export database snapshot</div>
+            <div class="ops-setting-sub">Download complete JSON archive of clients, inventory &amp; payments</div>
+          </div>
+        </div>
+        <div class="ops-setting-chevron" id="exportBackupStatus">${Icons.chevronRight}</div>
+      </div>
+      <div class="ops-setting-row" onclick="document.getElementById('moreImportFile').click()">
+        <div class="ops-setting-main">
+          <div class="ops-setting-icon">${Icons.upload}</div>
+          <div>
+            <div class="ops-setting-title">Restore database from backup</div>
+            <div class="ops-setting-sub">Upload a previously saved TechTrove JSON snapshot file</div>
+          </div>
+        </div>
+        <div class="ops-setting-chevron">${Icons.chevronRight}</div>
+        <input type="file" id="moreImportFile" accept=".json" style="display:none" onchange="UI.handleImport(this)">
+      </div>
+    </div>
+
+    <!-- Section 3: Maintenance & Security -->
+    <div class="section-head">
+      <div class="section-title">System &amp; security</div>
+      <div class="section-count">Build v3.0</div>
+    </div>
+    <div class="ops-list" style="margin-bottom:14px">
+      <div class="ops-setting-row" onclick="UI.checkForUpdates()">
+        <div class="ops-setting-main">
+          <div class="ops-setting-icon">${Icons.refresh}</div>
+          <div>
+            <div class="ops-setting-title">Check for updates &amp; reload</div>
+            <div class="ops-setting-sub">Purges stale service worker caches and fetches newest build</div>
+          </div>
+        </div>
+        <div class="ops-setting-chevron">${Icons.chevronRight}</div>
+      </div>
+      <div class="ops-setting-row" onclick="UI.showLogoutConfirm()">
+        <div class="ops-setting-main">
+          <div class="ops-setting-icon" style="color:var(--status-danger)">${Icons.lock}</div>
+          <div>
+            <div class="ops-setting-title" style="color:var(--status-danger)">Sign out &amp; lock console</div>
+            <div class="ops-setting-sub">Terminates active session and requires password on next entry</div>
+          </div>
+        </div>
+        <div class="ops-setting-chevron" style="color:var(--status-danger)">${Icons.chevronRight}</div>
+      </div>
+    </div>
+
+    <div style="text-align:center;padding:12px 0 20px;font-size:0.74rem;color:var(--text-dim)">
+      TechTrove Systems &middot; Terminal v3.0
+    </div>`;
+
     document.getElementById('page-more').innerHTML = html;
+  },
+
+  handleExportBackup(rowEl) {
+    const statusEl = document.getElementById('exportBackupStatus');
+    if (statusEl) {
+      statusEl.innerHTML = `<span style="color:var(--accent);font-size:0.75rem">Exporting...</span>`;
+    }
+    setTimeout(() => {
+      Data.exportJSON();
+      if (statusEl) {
+        statusEl.innerHTML = `<span style="color:var(--status-ok)">${Icons.check}</span>`;
+        setTimeout(() => {
+          statusEl.innerHTML = Icons.chevronRight;
+        }, 1200);
+      }
+    }, 200);
+  },
+
+  showLogoutConfirm() {
+    this.showConfirm(
+      'Are you sure you want to sign out and lock the TechTrove Ops Console?',
+      () => Auth.logout()
+    );
   },
 
   async checkForUpdates() {
@@ -2081,6 +2471,71 @@ const UI = {
   },
 
   /* MODALS: RENTALS */
+  showAddRentalWithItem(itemId) {
+    this.showAddRentalModal(itemId);
+  },
+
+  showAddRentalModal(preselectedItemId) {
+    const availableItems = state.items.filter(i => i.status === 'available' || i.id === preselectedItemId);
+    const customers = state.customers;
+
+    if (customers.length === 0) {
+      this.showToast('Please add a client first before creating a rental.', 'info');
+      this.showAddCustomerModal();
+      return;
+    }
+
+    this.showModal(`
+      <button class="modal-close" onclick="UI.hideModal()">&times;</button>
+      <h2 style="font-size:1.05rem;font-weight:600;margin-bottom:14px">New Rental Agreement</h2>
+      <div class="form-group">
+        <label>Select Client *</label>
+        <select id="rentalCustomer">
+          ${customers.map(c => `<option value="${c.id}">${escHtml(c.name)} (${escHtml(fmtPhone(c.phone))})</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Select Device *</label>
+        <select id="rentalItem">
+          ${availableItems.length === 0 
+            ? '<option value="">— No available devices in inventory —</option>' 
+            : availableItems.map(i => `<option value="${i.id}" ${i.id === preselectedItemId ? 'selected' : ''}>${escHtml(getItemFullTitle(i))} [SN: ${escHtml(i.serial)}]${i.specs ? ' - ' + escHtml(i.specs) : ''}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Rent Amount (₹) *</label>
+          <input type="number" id="rentalAmount" placeholder="e.g. 1500" min="0" step="1">
+        </div>
+        <div class="form-group">
+          <label>Billing Cycle</label>
+          <select id="rentalCycle" onchange="document.getElementById('customDaysGroup').style.display=this.value==='custom'?'block':'none'">
+            <option value="monthly" selected>Monthly (30 Days)</option>
+            <option value="weekly">Weekly (7 Days)</option>
+            <option value="custom">Custom Days</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" id="customDaysGroup" style="display:none">
+        <label>Custom Cycle Days</label>
+        <input type="number" id="rentalCustomDays" placeholder="Number of days, e.g. 15" min="1" step="1">
+      </div>
+      <div class="form-group">
+        <label>Rental Start Date *</label>
+        <input type="date" id="rentalStart" value="${today()}">
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-outline" onclick="UI.hideModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="UI.saveNewRentalFromGlobal()">Start Rental</button>
+      </div>`);
+  },
+
+  saveNewRentalFromGlobal() {
+    const customerId = document.getElementById('rentalCustomer')?.value;
+    if (!customerId) { UI.showToast('Please select a client', 'error'); return; }
+    this.saveNewRental(customerId);
+  },
+
   showNewRentalModal(customerId) {
     const availableItems = state.items.filter(i => i.status === 'available');
     const c = getCustomer(customerId);
