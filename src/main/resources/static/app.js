@@ -556,6 +556,44 @@ const Data = {
       UI.renderAll();
     }
   },
+  async sync(silent = true) {
+    if (!Auth.isLoggedIn()) return;
+    if (this._saving) return;
+    const isModalOpen = !document.getElementById('modalOverlay')?.classList.contains('hidden');
+    const activeEl = document.activeElement;
+    const isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');
+    if (isModalOpen && isTyping) return;
+
+    if (!silent) UI.showLoading(true);
+    try {
+      const res = await this._fetch('/api/data', { headers: Auth.header() });
+      if (res.ok) {
+        const d = await res.json();
+        if (d && Array.isArray(d.customers)) {
+          const serverHasData = d.customers.length > 0 || (d.items && d.items.length > 0) || (d.rentals && d.rentals.length > 0);
+          if (serverHasData) {
+            const currentStr = JSON.stringify(state);
+            const serverStr = JSON.stringify(d);
+            if (currentStr !== serverStr) {
+              state.customers = d.customers || [];
+              state.items = d.items || [];
+              state.rentals = d.rentals || [];
+              state.payments = d.payments || [];
+              try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+              if (!isModalOpen) {
+                UI.renderAll();
+                UI.updateDueBanner();
+              }
+            }
+          }
+        }
+      }
+    } catch(e) {
+      if (e.message !== 'Unauthorized') console.warn('Background sync:', e.message);
+    } finally {
+      if (!silent) UI.showLoading(false);
+    }
+  },
   exportJSON() {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -3033,4 +3071,13 @@ function setupApp() {
   requestNotifPermission();
   checkAndNotifyDues();
   setInterval(checkAndNotifyDues, 300000);
+
+  /* Multi-User Real-Time Cloud Sync */
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') Data.sync(true);
+  });
+  window.addEventListener('focus', () => Data.sync(true));
+  setInterval(() => {
+    if (document.visibilityState === 'visible') Data.sync(true);
+  }, 20000);
 }
