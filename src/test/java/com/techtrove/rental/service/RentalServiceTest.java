@@ -19,20 +19,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class RentalServiceTest {
 
     private RentalService service;
-    private MockedStatic<LocalDate> mockLocalDate;
     private LocalDate fixedNow;
 
     @BeforeEach
     void setUp() {
         service = new RentalService();
         fixedNow = LocalDate.of(2026, 7, 19);
-        mockLocalDate = Mockito.mockStatic(LocalDate.class, Mockito.CALLS_REAL_METHODS);
-        mockLocalDate.when(LocalDate::now).thenReturn(fixedNow);
-    }
-
-    @AfterEach
-    void tearDown() {
-        mockLocalDate.close();
     }
 
     private Rental aRental(LocalDate startDate, BillingCycle cycle, BigDecimal rentAmount, Integer customDays) {
@@ -95,7 +87,7 @@ class RentalServiceTest {
     @Test
     void status_justStarted_allZero_notOverdue_notDueSoon() {
         Rental r = aRental(fixedNow, BillingCycle.MONTHLY, BigDecimal.valueOf(1000));
-        RentalStatusDto st = service.computeStatus(r, Collections.emptyList());
+        RentalStatusDto st = service.computeStatus(r, Collections.emptyList(), fixedNow);
 
         assertEquals(BigDecimal.ZERO, st.getTotalExpected());
         assertEquals(BigDecimal.ZERO, st.getTotalPaid());
@@ -110,7 +102,7 @@ class RentalServiceTest {
     @Test
     void status_40daysNoPayments_1cycleOverdue() {
         Rental r = aRental(fixedNow.minusDays(40), BillingCycle.MONTHLY, BigDecimal.valueOf(1000));
-        RentalStatusDto st = service.computeStatus(r, Collections.emptyList());
+        RentalStatusDto st = service.computeStatus(r, Collections.emptyList(), fixedNow);
 
         assertEquals(BigDecimal.valueOf(1000), st.getTotalExpected());
         assertEquals(BigDecimal.ZERO, st.getTotalPaid());
@@ -126,7 +118,7 @@ class RentalServiceTest {
     void status_40daysFullyPaid_notOverdue() {
         LocalDate start = fixedNow.minusDays(40);
         Rental r = aRental(start, BillingCycle.MONTHLY, BigDecimal.valueOf(1000));
-        RentalStatusDto st = service.computeStatus(r, List.of(aPayment(1000)));
+        RentalStatusDto st = service.computeStatus(r, List.of(aPayment(1000)), fixedNow);
 
         assertEquals(BigDecimal.valueOf(1000), st.getTotalExpected());
         assertEquals(BigDecimal.valueOf(1000), st.getTotalPaid());
@@ -140,7 +132,7 @@ class RentalServiceTest {
     void status_40daysPartialPayment_overdue() {
         LocalDate start = fixedNow.minusDays(40);
         Rental r = aRental(start, BillingCycle.MONTHLY, BigDecimal.valueOf(1000));
-        RentalStatusDto st = service.computeStatus(r, List.of(aPayment(400)));
+        RentalStatusDto st = service.computeStatus(r, List.of(aPayment(400)), fixedNow);
 
         assertEquals(BigDecimal.valueOf(1000), st.getTotalExpected());
         assertEquals(BigDecimal.valueOf(400), st.getTotalPaid());
@@ -154,7 +146,7 @@ class RentalServiceTest {
     void status_25daysNoPayments_dueSoonNotOverdue() {
         LocalDate start = fixedNow.minusDays(25);
         Rental r = aRental(start, BillingCycle.MONTHLY, BigDecimal.valueOf(1000));
-        RentalStatusDto st = service.computeStatus(r, Collections.emptyList());
+        RentalStatusDto st = service.computeStatus(r, Collections.emptyList(), fixedNow);
 
         assertEquals(BigDecimal.ZERO, st.getTotalExpected());
         assertEquals(BigDecimal.ZERO, st.getTotalPaid());
@@ -169,7 +161,7 @@ class RentalServiceTest {
     void status_55daysFullyPaidFirstCycle_dueSoonNotOverdue() {
         LocalDate start = fixedNow.minusDays(55);
         Rental r = aRental(start, BillingCycle.MONTHLY, BigDecimal.valueOf(1000));
-        RentalStatusDto st = service.computeStatus(r, List.of(aPayment(1000)));
+        RentalStatusDto st = service.computeStatus(r, List.of(aPayment(1000)), fixedNow);
 
         assertEquals(BigDecimal.valueOf(1000), st.getTotalExpected());
         assertEquals(BigDecimal.valueOf(1000), st.getTotalPaid());
@@ -184,7 +176,7 @@ class RentalServiceTest {
     void status_65daysNoPayments_2cyclesOverdue() {
         LocalDate start = fixedNow.minusDays(65);
         Rental r = aRental(start, BillingCycle.MONTHLY, BigDecimal.valueOf(1000));
-        RentalStatusDto st = service.computeStatus(r, Collections.emptyList());
+        RentalStatusDto st = service.computeStatus(r, Collections.emptyList(), fixedNow);
 
         assertEquals(BigDecimal.valueOf(2000), st.getTotalExpected());
         assertEquals(BigDecimal.ZERO, st.getTotalPaid());
@@ -199,7 +191,7 @@ class RentalServiceTest {
     void status_weekly5daysNoPayments_dueSoon() {
         LocalDate start = fixedNow.minusDays(5);
         Rental r = aRental(start, BillingCycle.WEEKLY, BigDecimal.valueOf(500));
-        RentalStatusDto st = service.computeStatus(r, Collections.emptyList());
+        RentalStatusDto st = service.computeStatus(r, Collections.emptyList(), fixedNow);
 
         assertEquals(BigDecimal.ZERO, st.getTotalExpected());
         assertEquals(BigDecimal.ZERO, st.getTotalPaid());
@@ -214,7 +206,7 @@ class RentalServiceTest {
     void status_overpaid_notOverdue_notDueSoon() {
         LocalDate start = fixedNow.minusDays(40);
         Rental r = aRental(start, BillingCycle.MONTHLY, BigDecimal.valueOf(1000));
-        RentalStatusDto st = service.computeStatus(r, List.of(aPayment(2500)));
+        RentalStatusDto st = service.computeStatus(r, List.of(aPayment(2500)), fixedNow);
 
         assertEquals(BigDecimal.valueOf(1000), st.getTotalExpected());
         assertEquals(BigDecimal.valueOf(2500), st.getTotalPaid());
@@ -228,7 +220,7 @@ class RentalServiceTest {
     void status_zeroRent_neverOverdue() {
         LocalDate start = fixedNow.minusDays(40);
         Rental r = aRental(start, BillingCycle.MONTHLY, BigDecimal.ZERO);
-        RentalStatusDto st = service.computeStatus(r, Collections.emptyList());
+        RentalStatusDto st = service.computeStatus(r, Collections.emptyList(), fixedNow);
 
         assertEquals(BigDecimal.ZERO, st.getTotalExpected());
         assertEquals(BigDecimal.ZERO, st.getTotalPaid());
@@ -241,7 +233,7 @@ class RentalServiceTest {
     void status_95daysPartialPayment_3cyclesOverdue() {
         LocalDate start = fixedNow.minusDays(95);
         Rental r = aRental(start, BillingCycle.MONTHLY, BigDecimal.valueOf(1000));
-        RentalStatusDto st = service.computeStatus(r, List.of(aPayment(1000), aPayment(1000), aPayment(500)));
+        RentalStatusDto st = service.computeStatus(r, List.of(aPayment(1000), aPayment(1000), aPayment(500)), fixedNow);
 
         assertEquals(BigDecimal.valueOf(3000), st.getTotalExpected());
         assertEquals(BigDecimal.valueOf(2500), st.getTotalPaid());
@@ -257,7 +249,7 @@ class RentalServiceTest {
     void status_exactly30days_oneCycle_completed() {
         LocalDate start = fixedNow.minusDays(30);
         Rental r = aRental(start, BillingCycle.MONTHLY, BigDecimal.valueOf(1000));
-        RentalStatusDto st = service.computeStatus(r, Collections.emptyList());
+        RentalStatusDto st = service.computeStatus(r, Collections.emptyList(), fixedNow);
 
         assertEquals(BigDecimal.valueOf(1000), st.getTotalExpected());
         assertEquals(BigDecimal.ZERO, st.getTotalPaid());
@@ -269,7 +261,7 @@ class RentalServiceTest {
     void status_exactlyOnDueDate_daysOverdueZero() {
         LocalDate start = fixedNow.minusDays(60);
         Rental r = aRental(start, BillingCycle.MONTHLY, BigDecimal.valueOf(1000));
-        RentalStatusDto st = service.computeStatus(r, Collections.emptyList());
+        RentalStatusDto st = service.computeStatus(r, Collections.emptyList(), fixedNow);
 
         assertEquals(BigDecimal.valueOf(2000), st.getTotalExpected());
         assertTrue(st.isOverdue());
@@ -280,7 +272,7 @@ class RentalServiceTest {
     void status_exactly1dayBeforeDue_weekly() {
         LocalDate start = fixedNow.minusDays(6);
         Rental r = aRental(start, BillingCycle.WEEKLY, BigDecimal.valueOf(500));
-        RentalStatusDto st = service.computeStatus(r, Collections.emptyList());
+        RentalStatusDto st = service.computeStatus(r, Collections.emptyList(), fixedNow);
 
         assertEquals(BigDecimal.ZERO, st.getTotalExpected());
         assertEquals(1, st.getDaysUntilDue());

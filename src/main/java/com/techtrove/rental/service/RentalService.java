@@ -61,10 +61,14 @@ public class RentalService {
      *   isDueSoon       = NOT nextCyclePaid AND 0 ≤ daysUntilDue ≤ 7
      * ──────────────────────────────────────────── */
     public RentalStatusDto computeStatus(Rental rental, List<Payment> payments) {
+        return computeStatus(rental, payments, LocalDate.now());
+    }
+
+    public RentalStatusDto computeStatus(Rental rental, List<Payment> payments, LocalDate asOfDate) {
         int cd = cycleDays(rental);
         LocalDate start = rental.getStartDate();
         LocalDate end = rental.getEndDate();
-        LocalDate now = end != null ? end : LocalDate.now();
+        LocalDate now = end != null ? end : (asOfDate != null ? asOfDate : LocalDate.now());
 
         long daysSince = ChronoUnit.DAYS.between(start, now);
         long completedCycles = Math.max(0, daysSince / cd);
