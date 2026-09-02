@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v4';
+const CACHE = 'techtrove-v5-ops';
 const ASSETS = [
   '/',
   '/index.html',
