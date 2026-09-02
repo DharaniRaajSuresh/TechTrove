@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v6-searchfix';
+const CACHE = 'techtrove-v7-native';
 const ASSETS = [
   '/',
   '/index.html',
