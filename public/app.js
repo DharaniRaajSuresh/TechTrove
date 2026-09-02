@@ -811,7 +811,8 @@ const UI = {
   /* CUSTOMERS / RENTALS LIST (OPS CONSOLE REDESIGN) */
   renderCustomers(query, filter = 'all') {
     let list = state.customers;
-    const q = (query !== undefined ? query : (document.getElementById('customerSearch')?.value || '')).trim().toLowerCase();
+    const searchInput = document.getElementById('customerSearch');
+    const q = (query !== undefined ? query : (searchInput?.value || '')).trim().toLowerCase();
     
     if (q) {
       list = list.filter(c => c.name.toLowerCase().includes(q) || cleanPhone(c.phone).includes(cleanPhone(q)) || (c.address && c.address.toLowerCase().includes(q)));
@@ -827,39 +828,16 @@ const UI = {
 
     list.sort((a, b) => a.name.localeCompare(b.name));
 
-    let html = `
-    <!-- Top Live Search Bar -->
-    <div class="search-input-wrap">
-      <div class="search-icon-inside">${Icons.search}</div>
-      <input type="search" id="customerSearch" class="ops-search-input" placeholder="Search clients, phone, address..." value="${escHtml(q)}" oninput="UI.renderCustomers(this.value, '${filter}')">
-    </div>
-
-    <!-- Client Status Filter Pills -->
-    <div class="brand-pills-scroll">
-      <button class="brand-pill ${filter === 'all' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'all')">All (${state.customers.length})</button>
-      <button class="brand-pill ${filter === 'active' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'active')">Active Rentals (${activeList.length})</button>
-      <button class="brand-pill ${filter === 'overdue' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'overdue')">Overdue (${overdueList.length})</button>
-      <button class="brand-pill ${filter === 'inactive' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'inactive')">No Active Rental (${inactiveList.length})</button>
-    </div>
-
-    <!-- Section Count & Add Client Command -->
-    <div class="section-head">
-      <div class="section-title">Client directory</div>
-      <div class="section-count">${list.length} client${list.length === 1 ? '' : 's'}</div>
-    </div>`;
-
+    let listHtml = '';
     if (list.length === 0) {
-      html += `
-      <div class="ops-list">
-        <div class="ops-empty">
-          <div class="ops-empty-icon">${Icons.rentals}</div>
-          <div class="ops-empty-title">No matching clients</div>
-          <div class="ops-empty-sub">${q ? 'Try a different search keyword.' : 'No clients registered yet in your console.'}</div>
-          <button class="btn btn-primary btn-micro" style="margin-top:12px;padding:8px 16px" onclick="UI.showAddCustomerModal()">+ Add client</button>
-        </div>
+      listHtml = `
+      <div class="ops-empty">
+        <div class="ops-empty-icon">${Icons.rentals}</div>
+        <div class="ops-empty-title">No matching clients</div>
+        <div class="ops-empty-sub">${q ? 'Try a different search keyword.' : 'No clients registered yet in your console.'}</div>
+        <button class="btn btn-primary btn-micro" style="margin-top:12px;padding:8px 16px" onclick="UI.showAddCustomerModal()">+ Add client</button>
       </div>`;
     } else {
-      html += `<div class="ops-list">`;
       list.forEach(c => {
         const active = customerActiveRentals(c.id);
         const hasOverdue = active.some(r => rentalStatus(r).isOverdue);
@@ -878,7 +856,6 @@ const UI = {
           }
         }
 
-        // Subtitle line summarizing active devices
         let subText = `📞 ${escHtml(fmtPhone(c.phone))}`;
         if (active.length > 0) {
           const deviceNames = active.map(r => {
@@ -890,7 +867,7 @@ const UI = {
           subText += ` &middot; ${escHtml(c.address)}`;
         }
 
-        html += `
+        listHtml += `
         <div class="ops-row" onclick="UI.pushPage('customer-detail', '${c.id}')">
           <div class="ops-row-status">
             <span class="ops-status-badge ${statusClass}">
@@ -919,8 +896,40 @@ const UI = {
           </div>
         </div>`;
       });
-      html += `</div>`;
     }
+
+    const listContainer = document.getElementById('customerListContainer');
+    const countContainer = document.getElementById('customerSectionCount');
+    if (listContainer && query !== undefined) {
+      listContainer.innerHTML = listHtml;
+      if (countContainer) countContainer.textContent = `${list.length} client${list.length === 1 ? '' : 's'}`;
+      return;
+    }
+
+    let html = `
+    <!-- Top Live Search Bar -->
+    <div class="search-input-wrap">
+      <div class="search-icon-inside">${Icons.search}</div>
+      <input type="search" id="customerSearch" class="ops-search-input" placeholder="Search clients, phone, address..." value="${escHtml(q)}" oninput="UI.renderCustomers(this.value, '${filter}')">
+    </div>
+
+    <!-- Client Status Filter Pills -->
+    <div class="brand-pills-scroll">
+      <button class="brand-pill ${filter === 'all' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'all')">All (${state.customers.length})</button>
+      <button class="brand-pill ${filter === 'active' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'active')">Active Rentals (${activeList.length})</button>
+      <button class="brand-pill ${filter === 'overdue' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'overdue')">Overdue (${overdueList.length})</button>
+      <button class="brand-pill ${filter === 'inactive' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'inactive')">No Active Rental (${inactiveList.length})</button>
+    </div>
+
+    <!-- Section Count & Add Client Command -->
+    <div class="section-head">
+      <div class="section-title">Client directory</div>
+      <div class="section-count" id="customerSectionCount">${list.length} client${list.length === 1 ? '' : 's'}</div>
+    </div>
+
+    <div class="ops-list" id="customerListContainer">
+      ${listHtml}
+    </div>`;
 
     document.getElementById('page-customers').innerHTML = html;
   },
@@ -1142,11 +1151,11 @@ const UI = {
   },
 
   /* INVENTORY (OPS CONSOLE REDESIGN) */
-  renderInventory(filter, brandFilter, searchQuery) {
-    if (filter !== undefined) filterState.inventory = filter;
+  renderInventory(filter = 'all', brandFilter = 'all', searchQuery) {
+    if (filter !== undefined && filter !== null) filterState.inventory = filter;
     else filter = filterState.inventory || 'all';
-    
-    if (brandFilter !== undefined) filterState.brand = brandFilter;
+
+    if (brandFilter !== undefined && brandFilter !== null) filterState.brand = brandFilter;
     else brandFilter = filterState.brand || 'all';
 
     let list = state.items;
@@ -1166,7 +1175,8 @@ const UI = {
     }
 
     // Search query filter
-    const query = (searchQuery !== undefined ? searchQuery : (document.getElementById('inventorySearchInput')?.value || '')).trim().toLowerCase();
+    const searchInput = document.getElementById('inventorySearchInput');
+    const query = (searchQuery !== undefined ? searchQuery : (searchInput?.value || '')).trim().toLowerCase();
     if (query) {
       list = list.filter(i => {
         const full = `${i.brand || ''} ${i.model || ''} ${i.serial || ''} ${i.specs || ''} ${i.type || ''}`.toLowerCase();
@@ -1180,44 +1190,16 @@ const UI = {
     const rentedCount = state.items.filter(i => i.status === 'rented').length;
     const repairCount = state.items.filter(i => i.status === 'repair').length;
 
-    let html = `
-    <!-- Top Live Search Bar -->
-    <div class="search-input-wrap">
-      <div class="search-icon-inside">${Icons.search}</div>
-      <input type="text" id="inventorySearchInput" class="ops-search-input" placeholder="Search models, serials, specs..." value="${escHtml(query)}" oninput="UI.renderInventory(undefined, undefined, this.value)">
-    </div>
-
-    <!-- Brand & Status Filter Pills (Horizontal Scroll) -->
-    <div class="brand-pills-scroll">
-      <button class="brand-pill ${filter === 'all' && brandFilter === 'all' ? 'active' : ''}" onclick="UI.renderInventory('all', 'all')">All (${state.items.length})</button>
-      <button class="brand-pill ${filter === 'available' ? 'active' : ''}" onclick="UI.renderInventory('available', 'all')">Available (${availableCount})</button>
-      <button class="brand-pill ${filter === 'rented' ? 'active' : ''}" onclick="UI.renderInventory('rented', 'all')">Rented (${rentedCount})</button>
-      <button class="brand-pill ${filter === 'repair' ? 'active' : ''}" onclick="UI.renderInventory('repair', 'all')">In Repair (${repairCount})</button>
-      <button class="brand-pill ${brandFilter === 'Dell' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Dell')">Dell</button>
-      <button class="brand-pill ${brandFilter === 'Lenovo' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Lenovo')">Lenovo</button>
-      <button class="brand-pill ${brandFilter === 'HP' ? 'active' : ''}" onclick="UI.renderInventory('all', 'HP')">HP</button>
-      <button class="brand-pill ${brandFilter === 'Apple' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Apple')">Apple</button>
-      <button class="brand-pill ${brandFilter === 'Monitors' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Monitors')">Monitors</button>
-    </div>
-
-    <!-- Section Count & Add Device Command -->
-    <div class="section-head">
-      <div class="section-title">Fleet inventory</div>
-      <div class="section-count">${list.length} item${list.length === 1 ? '' : 's'}</div>
-    </div>`;
-
+    let listHtml = '';
     if (list.length === 0) {
-      html += `
-      <div class="ops-list">
-        <div class="ops-empty">
-          <div class="ops-empty-icon">${Icons.inventory}</div>
-          <div class="ops-empty-title">No matching inventory</div>
-          <div class="ops-empty-sub">${query ? 'Try a different search query or clear filters.' : 'No devices found in this category.'}</div>
-          <button class="btn btn-primary btn-micro" style="margin-top:12px;padding:8px 16px" onclick="UI.showAddItemModal()">+ Add device</button>
-        </div>
+      listHtml = `
+      <div class="ops-empty">
+        <div class="ops-empty-icon">${Icons.inventory}</div>
+        <div class="ops-empty-title">No matching inventory</div>
+        <div class="ops-empty-sub">${query ? 'Try a different search query or clear filters.' : 'No devices found in this category.'}</div>
+        <button class="btn btn-primary btn-micro" style="margin-top:12px;padding:8px 16px" onclick="UI.showAddItemModal()">+ Add device</button>
       </div>`;
     } else {
-      html += `<div class="ops-list">`;
       list.forEach(i => {
         const rental = getActiveRentalForItem(i.id);
         const customer = rental ? getCustomer(rental.customerId) : null;
@@ -1280,7 +1262,7 @@ const UI = {
           </div>`;
         }
 
-        html += `
+        listHtml += `
         <div class="ops-row" style="flex-direction:column;align-items:stretch" onclick="UI.showEditItemModal('${i.id}')">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
             <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">
@@ -1304,8 +1286,45 @@ const UI = {
           ${secondaryInfoHtml}
         </div>`;
       });
-      html += `</div>`;
     }
+
+    const listContainer = document.getElementById('inventoryListContainer');
+    const countContainer = document.getElementById('inventorySectionCount');
+    if (listContainer && searchQuery !== undefined) {
+      listContainer.innerHTML = listHtml;
+      if (countContainer) countContainer.textContent = `${list.length} item${list.length === 1 ? '' : 's'}`;
+      return;
+    }
+
+    let html = `
+    <!-- Top Live Search Bar -->
+    <div class="search-input-wrap">
+      <div class="search-icon-inside">${Icons.search}</div>
+      <input type="text" id="inventorySearchInput" class="ops-search-input" placeholder="Search models, serials, specs..." value="${escHtml(query)}" oninput="UI.renderInventory(undefined, undefined, this.value)">
+    </div>
+
+    <!-- Brand & Status Filter Pills (Horizontal Scroll) -->
+    <div class="brand-pills-scroll">
+      <button class="brand-pill ${filter === 'all' && brandFilter === 'all' ? 'active' : ''}" onclick="UI.renderInventory('all', 'all')">All (${state.items.length})</button>
+      <button class="brand-pill ${filter === 'available' ? 'active' : ''}" onclick="UI.renderInventory('available', 'all')">Available (${availableCount})</button>
+      <button class="brand-pill ${filter === 'rented' ? 'active' : ''}" onclick="UI.renderInventory('rented', 'all')">Rented (${rentedCount})</button>
+      <button class="brand-pill ${filter === 'repair' ? 'active' : ''}" onclick="UI.renderInventory('repair', 'all')">In Repair (${repairCount})</button>
+      <button class="brand-pill ${brandFilter === 'Dell' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Dell')">Dell</button>
+      <button class="brand-pill ${brandFilter === 'Lenovo' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Lenovo')">Lenovo</button>
+      <button class="brand-pill ${brandFilter === 'HP' ? 'active' : ''}" onclick="UI.renderInventory('all', 'HP')">HP</button>
+      <button class="brand-pill ${brandFilter === 'Apple' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Apple')">Apple</button>
+      <button class="brand-pill ${brandFilter === 'Monitors' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Monitors')">Monitors</button>
+    </div>
+
+    <!-- Section Count & Add Device Command -->
+    <div class="section-head">
+      <div class="section-title">Fleet inventory</div>
+      <div class="section-count" id="inventorySectionCount">${list.length} item${list.length === 1 ? '' : 's'}</div>
+    </div>
+
+    <div class="ops-list" id="inventoryListContainer">
+      ${listHtml}
+    </div>`;
 
     document.getElementById('page-inventory').innerHTML = html;
   },
@@ -1313,7 +1332,8 @@ const UI = {
   /* REPAIRS TRACKER (OPS CONSOLE REDESIGN) */
   renderRepairs(filter = 'all', searchQuery) {
     let list = state.items.filter(i => i.status === 'repair');
-    const q = (searchQuery !== undefined ? searchQuery : (document.getElementById('repairsSearchInput')?.value || '')).trim().toLowerCase();
+    const searchInput = document.getElementById('repairsSearchInput');
+    const q = (searchQuery !== undefined ? searchQuery : (searchInput?.value || '')).trim().toLowerCase();
 
     if (q) {
       list = list.filter(i => {
@@ -1344,43 +1364,22 @@ const UI = {
       return db - da;
     });
 
-    let html = `
-    <!-- Top Live Search Bar -->
-    <div class="search-input-wrap">
-      <div class="search-icon-inside">${Icons.search}</div>
-      <input type="text" id="repairsSearchInput" class="ops-search-input" placeholder="Search service centers, technicians, issues..." value="${escHtml(q)}" oninput="UI.renderRepairs('${filter}', this.value)">
-    </div>
-
-    <!-- Repair Status Filter Pills -->
-    <div class="brand-pills-scroll">
-      <button class="brand-pill ${filter === 'all' ? 'active' : ''}" onclick="UI.renderRepairs('all')">All In Repair (${totalInRepair})</button>
-      <button class="brand-pill ${filter === 'critical' ? 'active' : ''}" onclick="UI.renderRepairs('critical')">Critical &gt;7d (${criticalList.length})</button>
-    </div>
-
-    <!-- Section Head with Count & Total Est Cost -->
-    <div class="section-head">
-      <div class="section-title">Active repair queue</div>
-      <div class="section-count">${list.length} item${list.length === 1 ? '' : 's'} ${totalEstCost > 0 ? `&middot; Est. ${fmtCurrency(totalEstCost)}` : ''}</div>
-    </div>`;
-
+    let listHtml = '';
     if (list.length === 0) {
-      html += `
-      <div class="ops-list">
-        <div class="ops-empty">
-          <div class="ops-empty-icon">${Icons.check}</div>
-          <div class="ops-empty-title">No equipment under repair</div>
-          <div class="ops-empty-sub">${q ? 'No service tickets match your search keyword.' : 'All devices across your fleet are fully operational.'}</div>
-        </div>
+      listHtml = `
+      <div class="ops-empty">
+        <div class="ops-empty-icon">${Icons.check}</div>
+        <div class="ops-empty-title">No equipment under repair</div>
+        <div class="ops-empty-sub">${q ? 'No service tickets match your search keyword.' : 'All devices across your fleet are fully operational.'}</div>
       </div>`;
     } else {
-      html += `<div class="ops-list">`;
       list.forEach(i => {
         const rep = i.repairInfo || {};
         const daysAtService = rep.givenToServiceDate ? Math.max(0, daysBetween(rep.givenToServiceDate, today())) : 0;
         const isCritical = daysAtService >= 7;
         const itemTitle = getItemFullTitle(i);
 
-        html += `
+        listHtml += `
         <div class="ops-row" style="flex-direction:column;align-items:stretch" onclick="UI.showEditItemModal('${i.id}')">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
             <div style="display:flex;align-items:center;gap:6px">
@@ -1445,8 +1444,38 @@ const UI = {
           </div>
         </div>`;
       });
-      html += `</div>`;
     }
+
+    const listContainer = document.getElementById('repairsListContainer');
+    const countContainer = document.getElementById('repairsSectionCount');
+    if (listContainer && searchQuery !== undefined) {
+      listContainer.innerHTML = listHtml;
+      if (countContainer) countContainer.textContent = `${list.length} item${list.length === 1 ? '' : 's'}${totalEstCost > 0 ? ' · Est. ' + fmtCurrency(totalEstCost) : ''}`;
+      return;
+    }
+
+    let html = `
+    <!-- Top Live Search Bar -->
+    <div class="search-input-wrap">
+      <div class="search-icon-inside">${Icons.search}</div>
+      <input type="text" id="repairsSearchInput" class="ops-search-input" placeholder="Search service centers, technicians, issues..." value="${escHtml(q)}" oninput="UI.renderRepairs('${filter}', this.value)">
+    </div>
+
+    <!-- Repair Status Filter Pills -->
+    <div class="brand-pills-scroll">
+      <button class="brand-pill ${filter === 'all' ? 'active' : ''}" onclick="UI.renderRepairs('all')">All In Repair (${totalInRepair})</button>
+      <button class="brand-pill ${filter === 'critical' ? 'active' : ''}" onclick="UI.renderRepairs('critical')">Critical &gt;7d (${criticalList.length})</button>
+    </div>
+
+    <!-- Section Head with Count & Total Est Cost -->
+    <div class="section-head">
+      <div class="section-title">Active repair queue</div>
+      <div class="section-count" id="repairsSectionCount">${list.length} item${list.length === 1 ? '' : 's'} ${totalEstCost > 0 ? `&middot; Est. ${fmtCurrency(totalEstCost)}` : ''}</div>
+    </div>
+
+    <div class="ops-list" id="repairsListContainer">
+      ${listHtml}
+    </div>`;
 
     document.getElementById('page-repairs').innerHTML = html;
   },
