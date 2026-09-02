@@ -201,16 +201,132 @@ function openWhatsAppTech(phone, itemTitle, serial, technicianName) {
   window.open(url, '_blank');
 }
 
-/* NOTIFICATIONS */
+/* SYSTEM & BACKGROUND NOTIFICATIONS (OUTSIDE APP & LOCKSCREEN) */
+const AppNotif = {
+  get localNotif() {
+    try {
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) {
+        return window.Capacitor.Plugins.LocalNotifications;
+      }
+    } catch(e) {}
+    return null;
+  },
+
+  async requestPermission() {
+    // 1. Check Capacitor plugin on Android phone
+    const ln = this.localNotif;
+    if (ln) {
+      try {
+        const res = await ln.requestPermissions();
+        if (res && res.display === 'granted') return true;
+      } catch(e) { console.error('Capacitor notification perm error', e); }
+    }
+
+    // 2. Web / PWA Notification API
+    if ('Notification' in window) {
+      try {
+        if (Notification.permission === 'default') {
+          const res = await Notification.requestPermission();
+          return res === 'granted';
+        }
+        return Notification.permission === 'granted';
+      } catch(e) {}
+    }
+    return false;
+  },
+
+  async sendSystemNotification(title, body, id = 1) {
+    if (!notifEnabled) return;
+
+    // 1. Native Android system notification via Capacitor (Appears outside app & on lockscreen!)
+    const ln = this.localNotif;
+    if (ln) {
+      try {
+        await ln.schedule({
+          notifications: [{
+            title,
+            body,
+            id: typeof id === 'number' ? id : Math.floor(Math.random() * 100000),
+            schedule: { at: new Date(Date.now() + 300) },
+            sound: 'beep.wav'
+          }]
+        });
+        return;
+      } catch(e) { console.warn('Capacitor schedule fallback', e); }
+    }
+
+    // 2. Service Worker System Notification (Shows system notification outside active browser tab)
+    if ('serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        if (reg && reg.showNotification) {
+          reg.showNotification(title, {
+            body,
+            icon: '/icon.svg',
+            badge: '/icon.svg',
+            vibrate: [200, 100, 200],
+            tag: 'techtrove-alert-' + (id || Date.now())
+          });
+          return;
+        }
+      } catch(e) {}
+    }
+
+    // 3. Fallback Standard Window Notification
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(title, { body, icon: '/icon.svg' });
+      } catch(e) {}
+    }
+  },
+
+  async syncBackgroundSchedules() {
+    if (!notifEnabled) return;
+    const ln = this.localNotif;
+    if (!ln) return;
+
+    try {
+      const overdue = getOverdueList();
+      const dueSoon = getDueSoonList();
+
+      if (overdue.length === 0 && dueSoon.length === 0) return;
+
+      const now = new Date();
+      const morning = new Date();
+      morning.setHours(9, 0, 0, 0);
+      if (morning <= now) {
+        morning.setDate(morning.getDate() + 1);
+      }
+
+      let summaryText = overdue.length > 0
+        ? `⚠️ ${overdue.length} overdue rental payment(s) require follow-up!`
+        : `⏰ ${dueSoon.length} payment(s) due this week.`;
+
+      await ln.schedule({
+        notifications: [{
+          title: 'TechTrove Payment Reminder',
+          body: summaryText,
+          id: 9901,
+          schedule: {
+            at: morning,
+            repeats: true,
+            every: 'day'
+          },
+          sound: 'beep.wav'
+        }]
+      });
+    } catch(e) {
+      console.warn('Background schedule sync', e);
+    }
+  }
+};
+
 function requestNotifPermission() {
-  if (!('Notification' in window)) return;
-  if (Notification.permission === 'default') Notification.requestPermission();
+  AppNotif.requestPermission();
 }
 
 function sendDueNotification(title, body) {
-  if (!notifEnabled) return;
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  try { new Notification(title, { body, icon: '/icon.svg' }); } catch(e) {}
+  AppNotif.sendSystemNotification(title, body);
 }
 
 function checkAndNotifyDues() {
@@ -221,8 +337,9 @@ function checkAndNotifyDues() {
   if (overdue.length > 0) {
     const names = overdue.slice(0, 3).map(x => x.customer.name).join(', ');
     const more = overdue.length > 3 ? ` and ${overdue.length - 3} more` : '';
-    sendDueNotification('Payment Due Reminder — TechTrove', `${overdue.length} overdue rental(s): ${names}${more}`);
+    AppNotif.sendSystemNotification('Payment Due Reminder — TechTrove', `${overdue.length} overdue rental(s): ${names}${more}`, 101);
   }
+  AppNotif.syncBackgroundSchedules();
   lastNotifDate = todayKey;
   try { localStorage.setItem('lastNotifDate', todayKey); } catch(e) {}
 }
@@ -1200,15 +1317,18 @@ const UI = {
     </div>
 
     <div class="card">
-      <div class="section-header"><h3>Automated Reminders</h3></div>
+      <div class="section-header"><h3>Automated Background Reminders</h3></div>
       <div class="toggle-row">
-        <label>Payment Due Notifications</label>
+        <label>System &amp; Lockscreen Due Alerts</label>
         <label class="toggle-switch">
           <input type="checkbox" id="moreNotifToggle" ${notifEnabled ? 'checked' : ''} onchange="UI.toggleNotifications(this.checked)">
           <span class="toggle-slider"></span>
         </label>
       </div>
-      <div style="font-size:.8rem;color:var(--gray-500)">Alerts for overdue and upcoming due payments when opening app.</div>
+      <div style="font-size:.8rem;color:var(--gray-500);margin-bottom:10px">Sends system-level alerts to your phone notification bar and lockscreen even when outside the app.</div>
+      <button class="btn btn-outline btn-block btn-sm" onclick="UI.testSystemNotification()" style="font-size:.8rem">
+        🔔 Test System Notification (Lockscreen Alert)
+      </button>
     </div>
 
     <div class="card">
@@ -1256,6 +1376,16 @@ const UI = {
     setTimeout(() => {
       window.location.reload(true);
     }, 400);
+  },
+
+  async testSystemNotification() {
+    const granted = await AppNotif.requestPermission();
+    if (!granted && Notification?.permission === 'denied') {
+      UI.showToast('Please enable notifications in Android / Browser settings', 'error');
+      return;
+    }
+    UI.showToast('Sending test notification to your phone...', 'info');
+    await AppNotif.sendSystemNotification('🔔 TechTrove System Alert', 'Background notification active! You will receive due alerts even outside the app.', 8888);
   },
 
   /* MODALS: CUSTOMER */
