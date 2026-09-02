@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icon.svg">
 <link rel="manifest" href="manifest.json">
 <title>TechTrove Systems Rental Tracker</title>
-<link rel="stylesheet" href="styles.css?v=3.4-offline-persist">
+<link rel="stylesheet" href="styles.css?v=3.5-theme-toggle">
 </head>
 <body>
   <div id="splash" class="splash"><div class="spinner"></div></div>
@@ -103,10 +103,10 @@
   <div id="confirmContent" class="modal-content confirm-box"></div>
 </div>
 
-<script src="app.js?v=3.4-offline-persist"></script>
+<script src="app.js?v=3.5-theme-toggle"></script>
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js?v=3.4-offline-persist').then(function(reg) {
+  navigator.serviceWorker.register('sw.js?v=3.5-theme-toggle').then(function(reg) {
     reg.update();
   }).catch(function(){});
 }

@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v8-offline-persist';
+const CACHE = 'techtrove-v9-theme-toggle';
 const ASSETS = [
   '/',
   '/index.html',
