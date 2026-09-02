@@ -1,5 +1,24 @@
-/* STATE */
+/* STATE & LOCAL STORAGE PERSISTENCE */
+const LOCAL_STORAGE_KEY = 'techtrove_state_v1';
 let state = { customers: [], items: [], rentals: [], payments: [] };
+
+try {
+  const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (parsed && Array.isArray(parsed.customers)) {
+      state = {
+        customers: parsed.customers || [],
+        items: parsed.items || [],
+        rentals: parsed.rentals || [],
+        payments: parsed.payments || []
+      };
+    }
+  }
+} catch(e) {
+  console.warn('Initial localStorage load error:', e);
+}
+
 let currentPage = 'dashboard';
 let pageStack = [];
 let filterState = { inventory: 'all' };
@@ -457,7 +476,7 @@ const Auth = {
   }
 };
 
-/* DATA LAYER */
+/* DATA LAYER (OFFLINE-FIRST + DUAL STORAGE) */
 const Data = {
   _saving: false,
   _dirty: false,
@@ -467,6 +486,14 @@ const Data = {
     return res;
   },
   save() {
+    // 1. Immediately persist synchronously to localStorage first!
+    try {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+    } catch(e) {
+      console.error('localStorage save failed:', e);
+    }
+
+    // 2. Background sync to backend API (Upstash Redis / server)
     this._dirty = true;
     if (this._saving) return;
     this._saving = true;
@@ -478,27 +505,55 @@ const Data = {
     }).then(r => {
       if (r.status === 401) Auth.logout();
       return r;
-    }).catch(e => console.error('Save failed', e)).finally(() => {
+    }).catch(e => console.warn('Server sync failed, data saved locally in browser:', e.message)).finally(() => {
       this._saving = false;
       if (this._dirty) this.save();
       else { checkAndNotifyDues(); UI.updateDueBanner(); }
     });
   },
   async load() {
+    // 1. First ensure state is hydrated from localStorage
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.customers)) {
+          state.customers = parsed.customers || [];
+          state.items = parsed.items || [];
+          state.rentals = parsed.rentals || [];
+          state.payments = parsed.payments || [];
+        }
+      }
+    } catch(e) {}
+
+    // 2. Background fetch from server if authenticated
     UI.showLoading(true);
     try {
       const res = await this._fetch('/api/data', { headers: Auth.header() });
-      const d = await res.json();
-      if (d && d.customers) {
-        state.customers = d.customers || [];
-        state.items = d.items || [];
-        state.rentals = d.rentals || [];
-        state.payments = d.payments || [];
+      if (res.ok) {
+        const d = await res.json();
+        if (d && Array.isArray(d.customers)) {
+          const serverHasData = d.customers.length > 0 || (d.items && d.items.length > 0) || (d.rentals && d.rentals.length > 0);
+          const localHasData = state.customers.length > 0 || state.items.length > 0 || state.rentals.length > 0;
+
+          if (serverHasData) {
+            // Server has data, update state and cache to localStorage
+            state.customers = d.customers || [];
+            state.items = d.items || [];
+            state.rentals = d.rentals || [];
+            state.payments = d.payments || [];
+            try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+          } else if (localHasData) {
+            // Server was empty/reset but local has data: Push local data up to server!
+            this.save();
+          }
+        }
       }
     } catch(e) {
-      if (e.message !== 'Unauthorized') console.error('Server load failed', e);
+      if (e.message !== 'Unauthorized') console.warn('Server load failed, running on offline data:', e.message);
     } finally {
       UI.showLoading(false);
+      UI.renderAll();
     }
   },
   exportJSON() {
