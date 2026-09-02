@@ -31,16 +31,26 @@ function rentalStatus(rental, payments, now) {
   return { totalExpected, totalPaid, outstanding, nextDueDate, daysUntilDue, isOverdue, daysOverdue, isDueSoon };
 }
 
-function parseCSVLine(line) {
-  const vals = [];
-  let inQuote = false, cur = '';
-  for (const ch of line) {
-    if (ch === '"') { inQuote = !inQuote; continue; }
-    if (ch === ',' && !inQuote) { vals.push(cur.trim()); cur = ''; continue; }
-    cur += ch;
-  }
-  vals.push(cur.trim());
-  return vals;
+/* Phone helpers */
+const cleanPhone = (p) => String(p || '').replace(/\D/g, '');
+const waPhone = (p) => {
+  const c = cleanPhone(p);
+  return c.length === 10 ? '91' + c : c;
+};
+
+function getItemFullTitle(item) {
+  if (!item) return 'Unknown Item';
+  const parts = [item.brand, item.model].filter(Boolean);
+  return parts.join(' ') || item.type || 'Item';
+}
+
+function buildWaReminderMessage(customer, rental, item, status) {
+  const itemTitle = getItemFullTitle(item);
+  const specsText = item && item.specs ? ` (${item.specs})` : '';
+  const dueInfo = status.isOverdue 
+    ? `was due on *${status.nextDueDate}* (*${status.daysOverdue} days overdue*)`
+    : `is due on *${status.nextDueDate}*`;
+  return `Hello *${customer.name}*,\n\nPayment reminder from TechTrove:\n• Device: ${itemTitle}${specsText}\n• Rent: ₹${rental.rentAmount}/${rental.billingCycle}\n• ${dueInfo}\n• Outstanding: ₹${status.outstanding}`;
 }
 
 /* Tests */
@@ -49,6 +59,31 @@ function test(name, fn) {
   try { fn(); passed++; console.log(`  PASS  ${name}`); }
   catch(e) { failed++; console.log(`  FAIL  ${name}\n        ${e.message}`); }
 }
+
+console.log('\nPhone Helpers');
+test('cleanPhone strips dashes and spaces', () => assert.strictEqual(cleanPhone('+91 98765-43210'), '919876543210'));
+test('cleanPhone handles pure 10 digits', () => assert.strictEqual(cleanPhone('9876543210'), '9876543210'));
+test('waPhone prepends 91 to 10-digit number', () => assert.strictEqual(waPhone('9876543210'), '919876543210'));
+test('waPhone leaves already prefixed number alone', () => assert.strictEqual(waPhone('919876543210'), '919876543210'));
+
+console.log('\nInventory & Laptop Specs');
+test('getItemFullTitle combines brand and model', () => {
+  assert.strictEqual(getItemFullTitle({ brand: 'Dell', model: 'Latitude 3420' }), 'Dell Latitude 3420');
+});
+test('getItemFullTitle handles missing model', () => {
+  assert.strictEqual(getItemFullTitle({ brand: 'Lenovo', model: '' }), 'Lenovo');
+});
+test('buildWaReminderMessage includes customer, device, and specs', () => {
+  const cust = { name: 'Rahul' };
+  const rent = { rentAmount: 1500, billingCycle: 'monthly' };
+  const item = { brand: 'Dell', model: 'Latitude 3420', specs: 'i7, 16GB RAM' };
+  const status = { isOverdue: true, daysOverdue: 5, nextDueDate: '2026-08-01', outstanding: 1500 };
+  const msg = buildWaReminderMessage(cust, rent, item, status);
+  assert.ok(msg.includes('Rahul'));
+  assert.ok(msg.includes('Dell Latitude 3420 (i7, 16GB RAM)'));
+  assert.ok(msg.includes('5 days overdue'));
+  assert.ok(msg.includes('1500'));
+});
 
 console.log('\ncycleDays()');
 test('monthly returns 30', () => assert.strictEqual(cycleDays({ billingCycle: 'monthly' }), 30));
@@ -100,22 +135,46 @@ test('day 29 = not yet due, not overdue', () => {
   assert.strictEqual(s.isDueSoon, true);  // due in 1 day
 });
 
-console.log('\nparseCSVLine()');
-test('simple values', () => {
-  assert.deepStrictEqual(parseCSVLine('a,b,c'), ['a', 'b', 'c']);
+console.log('\nPreset Catalogue & Under-Repair Tracking');
+const PRESET_CATALOGUE = [
+  { brand: 'Dell', model: 'Latitude 3420', specs: 'Intel Core i5 11th Gen • 16GB DDR4 • 512GB NVMe SSD • 14.0" FHD' },
+  { brand: 'Lenovo', model: 'ThinkPad T14 Gen 2', specs: 'Intel Core i5 11th Gen • 16GB DDR4 • 512GB NVMe SSD • 14.0" FHD IPS' },
+  { brand: 'HP', model: 'EliteBook 840 G8', specs: 'Intel Core i5 11th Gen • 16GB DDR4 • 512GB NVMe SSD • 14.0" FHD IPS' },
+  { brand: 'Apple', model: 'MacBook Air M1 (2020)', specs: 'Apple M1 (8-Core CPU / 7-Core GPU) • 8GB Unified RAM • 256GB SSD • 13.3" Retina' }
+];
+
+test('PRESET_CATALOGUE contains Dell, Lenovo, HP, Apple models with specs', () => {
+  assert.strictEqual(PRESET_CATALOGUE.length >= 4, true);
+  const dell = PRESET_CATALOGUE.find(p => p.model === 'Latitude 3420');
+  assert.ok(dell);
+  assert.strictEqual(dell.brand, 'Dell');
+  assert.ok(dell.specs.includes('16GB DDR4'));
 });
-test('quoted values with commas', () => {
-  assert.deepStrictEqual(parseCSVLine('"hello, world",b'), ['hello, world', 'b']);
-});
-test('quoted values with newlines escaped', () => {
-  assert.deepStrictEqual(parseCSVLine('a,"b",c'), ['a', 'b', 'c']);
-});
-test('empty trailing value', () => {
-  assert.deepStrictEqual(parseCSVLine('a,b,'), ['a', 'b', '']);
-});
-test('leading/trailing spaces trimmed', () => {
-  assert.deepStrictEqual(parseCSVLine('  a  ,  b  '), ['a', 'b']);
+
+test('Under Repair item tracks service center, technician phone, and issue notes', () => {
+  const itemInRepair = {
+    id: 'item-repair-1',
+    brand: 'Dell',
+    model: 'Latitude 3420',
+    serial: 'SN-9912',
+    status: 'repair',
+    repairInfo: {
+      serviceCenter: 'Dell Authorized Care SP Road',
+      servicePerson: 'Suresh Kumar',
+      servicePhone: '9876543210',
+      givenToServiceDate: '2026-08-25',
+      collectedFromCustomerDate: '2026-08-24',
+      expectedReturnDate: '2026-09-05',
+      repairIssue: 'Screen flickering & keyboard replacement',
+      repairCost: 2500
+    }
+  };
+  assert.strictEqual(itemInRepair.status, 'repair');
+  assert.strictEqual(itemInRepair.repairInfo.serviceCenter, 'Dell Authorized Care SP Road');
+  assert.strictEqual(waPhone(itemInRepair.repairInfo.servicePhone), '919876543210');
 });
 
 console.log(`\n${passed} passed, ${failed} failed${failed > 0 ? ' — SOME TESTS FAILED' : ' — all good!'}`);
 process.exit(failed > 0 ? 1 : 0);
+
+

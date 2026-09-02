@@ -19,7 +19,6 @@ public class RentalDto {
     private String endDate;
     @NotBlank
     private String status;
-    @NotBlank
     private String createdAt;
 
     public String getId() { return id; }

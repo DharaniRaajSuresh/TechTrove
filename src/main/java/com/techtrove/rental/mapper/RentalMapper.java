@@ -16,7 +16,7 @@ public interface RentalMapper {
     @Mapping(target = "startDate", expression = "java(rental.getStartDate().toString())")
     @Mapping(target = "endDate", expression = "java(rental.getEndDate() != null ? rental.getEndDate().toString() : null)")
     @Mapping(target = "status", expression = "java(rental.getStatus().name().toLowerCase())")
-    @Mapping(target = "createdAt", expression = "java(rental.getCreatedAt().toString())")
+    @Mapping(target = "createdAt", expression = "java(rental.getCreatedAt() != null ? rental.getCreatedAt().toString() : null)")
     RentalDto toDto(Rental rental);
 
     @Mapping(target = "customer", ignore = true)
@@ -26,6 +26,6 @@ public interface RentalMapper {
     @Mapping(target = "startDate", expression = "java(java.time.LocalDate.parse(dto.getStartDate()))")
     @Mapping(target = "endDate", expression = "java(dto.getEndDate() != null ? java.time.LocalDate.parse(dto.getEndDate()) : null)")
     @Mapping(target = "status", expression = "java(com.techtrove.rental.model.enums.RentalStatus.valueOf(dto.getStatus().toUpperCase()))")
-    @Mapping(target = "createdAt", expression = "java(java.time.LocalDate.parse(dto.getCreatedAt()))")
+    @Mapping(target = "createdAt", expression = "java(dto.getCreatedAt() != null && !dto.getCreatedAt().isBlank() ? java.time.LocalDate.parse(dto.getCreatedAt()) : null)")
     Rental toEntity(RentalDto dto);
 }

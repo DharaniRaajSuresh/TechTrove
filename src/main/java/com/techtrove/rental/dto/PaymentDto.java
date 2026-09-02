@@ -14,7 +14,6 @@ public class PaymentDto {
     @NotBlank
     private String method;
     private String remarks;
-    @NotBlank
     private String createdAt;
 
     public String getId() { return id; }

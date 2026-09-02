@@ -8,9 +8,9 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface CustomerMapper {
 
-    @Mapping(target = "createdAt", expression = "java(customer.getCreatedAt().toString())")
+    @Mapping(target = "createdAt", expression = "java(customer.getCreatedAt() != null ? customer.getCreatedAt().toString() : null)")
     CustomerDto toDto(Customer customer);
 
-    @Mapping(target = "createdAt", expression = "java(java.time.LocalDate.parse(dto.getCreatedAt()))")
+    @Mapping(target = "createdAt", expression = "java(dto.getCreatedAt() != null && !dto.getCreatedAt().isBlank() ? java.time.LocalDate.parse(dto.getCreatedAt()) : null)")
     Customer toEntity(CustomerDto dto);
 }

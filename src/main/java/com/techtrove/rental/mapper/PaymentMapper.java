@@ -11,12 +11,12 @@ public interface PaymentMapper {
     @Mapping(target = "rentalId", expression = "java(payment.getRental() != null ? payment.getRental().getId() : null)")
     @Mapping(target = "amount", source = "amount")
     @Mapping(target = "date", expression = "java(payment.getDate().toString())")
-    @Mapping(target = "createdAt", expression = "java(payment.getCreatedAt().toString())")
+    @Mapping(target = "createdAt", expression = "java(payment.getCreatedAt() != null ? payment.getCreatedAt().toString() : null)")
     PaymentDto toDto(Payment payment);
 
     @Mapping(target = "rental", ignore = true)
     @Mapping(target = "amount", expression = "java(dto.getAmount())")
     @Mapping(target = "date", expression = "java(java.time.LocalDate.parse(dto.getDate()))")
-    @Mapping(target = "createdAt", expression = "java(java.time.LocalDate.parse(dto.getCreatedAt()))")
+    @Mapping(target = "createdAt", expression = "java(dto.getCreatedAt() != null && !dto.getCreatedAt().isBlank() ? java.time.LocalDate.parse(dto.getCreatedAt()) : null)")
     Payment toEntity(PaymentDto dto);
 }

@@ -1,7 +1,7 @@
 CREATE TABLE customers (
     id VARCHAR(36) NOT NULL,
     name VARCHAR(255) NOT NULL,
-    phone VARCHAR(255) NOT NULL,
+    phone VARCHAR(255) NOT NULL UNIQUE,
     address TEXT,
     created_at DATE NOT NULL,
     PRIMARY KEY (id)
@@ -11,6 +11,9 @@ CREATE TABLE items (
     id VARCHAR(36) NOT NULL,
     type VARCHAR(255) NOT NULL,
     brand VARCHAR(255) NOT NULL,
+    model VARCHAR(255),
+    specs TEXT,
+    repair_info TEXT,
     serial VARCHAR(255) NOT NULL,
     status VARCHAR(32) NOT NULL,
     created_at DATE NOT NULL,

@@ -22,6 +22,14 @@ public class Item {
     @Column(nullable = false)
     private String brand;
 
+    private String model;
+
+    @Column(columnDefinition = "TEXT")
+    private String specs;
+
+    @Column(columnDefinition = "TEXT")
+    private String repairInfo;
+
     @NotBlank
     @Column(nullable = false)
     private String serial;
@@ -45,8 +53,8 @@ public class Item {
 
     public Item() {}
 
-    public Item(String id, String type, String brand, String serial, ItemStatus status, LocalDate createdAt) {
-        this.id = id; this.type = type; this.brand = brand;
+    public Item(String id, String type, String brand, String model, String specs, String serial, ItemStatus status, LocalDate createdAt) {
+        this.id = id; this.type = type; this.brand = brand; this.model = model; this.specs = specs;
         this.serial = serial; this.status = status; this.createdAt = createdAt;
     }
 
@@ -58,6 +66,15 @@ public class Item {
 
     public String getBrand() { return brand; }
     public void setBrand(String brand) { this.brand = brand; }
+
+    public String getModel() { return model; }
+    public void setModel(String model) { this.model = model; }
+
+    public String getSpecs() { return specs; }
+    public void setSpecs(String specs) { this.specs = specs; }
+
+    public String getRepairInfo() { return repairInfo; }
+    public void setRepairInfo(String repairInfo) { this.repairInfo = repairInfo; }
 
     public String getSerial() { return serial; }
     public void setSerial(String serial) { this.serial = serial; }

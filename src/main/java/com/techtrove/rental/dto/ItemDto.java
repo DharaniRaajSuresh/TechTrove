@@ -8,11 +8,13 @@ public class ItemDto {
     private String type;
     @NotBlank
     private String brand;
+    private String model;
+    private String specs;
+    private String repairInfo;
     @NotBlank
     private String serial;
     @NotBlank
     private String status;
-    @NotBlank
     private String createdAt;
 
     public String getId() { return id; }
@@ -24,6 +26,15 @@ public class ItemDto {
     public String getBrand() { return brand; }
     public void setBrand(String brand) { this.brand = brand; }
 
+    public String getModel() { return model; }
+    public void setModel(String model) { this.model = model; }
+
+    public String getSpecs() { return specs; }
+    public void setSpecs(String specs) { this.specs = specs; }
+
+    public String getRepairInfo() { return repairInfo; }
+    public void setRepairInfo(String repairInfo) { this.repairInfo = repairInfo; }
+
     public String getSerial() { return serial; }
     public void setSerial(String serial) { this.serial = serial; }
 
@@ -33,3 +44,4 @@ public class ItemDto {
     public String getCreatedAt() { return createdAt; }
     public void setCreatedAt(String createdAt) { this.createdAt = createdAt; }
 }
+

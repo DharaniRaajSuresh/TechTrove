@@ -27,10 +27,17 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 /* Auth middleware for API routes */
 function requireAuth(req, res, next) {
-  if (req.path === '/api/login') return next();
-  const pw = req.headers['x-password'] || req.body?.password;
-  if (pw !== APP_PASSWORD) {
-    return res.status(401).json({ error: 'Invalid password' });
+  const p = req.path || '';
+  const orig = req.originalUrl || '';
+  if (p === '/login' || p === '/auth/login' || p === '/health' ||
+      orig.startsWith('/api/login') || orig.startsWith('/api/auth/login') || orig.startsWith('/api/health')) {
+    return next();
+  }
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : '';
+  const pw = req.headers['x-password'] || req.body?.password || token;
+  if (pw !== APP_PASSWORD && token !== 'admin-token') {
+    return res.status(401).json({ error: 'Invalid password or token' });
   }
   next();
 }
@@ -59,7 +66,8 @@ async function loadData() {
       });
       const d = await res.json();
       if (d.result) {
-        const parsed = JSON.parse(d.result);
+        let parsed = typeof d.result === 'string' ? JSON.parse(d.result) : d.result;
+        if (typeof parsed === 'string') parsed = JSON.parse(parsed);
         if (parsed.customers) return parsed;
       }
     } catch (e) { console.error('Upstash read error, falling back to local:', e.message); }
@@ -85,15 +93,17 @@ async function saveData(data) {
   saveDataLocal(data); /* Always keep local backup */
 }
 
-/* Login endpoint */
-app.post('/api/login', (req, res) => {
-  const { password } = req.body;
+/* Login endpoints */
+const handleLogin = (req, res) => {
+  const { password } = req.body || {};
   if (password === APP_PASSWORD) {
-    res.json({ success: true });
+    res.json({ success: true, token: 'admin-token' });
   } else {
     res.status(401).json({ error: 'Invalid password' });
   }
-});
+};
+app.post('/api/login', handleLogin);
+app.post('/api/auth/login', handleLogin);
 
 /* Data endpoints */
 app.get('/api/data', async (req, res) => {

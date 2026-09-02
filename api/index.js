@@ -12,9 +12,16 @@ const APP_PASSWORD = process.env.APP_PASSWORD || 'rent123';
 app.use(express.json({ limit: '10mb' }));
 
 function requireAuth(req, res, next) {
-  if (req.path === '/api/login') return next();
-  const pw = req.headers['x-password'] || req.body?.password;
-  if (pw !== APP_PASSWORD) return res.status(401).json({ error: 'Invalid password' });
+  const p = req.path || '';
+  const orig = req.originalUrl || '';
+  if (p === '/login' || p === '/auth/login' || p === '/health' ||
+      orig.startsWith('/api/login') || orig.startsWith('/api/auth/login') || orig.startsWith('/api/health')) {
+    return next();
+  }
+  const authHeader = req.headers['authorization'] || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : '';
+  const pw = req.headers['x-password'] || req.body?.password || token;
+  if (pw !== APP_PASSWORD && token !== 'admin-token') return res.status(401).json({ error: 'Invalid password or token' });
   next();
 }
 app.use('/api', requireAuth);
@@ -35,7 +42,11 @@ async function loadData() {
         headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` }
       });
       const d = await res.json();
-      if (d.result) { const parsed = JSON.parse(d.result); if (parsed.customers) return parsed; }
+      if (d.result) {
+        let parsed = typeof d.result === 'string' ? JSON.parse(d.result) : d.result;
+        if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+        if (parsed.customers) return parsed;
+      }
     } catch(e) { console.error('Upstash read error:', e.message); }
   }
   return loadDataLocal() || { customers: [], items: [], rentals: [], payments: [] };
@@ -55,10 +66,13 @@ async function saveData(data) {
   saveDataLocal(data);
 }
 
-app.post('/api/login', (req, res) => {
-  if (req.body.password === APP_PASSWORD) res.json({ success: true });
+const handleLogin = (req, res) => {
+  const { password } = req.body || {};
+  if (password === APP_PASSWORD) res.json({ success: true, token: 'admin-token' });
   else res.status(401).json({ error: 'Invalid password' });
-});
+};
+app.post('/api/login', handleLogin);
+app.post('/api/auth/login', handleLogin);
 
 app.get('/api/data', async (req, res) => { res.json(await loadData()); });
 

@@ -4,6 +4,9 @@ import-data.json
 all-names.txt
 name-groups.txt
 *.log
+*.xlsx
+*.xls
+~$*
 
 techtrove.env
 

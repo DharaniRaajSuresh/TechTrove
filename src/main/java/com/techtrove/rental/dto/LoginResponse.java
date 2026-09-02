@@ -6,6 +6,7 @@ public class LoginResponse {
 
     public LoginResponse(String token) {
         this.token = token;
+        this.success = true;
     }
 
     public LoginResponse(boolean success) {
