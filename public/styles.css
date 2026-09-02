@@ -274,6 +274,32 @@ header h1{font-size:1rem;font-weight:600;flex:1;text-align:center;letter-spacing
 .spec-builder-box{background:#f8fafc;padding:12px;border-radius:var(--radius);border:1px solid var(--gray-200);margin-bottom:12px}
 .spec-builder-title{font-size:.78rem;font-weight:700;color:var(--gray-600);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
 
+/* SEARCHABLE PRESET PICKER */
+.preset-search-box{background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:var(--radius);padding:12px;margin-bottom:14px}
+.preset-search-header{margin-bottom:6px}
+.preset-brand-pills{display:flex;gap:5px;overflow-x:auto;padding-bottom:6px;margin:8px 0;scrollbar-width:none}
+.preset-brand-pills::-webkit-scrollbar{display:none}
+.brand-pill{padding:4px 12px;border-radius:20px;font-size:.76rem;border:1px solid #bfdbfe;background:#fff;color:var(--primary-dark);font-weight:600;cursor:pointer;white-space:nowrap;transition:all .15s;min-height:28px}
+.brand-pill:hover{background:#dbeafe}
+.brand-pill.active{background:var(--primary);color:#fff;border-color:var(--primary);box-shadow:0 2px 4px rgba(37,99,235,.2)}
+.preset-input-wrapper{position:relative;display:flex;align-items:center}
+.preset-search-input{width:100%;padding:10px 32px 10px 12px;border:1.5px solid #93c5fd;border-radius:8px;font-size:.88rem;background:#fff;box-sizing:border-box}
+.preset-search-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+.preset-clear-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;font-size:1rem;color:var(--gray-400);cursor:pointer;padding:4px 8px;min-height:auto}
+.preset-results-dropdown{max-height:220px;overflow-y:auto;background:#fff;border:1.5px solid #bfdbfe;border-radius:8px;margin-top:6px;box-shadow:0 6px 16px rgba(0,0,0,0.1)}
+.preset-result-item{padding:9px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .12s;text-align:left}
+.preset-result-item:last-child{border-bottom:none}
+.preset-result-item:hover,.preset-result-item:active{background:#eff6ff}
+.preset-result-title{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.preset-result-brand{font-weight:700;color:var(--primary-dark);font-size:.82rem}
+.preset-result-model{font-weight:700;color:var(--gray-900);font-size:.86rem}
+.preset-result-type{font-size:.65rem;background:var(--gray-100);border:1px solid var(--gray-300);padding:1px 5px;border-radius:4px;color:var(--gray-600);margin-left:auto}
+.preset-result-specs{font-size:.76rem;color:var(--gray-600);margin-top:2px;line-height:1.25}
+.preset-custom-option{background:#faf5ff;border-top:1.5px dashed #c084fc}
+.preset-custom-option:hover{background:#f3e8ff}
+.selected-preset-banner{display:flex;justify-content:space-between;align-items:center;background:#dcfce7;border:1px solid #86efac;color:#166534;padding:8px 12px;border-radius:8px;font-size:.82rem;font-weight:600;margin-top:8px}
+
+
 
 
 /* RESPONSIVE */

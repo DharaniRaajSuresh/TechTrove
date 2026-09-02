@@ -1348,39 +1348,80 @@ const UI = {
     });
   },
 
-  /* MODALS: INVENTORY ITEM WITH PRESETS & REPAIR TRACKING */
-  _buildPresetOptionsHtml(selectedModel = '') {
-    const brands = ['Dell', 'Lenovo', 'HP', 'Apple', 'Asus', 'Acer', 'Monitor'];
-    let html = `<option value="">⚡ -- Select Model Preset (Auto-fills Brand & Specs) --</option>`;
-    html += `<option value="custom">✏️ + Custom / Other Model (Type Manually)</option>`;
+  /* SEARCHABLE PRESET PICKER & COMPONENT BUILDER */
+  currentPresetBrandFilter: 'ALL',
 
-    brands.forEach(b => {
-      const filtered = PRESET_CATALOGUE.filter(p => p.brand.toLowerCase() === b.toLowerCase() || (b === 'Monitor' && p.type === 'Monitor'));
-      if (filtered.length > 0) {
-        html += `<optgroup label="${b === 'Monitor' ? 'Displays / Monitors' : b + ' Laptops & Desktops'}">`;
-        filtered.forEach(p => {
-          const isSel = selectedModel && (selectedModel.toLowerCase() === p.model.toLowerCase());
-          html += `<option value="${escHtml(p.model)}" ${isSel ? 'selected' : ''}>${escHtml(p.brand)} ${escHtml(p.model)}</option>`;
-        });
-        html += `</optgroup>`;
-      }
-    });
+  renderPresetSearchResults(query = '') {
+    const q = (query || '').toLowerCase().trim();
+    let list = PRESET_CATALOGUE;
+
+    if (this.currentPresetBrandFilter && this.currentPresetBrandFilter !== 'ALL') {
+      const b = this.currentPresetBrandFilter.toLowerCase();
+      list = list.filter(p => p.brand.toLowerCase() === b || (b === 'monitor' && p.type === 'Monitor'));
+    }
+
+    if (q) {
+      list = list.filter(p => {
+        return p.model.toLowerCase().includes(q) ||
+          p.brand.toLowerCase().includes(q) ||
+          p.specs.toLowerCase().includes(q) ||
+          (p.type && p.type.toLowerCase().includes(q));
+      });
+    }
+
+    let html = '';
+    if (list.length === 0) {
+      html += `<div style="padding:12px;text-align:center;color:var(--gray-500);font-size:.82rem">No preset models matching "<strong>${escHtml(query)}</strong>"</div>`;
+    } else {
+      list.forEach(p => {
+        html += `
+        <div class="preset-result-item" onclick="UI.selectPresetModel('${escHtml(p.model)}')">
+          <div class="preset-result-title">
+            <span class="preset-result-brand">${escHtml(p.brand)}</span>
+            <span class="preset-result-model">${escHtml(p.model)}</span>
+            <span class="preset-result-type">${escHtml(p.type || 'Laptop')}</span>
+          </div>
+          <div class="preset-result-specs">${escHtml(p.specs)}</div>
+        </div>`;
+      });
+    }
+
+    if (q) {
+      html += `
+      <div class="preset-result-item preset-custom-option" onclick="UI.selectCustomModel(\`${escHtml(query).replace(/`/g, '\\`')}\`)">
+        <div style="font-weight:700;color:var(--primary)">✏️ Use "${escHtml(query)}" as Custom Model</div>
+        <div style="font-size:.74rem;color:var(--gray-600)">Click to set custom model and adjust specs below</div>
+      </div>`;
+    }
+
     return html;
   },
 
-  _buildSelectOptions(list, selectedVal = '') {
-    let html = `<option value="">-- Select or customize below --</option>`;
-    list.forEach(opt => {
-      const isSel = selectedVal && (opt.toLowerCase() === selectedVal.toLowerCase() || selectedVal.toLowerCase().includes(opt.toLowerCase()));
-      html += `<option value="${escHtml(opt)}" ${isSel ? 'selected' : ''}>${escHtml(opt)}</option>`;
-    });
-    return html;
+  filterPresetsByBrand(brand, btnEl) {
+    this.currentPresetBrandFilter = brand;
+    const container = document.getElementById('presetBrandPills');
+    if (container) {
+      container.querySelectorAll('.brand-pill').forEach(b => b.classList.remove('active'));
+    }
+    if (btnEl) btnEl.classList.add('active');
+    const input = document.getElementById('presetSearchInput');
+    const resultsEl = document.getElementById('presetResultsList');
+    if (resultsEl) {
+      resultsEl.style.display = 'block';
+      resultsEl.innerHTML = this.renderPresetSearchResults(input ? input.value : '');
+    }
   },
 
-  onPresetSelectChange(sel) {
-    const val = sel.value;
-    if (!val || val === 'custom') return;
-    const preset = PRESET_CATALOGUE.find(p => p.model === val);
+  onPresetSearchInput(val) {
+    const resultsEl = document.getElementById('presetResultsList');
+    if (resultsEl) {
+      resultsEl.style.display = 'block';
+      resultsEl.innerHTML = this.renderPresetSearchResults(val);
+    }
+  },
+
+  selectPresetModel(modelName) {
+    const preset = PRESET_CATALOGUE.find(p => p.model === modelName);
     if (!preset) return;
 
     const brandEl = document.getElementById('itemBrand');
@@ -1391,6 +1432,9 @@ const UI = {
     const ramEl = document.getElementById('itemRam');
     const storageEl = document.getElementById('itemStorage');
     const screenEl = document.getElementById('itemScreen');
+    const searchInput = document.getElementById('presetSearchInput');
+    const resultsEl = document.getElementById('presetResultsList');
+    const bannerEl = document.getElementById('selectedPresetBanner');
 
     if (brandEl) brandEl.value = preset.brand;
     if (modelEl) modelEl.value = preset.model;
@@ -1400,6 +1444,62 @@ const UI = {
     if (ramEl && preset.ram) ramEl.value = preset.ram;
     if (storageEl && preset.storage) storageEl.value = preset.storage;
     if (screenEl && preset.screen) screenEl.value = preset.screen;
+
+    if (searchInput) searchInput.value = `${preset.brand} ${preset.model}`;
+    if (resultsEl) resultsEl.style.display = 'none';
+
+    if (bannerEl) {
+      bannerEl.innerHTML = `
+        <div>
+          <span>✓ Selected: <strong>${escHtml(preset.brand)} ${escHtml(preset.model)}</strong></span>
+          <div style="font-size:.75rem;opacity:.9;margin-top:1px">${escHtml(preset.specs)}</div>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline" style="padding:2px 8px;min-height:24px;font-size:.72rem;background:#fff;border-color:#86efac;color:#166534" onclick="UI.clearPresetSelection()">Change</button>
+      `;
+      bannerEl.style.display = 'flex';
+    }
+  },
+
+  selectCustomModel(customVal) {
+    const modelEl = document.getElementById('itemModel');
+    const searchInput = document.getElementById('presetSearchInput');
+    const resultsEl = document.getElementById('presetResultsList');
+    const bannerEl = document.getElementById('selectedPresetBanner');
+
+    if (modelEl) modelEl.value = customVal;
+    if (searchInput) searchInput.value = customVal;
+    if (resultsEl) resultsEl.style.display = 'none';
+
+    if (bannerEl) {
+      bannerEl.innerHTML = `
+        <div>
+          <span>✏️ Custom Model: <strong>${escHtml(customVal)}</strong></span>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline" style="padding:2px 8px;min-height:24px;font-size:.72rem;background:#fff;border-color:#86efac;color:#166534" onclick="UI.clearPresetSelection()">Change</button>
+      `;
+      bannerEl.style.display = 'flex';
+    }
+  },
+
+  clearPresetSelection() {
+    const searchInput = document.getElementById('presetSearchInput');
+    const resultsEl = document.getElementById('presetResultsList');
+    const bannerEl = document.getElementById('selectedPresetBanner');
+    if (searchInput) { searchInput.value = ''; searchInput.focus(); }
+    if (bannerEl) bannerEl.style.display = 'none';
+    if (resultsEl) {
+      resultsEl.style.display = 'block';
+      resultsEl.innerHTML = this.renderPresetSearchResults('');
+    }
+  },
+
+  _buildSelectOptions(list, selectedVal = '') {
+    let html = `<option value="">-- Select or customize below --</option>`;
+    list.forEach(opt => {
+      const isSel = selectedVal && (opt.toLowerCase() === selectedVal.toLowerCase() || selectedVal.toLowerCase().includes(opt.toLowerCase()));
+      html += `<option value="${escHtml(opt)}" ${isSel ? 'selected' : ''}>${escHtml(opt)}</option>`;
+    });
+    return html;
   },
 
   onComponentDropdownChange() {
@@ -1423,16 +1523,39 @@ const UI = {
   },
 
   showAddItemModal() {
+    this.currentPresetBrandFilter = 'ALL';
     this.showModal(`
       <button class="modal-close" onclick="UI.hideModal()">&times;</button>
       <h2>Add Laptop / Device</h2>
 
-      <div class="form-group" style="background:#eff6ff;padding:10px;border-radius:var(--radius);border:1.5px solid #bfdbfe">
-        <label style="color:var(--primary-dark);font-weight:700">⚡ Quick Model Preset (All Popular Brands)</label>
-        <select id="itemPresetSelect" onchange="UI.onPresetSelectChange(this)" style="font-weight:600">
-          ${this._buildPresetOptionsHtml()}
-        </select>
-        <div style="font-size:.75rem;color:var(--gray-500);margin-top:3px">Choose any preset to auto-fill, or type your own below!</div>
+      <!-- SEARCHABLE PRESET MODEL PICKER -->
+      <div class="preset-search-box">
+        <div class="preset-search-header">
+          <label style="font-weight:700;color:var(--primary-dark);font-size:.85rem">⚡ Search &amp; Pick Model Preset (40+ Models)</label>
+          <div style="font-size:.74rem;color:var(--gray-600)">Type any model name (e.g. <em>3420, T14, M1, 840, i5</em>) or tap a brand:</div>
+        </div>
+
+        <div class="preset-brand-pills" id="presetBrandPills">
+          <button type="button" class="brand-pill active" onclick="UI.filterPresetsByBrand('ALL', this)">All</button>
+          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Dell', this)">Dell</button>
+          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Lenovo', this)">Lenovo</button>
+          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('HP', this)">HP</button>
+          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Apple', this)">Apple</button>
+          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Asus', this)">Asus</button>
+          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Acer', this)">Acer</button>
+          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Monitor', this)">Monitors</button>
+        </div>
+
+        <div class="preset-input-wrapper">
+          <input type="text" id="presetSearchInput" class="preset-search-input" placeholder="🔍 Type model name (e.g. 3420, T14, M1, EliteBook)..." oninput="UI.onPresetSearchInput(this.value)" onfocus="document.getElementById('presetResultsList').style.display='block'" autocomplete="off">
+          <button type="button" class="preset-clear-btn" onclick="UI.clearPresetSelection()">✕</button>
+        </div>
+
+        <div id="presetResultsList" class="preset-results-dropdown">
+          ${this.renderPresetSearchResults('')}
+        </div>
+
+        <div id="selectedPresetBanner" class="selected-preset-banner" style="display:none"></div>
       </div>
 
       <div class="form-row">
@@ -1548,7 +1671,10 @@ const UI = {
         <button class="btn btn-outline" onclick="UI.hideModal()">Cancel</button>
         <button class="btn btn-primary" onclick="UI.saveItem()">Save to Inventory</button>
       </div>`);
-    setTimeout(() => document.getElementById('itemBrand').focus(), 300);
+    setTimeout(() => {
+      const input = document.getElementById('presetSearchInput');
+      if (input) input.focus();
+    }, 300);
   },
 
   showEditItemModal(itemId) {
@@ -1557,16 +1683,45 @@ const UI = {
     const activeRental = getActiveRentalForItem(itemId);
     const isRented = !!activeRental;
     const rep = i.repairInfo || {};
+    this.currentPresetBrandFilter = 'ALL';
 
     this.showModal(`
       <button class="modal-close" onclick="UI.hideModal()">&times;</button>
       <h2>Edit Device</h2>
 
-      <div class="form-group" style="background:#eff6ff;padding:10px;border-radius:var(--radius);border:1.5px solid #bfdbfe">
-        <label style="color:var(--primary-dark);font-weight:700">⚡ Quick Model Preset</label>
-        <select id="itemPresetSelect" onchange="UI.onPresetSelectChange(this)" style="font-weight:600">
-          ${this._buildPresetOptionsHtml(i.model)}
-        </select>
+      <!-- SEARCHABLE PRESET MODEL PICKER -->
+      <div class="preset-search-box">
+        <div class="preset-search-header">
+          <label style="font-weight:700;color:var(--primary-dark);font-size:.85rem">⚡ Search &amp; Pick Model Preset</label>
+          <div style="font-size:.74rem;color:var(--gray-600)">Type any model name (e.g. <em>3420, T14, M1, 840</em>) or tap a brand:</div>
+        </div>
+
+        <div class="preset-brand-pills" id="presetBrandPills">
+          <button type="button" class="brand-pill active" onclick="UI.filterPresetsByBrand('ALL', this)">All</button>
+          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Dell', this)">Dell</button>
+          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Lenovo', this)">Lenovo</button>
+          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('HP', this)">HP</button>
+          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Apple', this)">Apple</button>
+          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Asus', this)">Asus</button>
+          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Acer', this)">Acer</button>
+          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Monitor', this)">Monitors</button>
+        </div>
+
+        <div class="preset-input-wrapper">
+          <input type="text" id="presetSearchInput" class="preset-search-input" value="${escHtml(i.brand ? i.brand + ' ' + (i.model || '') : '')}" placeholder="🔍 Search models..." oninput="UI.onPresetSearchInput(this.value)" onfocus="document.getElementById('presetResultsList').style.display='block'" autocomplete="off">
+          <button type="button" class="preset-clear-btn" onclick="UI.clearPresetSelection()">✕</button>
+        </div>
+
+        <div id="presetResultsList" class="preset-results-dropdown" style="display:none">
+          ${this.renderPresetSearchResults(i.model || '')}
+        </div>
+
+        <div id="selectedPresetBanner" class="selected-preset-banner" style="${i.model ? 'display:flex' : 'display:none'}">
+          <div>
+            <span>Current: <strong>${escHtml(i.brand || '')} ${escHtml(i.model || '')}</strong></span>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline" style="padding:2px 8px;min-height:24px;font-size:.72rem;background:#fff;border-color:#86efac;color:#166534" onclick="UI.clearPresetSelection()">Change</button>
+        </div>
       </div>
 
       <div class="form-row">
@@ -1684,6 +1839,7 @@ const UI = {
       </div>
       ${!isRented ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--gray-200)"><button class="btn btn-danger btn-block btn-sm" onclick="UI.deleteItem('${i.id}')">Delete Item</button></div>` : '<div style="margin-top:8px;font-size:.8rem;color:var(--gray-500);text-align:center">Cannot delete — currently rented out.</div>'}`);
   },
+
 
   saveItem(id) {
     const type = document.getElementById('itemType').value;
