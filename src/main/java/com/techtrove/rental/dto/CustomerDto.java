@@ -1,12 +1,14 @@
 package com.techtrove.rental.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 
 public class CustomerDto {
     private String id;
     @NotBlank
     private String name;
     @NotBlank
+    @Pattern(regexp = "^[0-9]{10}$", message = "Phone number must be exactly 10 digits")
     private String phone;
     private String address;
     private String createdAt;

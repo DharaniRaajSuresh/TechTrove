@@ -133,6 +133,7 @@ const isActiveRental = (r) => r.status === 'active';
 
 /* Phone Helpers */
 const cleanPhone = (p) => String(p || '').replace(/\D/g, '');
+const isValidPhone = (p) => /^[0-9]{10}$/.test(cleanPhone(p));
 const waPhone = (p) => {
   const c = cleanPhone(p);
   return c.length === 10 ? '91' + c : c;
@@ -1788,8 +1789,8 @@ const UI = {
         <input type="text" id="custName" placeholder="e.g. Rahul Sharma">
       </div>
       <div class="form-group">
-        <label>Phone Number * (Primary Unique Identifier)</label>
-        <input type="tel" id="custPhone" placeholder="10-digit mobile number, e.g. 9876543210">
+        <label>Phone Number * (10 Digits Only)</label>
+        <input type="tel" id="custPhone" placeholder="10-digit mobile number, e.g. 9876543210" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
       </div>
       <div class="form-group">
         <label>Location / Address</label>
@@ -1813,8 +1814,8 @@ const UI = {
         <input type="text" id="custName" value="${escHtml(c.name)}">
       </div>
       <div class="form-group">
-        <label>Phone Number * (Unique)</label>
-        <input type="tel" id="custPhone" value="${escHtml(c.phone)}">
+        <label>Phone Number * (10 Digits Only)</label>
+        <input type="tel" id="custPhone" value="${escHtml(cleanPhone(c.phone))}" placeholder="10-digit mobile number" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
       </div>
       <div class="form-group">
         <label>Location / Address</label>
@@ -1835,8 +1836,8 @@ const UI = {
     if (!phoneRaw) { UI.showToast('Please enter customer phone number', 'error'); return; }
 
     const phoneDigits = cleanPhone(phoneRaw);
-    if (phoneDigits.length < 10) {
-      UI.showToast('Please enter a valid 10-digit phone number', 'error');
+    if (!/^[0-9]{10}$/.test(phoneDigits)) {
+      UI.showToast('Phone number must be exactly 10 digits (0-9)', 'error');
       return;
     }
 
@@ -1850,14 +1851,14 @@ const UI = {
       const c = getCustomer(id);
       if (c) {
         c.name = name;
-        c.phone = phoneRaw;
+        c.phone = phoneDigits;
         c.address = address;
       }
     } else {
       state.customers.push({
         id: uid(),
         name,
-        phone: phoneRaw,
+        phone: phoneDigits,
         address,
         createdAt: today()
       });
@@ -2185,8 +2186,8 @@ const UI = {
             <input type="text" id="repairServicePerson" placeholder="e.g. Suresh Kumar">
           </div>
           <div class="form-group">
-            <label>Technician Phone Number</label>
-            <input type="tel" id="repairServicePhone" placeholder="10-digit mobile number">
+            <label>Technician Phone Number (10 Digits)</label>
+            <input type="tel" id="repairServicePhone" placeholder="10-digit mobile number, e.g. 9876543210" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
           </div>
         </div>
         <div class="form-row">
@@ -2351,8 +2352,8 @@ const UI = {
             <input type="text" id="repairServicePerson" value="${escHtml(rep.servicePerson || '')}" placeholder="e.g. Suresh Kumar">
           </div>
           <div class="form-group">
-            <label>Technician Phone Number</label>
-            <input type="tel" id="repairServicePhone" value="${escHtml(rep.servicePhone || '')}" placeholder="10-digit mobile number">
+            <label>Technician Phone Number (10 Digits)</label>
+            <input type="tel" id="repairServicePhone" value="${escHtml(cleanPhone(rep.servicePhone || ''))}" placeholder="10-digit mobile number" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
           </div>
         </div>
         <div class="form-row">
@@ -2400,10 +2401,15 @@ const UI = {
 
     let repairInfo = null;
     if (status === 'repair') {
+      const sPhoneDigits = cleanPhone(document.getElementById('repairServicePhone')?.value || '');
+      if (sPhoneDigits && !/^[0-9]{10}$/.test(sPhoneDigits)) {
+        UI.showToast('Technician phone number must be exactly 10 digits', 'error');
+        return;
+      }
       repairInfo = {
         serviceCenter: document.getElementById('repairServiceCenter')?.value.trim() || '',
         servicePerson: document.getElementById('repairServicePerson')?.value.trim() || '',
-        servicePhone: document.getElementById('repairServicePhone')?.value.trim() || '',
+        servicePhone: sPhoneDigits,
         givenToServiceDate: document.getElementById('repairHandoverDate')?.value || today(),
         expectedReturnDate: document.getElementById('repairExpectedReturnDate')?.value || '',
         collectedFromCustomerDate: document.getElementById('repairCollectedDate')?.value || '',

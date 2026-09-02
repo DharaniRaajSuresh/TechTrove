@@ -33,6 +33,7 @@ function rentalStatus(rental, payments, now) {
 
 /* Phone helpers */
 const cleanPhone = (p) => String(p || '').replace(/\D/g, '');
+const isValidPhone = (p) => /^[0-9]{10}$/.test(cleanPhone(p));
 const waPhone = (p) => {
   const c = cleanPhone(p);
   return c.length === 10 ? '91' + c : c;
@@ -60,9 +61,14 @@ function test(name, fn) {
   catch(e) { failed++; console.log(`  FAIL  ${name}\n        ${e.message}`); }
 }
 
-console.log('\nPhone Helpers');
+console.log('\nPhone Helpers & Strict 10-Digit Constraint');
 test('cleanPhone strips dashes and spaces', () => assert.strictEqual(cleanPhone('+91 98765-43210'), '919876543210'));
 test('cleanPhone handles pure 10 digits', () => assert.strictEqual(cleanPhone('9876543210'), '9876543210'));
+test('isValidPhone returns true for valid 10 digits', () => assert.strictEqual(isValidPhone('9876543210'), true));
+test('isValidPhone returns true for 10 digits with spaces or dashes', () => assert.strictEqual(isValidPhone('98765-43210'), true));
+test('isValidPhone returns false for less than 10 digits', () => assert.strictEqual(isValidPhone('987654321'), false));
+test('isValidPhone returns false for more than 10 digits', () => assert.strictEqual(isValidPhone('919876543210'), false));
+test('isValidPhone returns false for empty or non-numeric', () => assert.strictEqual(isValidPhone('abcdefghij'), false));
 test('waPhone prepends 91 to 10-digit number', () => assert.strictEqual(waPhone('9876543210'), '919876543210'));
 test('waPhone leaves already prefixed number alone', () => assert.strictEqual(waPhone('919876543210'), '919876543210'));
 
