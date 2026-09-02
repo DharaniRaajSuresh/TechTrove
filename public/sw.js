@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v3';
+const CACHE = 'techtrove-v4';
 const ASSETS = [
   '/',
   '/index.html',
@@ -30,19 +30,18 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (url.pathname.startsWith('/api/')) {
     e.respondWith(fetch(e.request).catch(() => new Response(JSON.stringify({ error: 'offline' }), { status: 503, headers: { 'Content-Type': 'application/json' } })));
-  } else if (ASSETS.includes(stripQuery(url.pathname))) {
-    e.respondWith(
-      caches.match(stripQuery(e.request.url)).then((cached) => cached || fetch(e.request).then((res) => {
-        if (res.ok && res.type === 'basic') {
-          const clone = res.clone();
-          caches.open(CACHE).then((c) => c.put(stripQuery(e.request.url), clone));
-        }
-        return res;
-      }).catch(() => caches.match('/')))
-    );
   } else {
+    // Network-First strategy: Always fetch fresh code when online, fallback to cache when offline
     e.respondWith(
-      fetch(e.request).catch(() => caches.match('/'))
+      fetch(e.request)
+        .then((res) => {
+          if (res && res.status === 200 && (res.type === 'basic' || res.type === 'cors')) {
+            const clone = res.clone();
+            caches.open(CACHE).then((c) => c.put(stripQuery(e.request.url), clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(stripQuery(e.request.url)).then((cached) => cached || caches.match('/index.html') || caches.match('/')))
     );
   }
 });

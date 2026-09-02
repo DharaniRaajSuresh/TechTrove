@@ -1224,12 +1224,38 @@ const UI = {
     </div>
 
     <div class="card">
+      <button class="btn btn-outline btn-block btn-sm" onclick="UI.checkForUpdates()" style="color:var(--primary);border-color:var(--primary);margin-bottom:10px">
+        🔄 Check for Updates &amp; Reload Latest Version
+      </button>
       <button class="btn btn-outline btn-block btn-sm" onclick="Auth.logout()" style="color:var(--danger);border-color:var(--danger)">
         🔒 Sign Out &amp; Lock App
       </button>
     </div>
-    <div style="text-align:center;padding:16px;font-size:.75rem;color:var(--gray-400)">TechTrove Systems &middot; Version 2.0</div>`;
+    <div style="text-align:center;padding:16px;font-size:.75rem;color:var(--gray-400)">TechTrove Systems &middot; Version 3.0</div>`;
     document.getElementById('page-more').innerHTML = html;
+  },
+
+  async checkForUpdates() {
+    UI.showToast('Checking for updates...', 'info');
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (let reg of regs) {
+          await reg.update();
+          await reg.unregister();
+        }
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        for (let key of keys) {
+          await caches.delete(key);
+        }
+      }
+    } catch(e) {}
+    UI.showToast('Updated! Reloading...', 'success');
+    setTimeout(() => {
+      window.location.reload(true);
+    }, 400);
   },
 
   /* MODALS: CUSTOMER */
