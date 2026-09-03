@@ -779,9 +779,13 @@ const UI = {
     if (currentPage === 'dashboard' || currentPage === 'customer-detail') this.showAddRentalModal();
     else if (currentPage === 'customers') this.showAddCustomerModal();
     else if (currentPage === 'inventory') this.showAddItemModal();
-    else if (currentPage === 'repairs') this.showAddRepairModal();
+    else if (currentPage === 'repairs') this.showSendToRepairModal();
     else if (currentPage === 'more') Auth.logout();
     else this.showAddRentalModal();
+  },
+
+  showAddRepairModal() {
+    this.showSendToRepairModal();
   },
 
   handleDesktopSearch(q) {
@@ -1560,7 +1564,7 @@ const UI = {
     document.getElementById('page-inventory').innerHTML = html;
   },
 
-  /* REPAIRS TRACKER (OPS CONSOLE REDESIGN) */
+  /* REPAIRS TRACKER (SERVICE & LOGISTICS OPERATIONS REDESIGN) */
   renderRepairs(filter = 'all', searchQuery) {
     let list = state.items.filter(i => i.status === 'repair');
     const searchInput = document.getElementById('repairsSearchInput');
@@ -1598,10 +1602,16 @@ const UI = {
     let listHtml = '';
     if (list.length === 0) {
       listHtml = `
-      <div class="ops-empty">
-        <div class="ops-empty-icon">${Icons.check}</div>
-        <div class="ops-empty-title">No equipment under repair</div>
-        <div class="ops-empty-sub">${q ? 'No service tickets match your search keyword.' : 'All devices across your fleet are fully operational.'}</div>
+      <div class="ops-empty" style="padding:40px 20px;text-align:center">
+        <div class="ops-empty-icon">${Icons.repairs}</div>
+        <div class="ops-empty-title" style="font-size:1.1rem;font-weight:700;margin-top:8px">No equipment currently under repair</div>
+        <div class="ops-empty-sub" style="max-width:400px;margin:6px auto 16px auto;color:var(--text-muted)">
+          ${q ? 'No service tickets match your search query.' : 'All laptops and devices across your fleet are fully operational and ready for rental.'}
+        </div>
+        <button class="btn btn-primary" style="padding:10px 22px;font-weight:600;display:inline-flex;align-items:center;gap:6px;margin:0 auto" onclick="UI.showSendToRepairModal()">
+          ${Icons.plus}
+          <span>+ Dispatch Device to Service</span>
+        </button>
       </div>`;
     } else {
       list.forEach(i => {
@@ -1611,66 +1621,71 @@ const UI = {
         const itemTitle = getItemFullTitle(i);
 
         listHtml += `
-        <div class="ops-row" style="flex-direction:column;align-items:stretch" onclick="UI.showEditItemModal('${i.id}')">
+        <div class="card" style="margin-bottom:14px;border-left:3px solid ${isCritical ? 'var(--status-danger)' : 'var(--status-warn)'}">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
-            <div style="display:flex;align-items:center;gap:6px">
-              <span class="status-dot ${isCritical ? 'danger' : 'warn'}"></span>
+            <div style="display:flex;align-items:flex-start;gap:8px">
+              <span class="status-dot ${isCritical ? 'danger' : 'warn'}" style="margin-top:5px"></span>
               <div>
-                <div class="ops-row-title">${escHtml(itemTitle)} <span class="status-pill muted" style="font-size:0.65rem;padding:1px 5px">${escHtml(i.type || 'Laptop')}</span></div>
-                <div class="ops-row-sub">SN: <span class="tnum" style="color:var(--text-primary);font-weight:600">${escHtml(i.serial)}</span> &middot; ${escHtml(rep.serviceCenter || 'Service Center')}</div>
+                <div class="ops-row-title" style="font-size:1.02rem;font-weight:700;color:var(--text-primary)">
+                  ${escHtml(itemTitle)} <span class="status-pill muted" style="font-size:0.65rem;padding:1px 6px">${escHtml(i.type || 'Laptop')}</span>
+                </div>
+                <div class="ops-row-sub" style="font-size:0.8rem;color:var(--text-muted);margin-top:2px">
+                  Serial No: <span class="tnum" style="color:var(--text-primary);font-weight:600">${escHtml(i.serial)}</span>${i.specs ? ` &middot; ${escHtml(i.specs)}` : ''}
+                </div>
               </div>
             </div>
             <div class="ops-row-end">
               <span class="ops-status-badge ${isCritical ? 'danger' : 'warn'}">
+                <span class="status-dot ${isCritical ? 'danger' : 'warn'}"></span>
                 ${daysAtService}d at service
               </span>
             </div>
           </div>
 
           <!-- Parameter Matrix -->
-          <div class="ops-param-grid">
+          <div class="ops-param-grid" style="margin-top:12px;margin-bottom:12px">
             <div class="ops-param-item">
-              <span class="ops-param-label">Service center &amp; tech</span>
-              <span class="ops-param-value">${escHtml(rep.serviceCenter || 'N/A')}${rep.servicePerson ? ` (${escHtml(rep.servicePerson)})` : ''}</span>
+              <span class="ops-param-label">Service Center &amp; Tech</span>
+              <span class="ops-param-value" style="font-weight:600">${escHtml(rep.serviceCenter || 'N/A')}${rep.servicePerson ? ` (${escHtml(rep.servicePerson)})` : ''}</span>
             </div>
             <div class="ops-param-item">
-              <span class="ops-param-label">Estimated cost</span>
-              <span class="ops-param-value tnum">${rep.repairCost ? fmtCurrency(rep.repairCost) : 'Pending quote'}</span>
+              <span class="ops-param-label">Estimated Repair Cost</span>
+              <span class="ops-param-value tnum" style="color:var(--accent);font-weight:700">${rep.repairCost ? fmtCurrency(rep.repairCost) : 'Pending quote'}</span>
             </div>
             <div class="ops-param-item">
-              <span class="ops-param-label">Handover date</span>
+              <span class="ops-param-label">Handover Date</span>
               <span class="ops-param-value tnum">${fmtDate(rep.givenToServiceDate)}</span>
             </div>
             <div class="ops-param-item">
-              <span class="ops-param-label">Expected return</span>
+              <span class="ops-param-label">Expected Return</span>
               <span class="ops-param-value tnum">${rep.expectedReturnDate ? fmtDate(rep.expectedReturnDate) : 'Not specified'}</span>
             </div>
           </div>
 
           ${rep.repairIssue ? `
-            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px">
-              <span style="font-weight:600;color:var(--text-primary)">Reported issue:</span> ${escHtml(rep.repairIssue)}
+            <div style="background:var(--surface-raised);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:8px 12px;font-size:0.8rem;color:var(--text-muted);margin-bottom:12px">
+              <strong style="color:var(--text-primary)">Reported Issue:</strong> ${escHtml(rep.repairIssue)}
             </div>
           ` : ''}
 
           <!-- Footer Actions -->
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <button class="btn btn-primary btn-micro" style="background:var(--status-ok);font-weight:600" onclick="UI.markItemRepaired('${i.id}')">
+              ${Icons.check}
+              <span>Mark Repaired / Return to Fleet</span>
+            </button>
             ${rep.servicePhone ? `
-              <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppTech('${rep.servicePhone}', '${escHtml(itemTitle)}', '${escHtml(i.serial)}', '${escHtml(rep.servicePerson)}')">
+              <button class="btn-micro btn-micro-wa" onclick="openWhatsAppTech('${rep.servicePhone}', '${escHtml(itemTitle)}', '${escHtml(i.serial)}', '${escHtml(rep.servicePerson)}')">
                 ${Icons.whatsapp}
-                <span>WhatsApp tech</span>
+                <span>WhatsApp Tech</span>
               </button>
-              <a href="tel:${escHtml(rep.servicePhone)}" class="btn btn-outline btn-micro" style="text-decoration:none" onclick="event.stopPropagation()">
+              <a href="tel:${escHtml(rep.servicePhone)}" class="btn btn-outline btn-micro" style="text-decoration:none">
                 ${Icons.phone}
                 <span>Call</span>
               </a>
             ` : ''}
-            <button class="btn btn-outline btn-micro" onclick="event.stopPropagation();UI.showEditItemModal('${i.id}')">
-              Edit service info
-            </button>
-            <button class="btn btn-primary btn-micro" style="background:var(--status-ok);margin-left:auto" onclick="event.stopPropagation();UI.markItemRepaired('${i.id}')">
-              ${Icons.check}
-              <span>Mark repaired</span>
+            <button class="btn btn-outline btn-micro" onclick="UI.showEditItemModal('${i.id}')">
+              Edit Service Info
             </button>
           </div>
         </div>`;
@@ -1686,6 +1701,43 @@ const UI = {
     }
 
     let html = `
+    <!-- Top Action Bar & Metrics -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+      <div>
+        <h2 style="font-size:1.15rem;font-weight:700;letter-spacing:-0.2px;color:var(--text-primary)">Hardware Repairs &amp; Service Tracker</h2>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px">Track equipment sent to chip-level service centers and technicians</div>
+      </div>
+      <button class="btn btn-primary" style="padding:8px 16px;font-weight:600;display:inline-flex;align-items:center;gap:6px" onclick="UI.showSendToRepairModal()">
+        ${Icons.plus}
+        <span>+ Send Device to Service</span>
+      </button>
+    </div>
+
+    <!-- 3 Compact Metric Chips -->
+    <div class="dash-chips-row" style="margin-bottom:18px">
+      <div class="stat-chip" onclick="UI.renderRepairs('all')">
+        <div class="stat-chip-header">
+          <span class="status-dot ${totalInRepair > 0 ? 'warn' : 'ok'}"></span>
+          <span class="stat-chip-num">${totalInRepair}</span>
+        </div>
+        <div class="stat-chip-label">Total in Service</div>
+      </div>
+      <div class="stat-chip" onclick="UI.renderRepairs('critical')">
+        <div class="stat-chip-header">
+          <span class="status-dot ${criticalList.length > 0 ? 'danger' : 'ok'}"></span>
+          <span class="stat-chip-num">${criticalList.length}</span>
+        </div>
+        <div class="stat-chip-label">Critical &gt;7 Days</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-chip-header">
+          <span class="status-dot ok"></span>
+          <span class="stat-chip-num tnum" style="font-size:1.1rem">${fmtCurrency(totalEstCost)}</span>
+        </div>
+        <div class="stat-chip-label">Estimated Repair Cost</div>
+      </div>
+    </div>
+
     <!-- Top Live Search Bar -->
     <div class="search-input-wrap">
       <div class="search-icon-inside">${Icons.search}</div>
@@ -1694,13 +1746,13 @@ const UI = {
 
     <!-- Repair Status Filter Pills -->
     <div class="brand-pills-scroll">
-      <button class="brand-pill ${filter === 'all' ? 'active' : ''}" onclick="UI.renderRepairs('all')">All In Repair (${totalInRepair})</button>
+      <button class="brand-pill ${filter === 'all' ? 'active' : ''}" onclick="UI.renderRepairs('all')">All In Service (${totalInRepair})</button>
       <button class="brand-pill ${filter === 'critical' ? 'active' : ''}" onclick="UI.renderRepairs('critical')">Critical &gt;7d (${criticalList.length})</button>
     </div>
 
     <!-- Section Head with Count & Total Est Cost -->
     <div class="section-head">
-      <div class="section-title">Active repair queue</div>
+      <div class="section-title">Active service queue</div>
       <div class="section-count" id="repairsSectionCount">${list.length} item${list.length === 1 ? '' : 's'} ${totalEstCost > 0 ? `&middot; Est. ${fmtCurrency(totalEstCost)}` : ''}</div>
     </div>
 
@@ -1709,6 +1761,145 @@ const UI = {
     </div>`;
 
     document.getElementById('page-repairs').innerHTML = html;
+  },
+
+  /* MODAL: DISPATCH DEVICE TO SERVICE */
+  showSendToRepairModal(preselectedItemId = null) {
+    const candidateItems = state.items.filter(i => i.status !== 'repair');
+    if (candidateItems.length === 0 && !preselectedItemId) {
+      UI.showToast('No equipment in inventory available to send for repair', 'warn');
+      return;
+    }
+
+    const itemOptions = candidateItems.map(i => {
+      const title = getItemFullTitle(i);
+      const isSelected = i.id === preselectedItemId ? 'selected' : '';
+      return `<option value="${i.id}" ${isSelected}>${escHtml(title)} (SN: ${escHtml(i.serial)}) — Status: ${i.status}</option>`;
+    }).join('');
+
+    UI.showModal(`
+      <button class="modal-close" onclick="UI.hideModal()">&times;</button>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        <div style="width:36px;height:36px;border-radius:8px;background:var(--accent-muted);color:var(--accent);display:flex;align-items:center;justify-content:center">
+          ${Icons.repairs}
+        </div>
+        <div>
+          <h2 style="font-size:1.15rem;font-weight:700;margin:0">Dispatch Device to Service</h2>
+          <div style="font-size:0.75rem;color:var(--text-muted)">Log equipment sent for chip-level repair, battery, or screen replacement</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Select Equipment *</label>
+        <select id="repairItemId">
+          <option value="">-- Choose laptop / device to service --</option>
+          ${itemOptions}
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Service Center / Shop Name *</label>
+          <input type="text" id="repairServiceCenter" placeholder="e.g. Dell Authorized Service Center / Chip Level Care">
+        </div>
+        <div class="form-group">
+          <label>Technician / Contact Person</label>
+          <input type="text" id="repairServicePerson" placeholder="e.g. Ramesh Kumar">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Technician Mobile (10 Digits)</label>
+          <input type="tel" id="repairServicePhone" placeholder="10-digit phone for WhatsApp updates" maxlength="10" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
+        </div>
+        <div class="form-group">
+          <label>Estimated Repair Cost (₹)</label>
+          <input type="number" id="repairCost" placeholder="e.g. 2500" min="0">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Handover Date *</label>
+          <input type="date" id="repairHandoverDate" value="${today()}">
+        </div>
+        <div class="form-group">
+          <label>Expected Return Date</label>
+          <input type="date" id="repairReturnDate">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Reported Issue / Fault Description *</label>
+        <textarea id="repairIssue" placeholder="Describe the fault (e.g. screen flickering, motherboard no power, battery health degraded, broken hinge)"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-outline" onclick="UI.hideModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="UI.saveSendToRepair()">Dispatch to Service</button>
+      </div>
+    `);
+  },
+
+  saveSendToRepair() {
+    const itemId = document.getElementById('repairItemId')?.value;
+    const serviceCenter = document.getElementById('repairServiceCenter')?.value.trim();
+    const servicePerson = document.getElementById('repairServicePerson')?.value.trim();
+    const servicePhoneRaw = document.getElementById('repairServicePhone')?.value.trim();
+    const givenToServiceDate = document.getElementById('repairHandoverDate')?.value || today();
+    const expectedReturnDate = document.getElementById('repairReturnDate')?.value || '';
+    const repairCost = parseFloat(document.getElementById('repairCost')?.value) || 0;
+    const repairIssue = document.getElementById('repairIssue')?.value.trim();
+
+    if (!itemId) { UI.showToast('Please select an equipment to send for service', 'error'); return; }
+    if (!serviceCenter) { UI.showToast('Please enter the service center name', 'error'); return; }
+    if (!repairIssue) { UI.showToast('Please specify the reported fault/issue', 'error'); return; }
+
+    let servicePhone = '';
+    if (servicePhoneRaw) {
+      servicePhone = cleanPhone(servicePhoneRaw);
+      if (!/^[0-9]{10}$/.test(servicePhone)) {
+        UI.showToast('Technician phone must be exactly 10 digits', 'error');
+        return;
+      }
+    }
+
+    const item = getItem(itemId);
+    if (!item) { UI.showToast('Item not found', 'error'); return; }
+
+    item.status = 'repair';
+    item.repairInfo = {
+      serviceCenter,
+      servicePerson,
+      servicePhone,
+      givenToServiceDate,
+      expectedReturnDate,
+      repairCost,
+      repairIssue
+    };
+
+    Data.save();
+    UI.hideModal();
+    UI.showToast(`${getItemFullTitle(item)} dispatched to service queue`, 'success');
+    UI.navigate('repairs');
+  },
+
+  markItemRepaired(itemId) {
+    const item = getItem(itemId);
+    if (!item) return;
+    const title = getItemFullTitle(item);
+    UI.showConfirm(`Mark <strong>${escHtml(title)}</strong> (SN: ${escHtml(item.serial)}) as repaired and return to available fleet?`, () => {
+      item.status = 'available';
+      if (!item.repairHistory) item.repairHistory = [];
+      if (item.repairInfo) {
+        item.repairHistory.push({ ...item.repairInfo, resolvedDate: today() });
+      }
+      item.repairInfo = null;
+      Data.save();
+      UI.showToast(`${title} returned to available inventory`, 'success');
+      UI.renderAll();
+    });
   },
 
   /* GLOBAL SEARCH (OPS CONSOLE REDESIGN) */
