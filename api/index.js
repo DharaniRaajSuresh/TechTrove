@@ -97,6 +97,11 @@ const handleLogin = (req, res) => {
 app.post('/api/login', handleLogin);
 app.post('/api/auth/login', handleLogin);
 
+app.get('/api/version', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.json({ version: 'v5.5-auto-sync', timestamp: Date.now() });
+});
+
 app.get('/api/data', async (req, res) => { res.json(await loadData()); });
 
 app.post('/api/data', async (req, res) => {

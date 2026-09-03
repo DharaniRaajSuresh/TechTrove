@@ -4165,4 +4165,51 @@ function setupApp() {
       if (confirmOpen) UI.hideConfirm();
     }
   });
+
+  initAutoUpdateChecker();
+}
+
+/* AUTOMATIC INSTANT UPDATE CHECKER (SEAMLESS PWA AUTO-RELOAD) */
+const CURRENT_BUILD_VERSION = 'v5.5-auto-sync';
+
+function initAutoUpdateChecker() {
+  let checking = false;
+  async function checkForUpdate() {
+    if (checking || !navigator.onLine) return;
+    checking = true;
+    try {
+      // 1. Signal service worker to check for new version
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) reg.update();
+      }
+
+      // 2. Query server for current deployment version
+      const res = await fetch('/api/version?t=' + Date.now());
+      if (res.ok) {
+        const data = await res.json();
+        if (data.version && data.version !== CURRENT_BUILD_VERSION) {
+          console.log(`[AutoSync] New deployment detected (${data.version} vs ${CURRENT_BUILD_VERSION}). Auto-reloading...`);
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+          }
+          window.location.reload(true);
+        }
+      }
+    } catch(e) {
+      // Silently continue
+    } finally {
+      checking = false;
+    }
+  }
+
+  // Check whenever user switches tabs or returns to the app
+  window.addEventListener('focus', checkForUpdate);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') checkForUpdate();
+  });
+
+  // Background check every 15 seconds
+  setInterval(checkForUpdate, 15000);
 }

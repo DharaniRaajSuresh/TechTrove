@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v16-role-login';
+const CACHE = 'techtrove-v17-auto-sync';
 const ASSETS = [
   '/',
   '/index.html',
