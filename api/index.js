@@ -5,8 +5,8 @@ const fs = require('fs');
 const app = express();
 const UPSTASH_KEY = 'techtrove:data';
 
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '';
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || 'https://ideal-hyena-156293.upstash.io';
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || 'gQAAAAAAAmKFAAIgcDEzNGIxMzY1MGYyNGQ0NDBiODE5ZjA1OWZhNGU1MjU4Yg';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.APP_PASSWORD || 'rent123';
 const EMPLOYEE_PASSWORD = process.env.EMPLOYEE_PASSWORD || 'staff123';
 

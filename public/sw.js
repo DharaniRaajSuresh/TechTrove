@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v12-kuvera-fintech';
+const CACHE = 'techtrove-v13-fleet-sync';
 const ASSETS = [
   '/',
   '/index.html',
