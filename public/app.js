@@ -1610,43 +1610,65 @@ const UI = {
         const isRented = i.status === 'rented';
         const isRepair = i.status === 'repair';
         const itemTitle = getItemFullTitle(i);
+        const brandKey = (i.brand || '').toLowerCase();
+        const brandClass = ['dell', 'lenovo', 'hp', 'apple'].includes(brandKey) ? `hardware-brand-${brandKey}` : 'hardware-brand-other';
 
-        let subLine = `SN: <span class="tnum" style="color:var(--text-primary);font-weight:600">${escHtml(i.serial)}</span>`;
-        if (i.specs) subLine += ` &middot; ${escHtml(i.specs)}`;
+        // Extract spec pills
+        let specChips = [];
+        if (i.specs) {
+          const rawSpecs = i.specs.split(/[•·,]/).map(s => s.trim()).filter(Boolean);
+          specChips = rawSpecs.map(s => `<span class="hardware-spec-chip">⚙️ ${escHtml(s)}</span>`);
+        }
 
-        let secondaryInfoHtml = '';
-        if (isRented && customer && rental) {
-          const st = rentalStatus(rental);
-          secondaryInfoHtml = `
-          <div style="margin-top:6px;padding:6px 8px;background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:0.74rem;display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <span style="font-weight:600;color:var(--text-primary)">Rented to ${escHtml(customer.name)}</span>
-              <span style="color:var(--text-muted);margin-left:6px">&middot; ${fmtCurrency(rental.rentAmount)}/${rental.billingCycle}</span>
+        let statusBannerHtml = '';
+        if (isAvail) {
+          statusBannerHtml = `
+          <div class="hardware-status-banner available">
+            <div style="font-weight:700;color:var(--status-ok);display:flex;align-items:center;gap:6px">
+              <span>🟢 In Stock &amp; Ready to Deploy</span>
             </div>
-            <div style="display:flex;gap:4px">
-              <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppReminder('${customer.phone}', \`${buildWaReminderMessage(customer, rental, i, st).replace(/`/g, '\\`')}\`)">
-                ${Icons.whatsapp}
-                <span>WA</span>
-              </button>
-              <button class="btn-micro" onclick="event.stopPropagation();UI.pushPage('customer-detail', '${customer.id}')">
-                Client
-              </button>
+            <div style="font-size:0.75rem;color:var(--text-muted)">Sitting in inventory &middot; Available for immediate customer rental.</div>
+          </div>`;
+        } else if (isRented && customer && rental) {
+          const st = rentalStatus(rental);
+          statusBannerHtml = `
+          <div class="hardware-status-banner rented">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+              <div>
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--accent);letter-spacing:0.5px">Active Rental</div>
+                <div style="font-weight:800;font-size:0.95rem;color:var(--text-primary);margin-top:1px">${escHtml(customer.name)}</div>
+                <div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px">
+                  <span class="tnum" style="font-weight:700;color:var(--text-primary)">${fmtCurrency(rental.rentAmount)}</span> / ${rental.billingCycle} &middot; Due: <span class="tnum">${fmtDate(st.nextDueDate)}</span>
+                </div>
+              </div>
+              <div style="display:flex;gap:4px">
+                <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppReminder('${customer.phone}', \`${buildWaReminderMessage(customer, rental, i, st).replace(/`/g, '\\`')}\`)">
+                  ${Icons.whatsapp}
+                  <span>WA</span>
+                </button>
+                <button class="btn-micro" onclick="event.stopPropagation();UI.pushPage('customer-detail', '${customer.id}')">
+                  Client
+                </button>
+              </div>
             </div>
           </div>`;
         } else if (isRepair && i.repairInfo) {
           const rep = i.repairInfo;
           const daysAtService = rep.givenToServiceDate ? Math.max(0, daysBetween(rep.givenToServiceDate, today())) : 0;
-          secondaryInfoHtml = `
-          <div style="margin-top:6px;padding:6px 8px;background:var(--surface-raised);border:1px dashed var(--status-danger-border);border-radius:var(--radius-sm);font-size:0.74rem">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <span style="font-weight:600;color:var(--status-danger)">${escHtml(rep.serviceCenter || 'Service Center')} &middot; ${daysAtService}d at service</span>
-              ${rep.repairCost ? `<span class="tnum" style="font-weight:600;color:var(--text-primary)">Est: ${fmtCurrency(rep.repairCost)}</span>` : ''}
+          statusBannerHtml = `
+          <div class="hardware-status-banner repair">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--status-warn);letter-spacing:0.5px">Under Repair / Service</div>
+                <div style="font-weight:800;font-size:0.92rem;color:var(--text-primary);margin-top:1px">${escHtml(rep.serviceCenter || 'Service Center')}</div>
+                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px">
+                  Tech: ${escHtml(rep.servicePerson || 'Technician')}${rep.servicePhone ? ` (${escHtml(fmtPhone(rep.servicePhone))})` : ''} &middot; <span style="font-weight:600;color:var(--status-warn)">${daysAtService}d at service</span>
+                </div>
+                ${rep.repairIssue ? `<div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px">Issue: <em>${escHtml(rep.repairIssue)}</em></div>` : ''}
+              </div>
+              ${rep.repairCost ? `<div style="text-align:right"><span class="tnum" style="font-weight:700;font-size:0.92rem;color:var(--text-primary)">Est: ${fmtCurrency(rep.repairCost)}</span></div>` : ''}
             </div>
-            <div style="color:var(--text-muted);margin-top:2px">
-              Tech: ${escHtml(rep.servicePerson || 'Technician')}${rep.servicePhone ? ` (${escHtml(fmtPhone(rep.servicePhone))})` : ''}
-              ${rep.repairIssue ? ` &middot; Issue: ${escHtml(rep.repairIssue)}` : ''}
-            </div>
-            <div style="margin-top:6px;display:flex;gap:4px">
+            <div style="display:flex;gap:6px;margin-top:8px">
               ${rep.servicePhone ? `
                 <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppTech('${rep.servicePhone}', '${escHtml(itemTitle)}', '${escHtml(i.serial)}', '${escHtml(rep.servicePerson)}')">
                   ${Icons.whatsapp}
@@ -1659,39 +1681,63 @@ const UI = {
               ` : ''}
               <button class="btn-micro btn-micro-primary" onclick="event.stopPropagation();UI.markItemRepaired('${i.id}')">
                 ${Icons.check}
-                <span>Mark repaired</span>
+                <span>Mark Repaired</span>
               </button>
             </div>
           </div>`;
         }
 
-        const brandBadgeClass = getBrandBadgeClass(i.brand);
-
         listHtml += `
-        <div class="ops-row" style="flex-direction:column;align-items:stretch" onclick="UI.showEditItemModal('${i.id}')">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-            <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
-              <span class="${brandBadgeClass}" style="padding:4px 8px;border-radius:6px;font-size:0.75rem;font-weight:800;flex-shrink:0">
-                ${escHtml(i.brand || 'Device')}
-              </span>
-              <div style="min-width:0">
-                <div class="ops-row-title">${escHtml(itemTitle)} <span class="status-pill muted" style="font-size:0.65rem;padding:1px 5px">${escHtml(i.type || 'Laptop')}</span></div>
-                <div class="ops-row-sub">${subLine}</div>
-              </div>
+        <div class="hardware-card" onclick="UI.showEditItemModal('${i.id}')">
+          <!-- Top Row: Brand & Status -->
+          <div class="hardware-card-top">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="hardware-brand-badge ${brandClass}">${escHtml(i.brand || 'Device')}</span>
+              <span class="status-pill muted" style="font-size:0.7rem;font-weight:600">${escHtml(i.type || 'Laptop')}</span>
             </div>
-            <div class="ops-row-end">
-              <span class="ops-status-badge ${isAvail ? 'ok' : isRented ? 'warn' : 'danger'}">
-                <span class="status-dot ${isAvail ? 'ok' : isRented ? 'warn' : 'danger'}"></span>
-                ${isAvail ? 'Available' : isRented ? 'Rented' : 'In Repair'}
+            <span class="ops-status-badge ${isAvail ? 'ok' : isRented ? 'warn' : 'danger'}">
+              <span class="status-dot ${isAvail ? 'ok' : isRented ? 'warn' : 'danger'}"></span>
+              ${isAvail ? 'Available' : isRented ? 'Rented' : 'In Repair'}
+            </span>
+          </div>
+
+          <!-- Main Title & Serial -->
+          <div class="hardware-card-title-row">
+            <div class="hardware-card-title">${escHtml(itemTitle)}</div>
+            <div class="hardware-serial-row">
+              <span class="hardware-serial-pill">
+                <span>🏷️ SN:</span>
+                <span class="tnum">${escHtml(i.serial)}</span>
               </span>
-              ${isAvail ? `
-                <button class="btn btn-primary btn-micro" onclick="event.stopPropagation();UI.showAddRentalWithItem('${i.id}')">
-                  + Rent
-                </button>
-              ` : ''}
             </div>
           </div>
-          ${secondaryInfoHtml}
+
+          <!-- Specs Chips -->
+          ${specChips.length > 0 ? `<div class="hardware-specs-wrap">${specChips.join('')}</div>` : ''}
+
+          <!-- Dynamic Status Banner (Available / Rented / Repair) -->
+          ${statusBannerHtml}
+
+          <!-- Bottom Action Buttons -->
+          <div class="hardware-actions-row">
+            ${isAvail ? `
+              <button class="btn btn-primary btn-sm" style="flex:1" onclick="event.stopPropagation();UI.showAddRentalWithItem('${i.id}')">
+                ${Icons.plus}
+                <span>⚡ Rent this Device</span>
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();UI.showSendToRepairModal('${i.id}')" title="Send to service">
+                ${Icons.repairs}
+                <span>Service</span>
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();UI.showEditItemModal('${i.id}')">
+                Edit
+              </button>
+            ` : `
+              <button class="btn btn-outline btn-sm" style="flex:1" onclick="event.stopPropagation();UI.showEditItemModal('${i.id}')">
+                <span>⚙️ Manage Device &amp; Specs</span>
+              </button>
+            `}
+          </div>
         </div>`;
       });
     }
@@ -1705,14 +1751,20 @@ const UI = {
     }
 
     let html = `
-    <!-- Top Live Search Bar -->
-    <div class="search-input-wrap">
-      <div class="search-icon-inside">${Icons.search}</div>
-      <input type="text" id="inventorySearchInput" class="ops-search-input" placeholder="Search models, serials, specs..." value="${escHtml(query)}" oninput="UI.renderInventory(undefined, undefined, this.value)">
+    <!-- Top Search & Cloud Sync Bar -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+      <div class="search-input-wrap" style="flex:1;margin-bottom:0">
+        <div class="search-icon-inside">${Icons.search}</div>
+        <input type="text" id="inventorySearchInput" class="ops-search-input" placeholder="Search models, serials, specs..." value="${escHtml(query)}" oninput="UI.renderInventory(undefined, undefined, this.value)">
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="Data.sync(false)" title="Force sync with cloud database" style="display:flex;align-items:center;gap:6px;flex-shrink:0;height:42px;padding:0 12px">
+        ${Icons.refresh}
+        <span style="font-size:0.78rem">Sync</span>
+      </button>
     </div>
 
     <!-- Brand & Status Filter Pills (Horizontal Scroll) -->
-    <div class="brand-pills-scroll">
+    <div class="brand-pills-scroll" style="margin-bottom:14px">
       <button class="brand-pill ${filter === 'all' && brandFilter === 'all' ? 'active' : ''}" onclick="UI.renderInventory('all', 'all')">All (${state.items.length})</button>
       <button class="brand-pill ${filter === 'available' ? 'active' : ''}" onclick="UI.renderInventory('available', 'all')">Available (${availableCount})</button>
       <button class="brand-pill ${filter === 'rented' ? 'active' : ''}" onclick="UI.renderInventory('rented', 'all')">Rented (${rentedCount})</button>
@@ -1726,11 +1778,11 @@ const UI = {
 
     <!-- Section Count & Add Device Command -->
     <div class="section-head">
-      <div class="section-title">Fleet inventory</div>
+      <div class="section-title">Fleet Equipment Assets</div>
       <div class="section-count" id="inventorySectionCount">${list.length} item${list.length === 1 ? '' : 's'}</div>
     </div>
 
-    <div class="ops-list" id="inventoryListContainer">
+    <div class="hardware-cards-list" id="inventoryListContainer">
       ${listHtml}
     </div>`;
 

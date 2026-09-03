@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v13-fleet-sync';
+const CACHE = 'techtrove-v14-hardware-cards';
 const ASSETS = [
   '/',
   '/index.html',
