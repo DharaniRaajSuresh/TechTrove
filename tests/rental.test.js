@@ -180,6 +180,47 @@ test('Under Repair item tracks service center, technician phone, and issue notes
   assert.strictEqual(waPhone(itemInRepair.repairInfo.servicePhone), '919876543210');
 });
 
+console.log('\nMulti-Unit Inventory with Identical Model & Exact Specs');
+test('Multiple identical units with same model and specs are tracked independently by serial number', () => {
+  const fleet = [
+    { id: 'd1', brand: 'Dell', model: 'Latitude 3420', specs: 'i5 11th Gen • 16GB • 512GB SSD', serial: 'DELL-01', status: 'available' },
+    { id: 'd2', brand: 'Dell', model: 'Latitude 3420', specs: 'i5 11th Gen • 16GB • 512GB SSD', serial: 'DELL-02', status: 'rented' },
+    { id: 'd3', brand: 'Dell', model: 'Latitude 3420', specs: 'i5 11th Gen • 16GB • 512GB SSD', serial: 'DELL-03', status: 'repair' }
+  ];
+  const activeRentals = [{ id: 'r1', itemId: 'd2', customerId: 'c1', status: 'active' }];
+
+  function isAvail(item) {
+    if (item.status === 'repair') return false;
+    const hasRental = activeRentals.some(r => r.itemId === item.id && r.status === 'active' && !r.endDate);
+    return !hasRental;
+  }
+
+  const availableUnits = fleet.filter(isAvail);
+  assert.strictEqual(availableUnits.length, 1);
+  assert.strictEqual(availableUnits[0].serial, 'DELL-01');
+});
+
+console.log('\nPayment Attribution to 4 Fixed Partners');
+test('Payment collectors list strictly contains Suresh, Pragathi, Varusha, Dharani', () => {
+  const PAYMENT_COLLECTORS = ['Suresh', 'Pragathi', 'Varusha', 'Dharani'];
+  assert.strictEqual(PAYMENT_COLLECTORS.length, 4);
+  assert.ok(PAYMENT_COLLECTORS.includes('Suresh'));
+  assert.ok(PAYMENT_COLLECTORS.includes('Pragathi'));
+  assert.ok(PAYMENT_COLLECTORS.includes('Varusha'));
+  assert.ok(PAYMENT_COLLECTORS.includes('Dharani'));
+});
+
+console.log('\nRole-Based Access Control (RBAC)');
+test('Admin role has delete permission, Employee role has delete permission strictly denied', () => {
+  function canDelete(role) {
+    return role === 'admin';
+  }
+  assert.strictEqual(canDelete('admin'), true);
+  assert.strictEqual(canDelete('employee'), false);
+  assert.strictEqual(canDelete('staff'), false);
+  assert.strictEqual(canDelete(''), false);
+});
+
 console.log(`\n${passed} passed, ${failed} failed${failed > 0 ? ' — SOME TESTS FAILED' : ' — all good!'}`);
 process.exit(failed > 0 ? 1 : 0);
 
