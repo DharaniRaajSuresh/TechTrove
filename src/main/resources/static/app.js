@@ -783,13 +783,42 @@ window.Data = Data;
 
 /* UI LAYER */
 const UI = {
+  _selectedLoginRole: 'admin',
+
+  setLoginRole(role) {
+    this._selectedLoginRole = role;
+    const adminBtn = document.getElementById('roleBtnAdmin');
+    const empBtn = document.getElementById('roleBtnEmployee');
+    const pwInput = document.getElementById('loginPassword');
+    const btnText = document.getElementById('loginBtnText');
+    const hint = document.getElementById('loginRoleHint');
+    const err = document.getElementById('loginError');
+
+    if (err) err.classList.add('hidden');
+
+    if (role === 'admin') {
+      if (adminBtn) adminBtn.classList.add('active');
+      if (empBtn) empBtn.classList.remove('active');
+      if (pwInput) pwInput.placeholder = 'Enter Admin Password';
+      if (btnText) btnText.textContent = 'Sign In as Admin';
+      if (hint) hint.innerHTML = '🛡️ <strong>Admin:</strong> Full control, edit &amp; delete records';
+    } else {
+      if (adminBtn) adminBtn.classList.remove('active');
+      if (empBtn) empBtn.classList.add('active');
+      if (pwInput) pwInput.placeholder = 'Enter Employee Password';
+      if (btnText) btnText.textContent = 'Sign In as Employee';
+      if (hint) hint.innerHTML = '👤 <strong>Employee:</strong> Create rentals, log payments &amp; fleet operations';
+    }
+    if (pwInput) pwInput.focus();
+  },
+
   showLogin() {
     document.getElementById('splash').classList.add('hidden');
     document.getElementById('loginScreen').classList.remove('hidden');
     document.getElementById('app').classList.add('hidden');
     document.getElementById('loginError').classList.add('hidden');
     document.getElementById('loginPassword').value = '';
-    document.getElementById('loginPassword').focus();
+    this.setLoginRole(this._selectedLoginRole || 'admin');
   },
 
   showApp() {
@@ -4021,21 +4050,35 @@ document.addEventListener('DOMContentLoaded', async () => {
   /* Login Handler */
   const loginBtn = document.getElementById('loginBtn');
   const loginPw = document.getElementById('loginPassword');
+  const loginErr = document.getElementById('loginError');
 
   if (loginBtn) {
     loginBtn.addEventListener('click', async () => {
-      const pw = loginPw.value;
+      const pw = (loginPw?.value || '').trim();
+      const role = UI._selectedLoginRole || 'admin';
+      if (!pw) {
+        if (loginErr) {
+          loginErr.textContent = `Please enter the ${role === 'admin' ? 'Admin' : 'Employee'} password`;
+          loginErr.classList.remove('hidden');
+        }
+        return;
+      }
       loginBtn.disabled = true;
-      loginBtn.textContent = 'Checking...';
-      const ok = await Auth.login(pw);
+      loginBtn.innerHTML = '<span>Verifying...</span>';
+      const ok = await Auth.login(pw, role);
       loginBtn.disabled = false;
-      loginBtn.textContent = 'Sign In';
+      loginBtn.innerHTML = `<span id="loginBtnText">Sign In as ${role === 'admin' ? 'Admin' : 'Employee'}</span>`;
       if (ok) {
+        if (loginErr) loginErr.classList.add('hidden');
         UI.showApp();
         await Data.load();
         setupApp();
+        UI.showToast(`Signed in as ${Auth.isAdmin() ? '🛡️ Admin' : '👤 Employee'}`, 'success');
       } else {
-        document.getElementById('loginError').classList.remove('hidden');
+        if (loginErr) {
+          loginErr.textContent = `Incorrect password for ${role === 'admin' ? 'Admin (use rent123)' : 'Employee (use staff123)'}`;
+          loginErr.classList.remove('hidden');
+        }
       }
     });
   }
@@ -4043,6 +4086,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (loginPw) {
     loginPw.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') loginBtn.click();
+    });
+    loginPw.addEventListener('input', () => {
+      if (loginErr) loginErr.classList.add('hidden');
     });
   }
 
