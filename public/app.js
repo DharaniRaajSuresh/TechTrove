@@ -1283,6 +1283,10 @@ const UI = {
               ${Icons.whatsapp}
               <span>WA reminder</span>
             </button>
+            <button class="btn btn-outline btn-micro" onclick="UI.showRentalRepairModal('${r.id}')" title="Laptop issue? Send to repair or swap with replacement">
+              ${Icons.repairs}
+              <span>Send to Repair</span>
+            </button>
             <button class="btn btn-outline btn-micro" onclick="UI.showEditRentalModal('${r.id}')">
               Edit
             </button>
@@ -1883,6 +1887,188 @@ const UI = {
     UI.hideModal();
     UI.showToast(`${getItemFullTitle(item)} dispatched to service queue`, 'success');
     UI.navigate('repairs');
+  },
+
+  /* MODAL: DIRECT DISPATCH FROM ACTIVE CUSTOMER RENTAL */
+  showRentalRepairModal(rentalId) {
+    const r = getRental(rentalId);
+    if (!r) return;
+    const c = getCustomer(r.customerId);
+    const item = getItem(r.itemId);
+    const itemTitle = getItemFullTitle(item);
+    const availableItems = state.items.filter(i => i.status === 'available');
+
+    const swapOptions = availableItems.map(i => {
+      const title = getItemFullTitle(i);
+      return `<option value="${i.id}">${escHtml(title)} (SN: ${escHtml(i.serial)})${i.specs ? ` — ${escHtml(i.specs)}` : ''}</option>`;
+    }).join('');
+
+    UI.showModal(`
+      <button class="modal-close" onclick="UI.hideModal()">&times;</button>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+        <div style="width:36px;height:36px;border-radius:8px;background:var(--accent-muted);color:var(--accent);display:flex;align-items:center;justify-content:center">
+          ${Icons.repairs}
+        </div>
+        <div>
+          <h2 style="font-size:1.15rem;font-weight:700;margin:0">Send Rented Laptop to Service</h2>
+          <div style="font-size:0.75rem;color:var(--text-muted)">Dispatch customer's equipment to repair shop & optionally swap with replacement</div>
+        </div>
+      </div>
+
+      <!-- Current Agreement Info Banner -->
+      <div style="background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-muted)">Renting Client</div>
+            <div style="font-weight:700;color:var(--text-primary);font-size:0.95rem">${escHtml(c ? c.name : 'Unknown Client')}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-muted)">Current Equipment</div>
+            <div style="font-weight:700;color:var(--text-primary);font-size:0.95rem">${escHtml(itemTitle)}</div>
+            <div style="font-size:0.72rem;color:var(--text-muted)">SN: ${escHtml(item ? item.serial : 'N/A')}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Choice on Rental Agreement -->
+      <div class="form-group">
+        <label>What should happen to the customer's rental? *</label>
+        <select id="rentalActionChoice" onchange="document.getElementById('swapDeviceGroup').style.display = this.value === 'swap' ? 'block' : 'none'">
+          <option value="swap" selected>🔄 Swap with replacement laptop (Keep rental running)</option>
+          <option value="keep">⏸️ Keep agreement active (Customer waits for repair)</option>
+          <option value="close">⏹️ Close / End this rental agreement</option>
+        </select>
+      </div>
+
+      <!-- Replacement Device Picker -->
+      <div class="form-group" id="swapDeviceGroup">
+        <label>Select Replacement Laptop from Stock *</label>
+        ${availableItems.length > 0 ? `
+          <select id="replacementItemId">
+            ${swapOptions}
+          </select>
+        ` : `
+          <div style="font-size:0.8rem;color:var(--status-warn);background:var(--surface-raised);padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--border)">
+            ⚠️ No other available laptops in stock right now. You can choose "Close rental" or "Keep agreement active".
+          </div>
+        `}
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--border-subtle);margin:16px 0">
+
+      <!-- Service Center Logistics -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>Service Center / Shop Name *</label>
+          <input type="text" id="rentalServiceCenter" placeholder="e.g. Dell Authorized / Chip Care Lab">
+        </div>
+        <div class="form-group">
+          <label>Technician Name</label>
+          <input type="text" id="rentalServicePerson" placeholder="e.g. Anand Kumar">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Technician Mobile (10 Digits)</label>
+          <input type="tel" id="rentalServicePhone" placeholder="10-digit phone for WhatsApp updates" maxlength="10" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
+        </div>
+        <div class="form-group">
+          <label>Estimated Repair Cost (₹)</label>
+          <input type="number" id="rentalRepairCost" placeholder="e.g. 2000" min="0">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Handover Date *</label>
+          <input type="date" id="rentalHandoverDate" value="${today()}">
+        </div>
+        <div class="form-group">
+          <label>Expected Return Date</label>
+          <input type="date" id="rentalReturnDate">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Reported Issue / Fault Description *</label>
+        <textarea id="rentalRepairIssue" placeholder="Describe the fault reported by customer (e.g. display lines, keyboard not responding, battery not charging)"></textarea>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-outline" onclick="UI.hideModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="UI.saveRentalRepair('${r.id}')">Confirm &amp; Dispatch to Service</button>
+      </div>
+    `);
+  },
+
+  saveRentalRepair(rentalId) {
+    const r = getRental(rentalId);
+    if (!r) return;
+    const oldItem = getItem(r.itemId);
+    if (!oldItem) return;
+
+    const action = document.getElementById('rentalActionChoice')?.value || 'swap';
+    const replacementItemId = document.getElementById('replacementItemId')?.value;
+    const serviceCenter = document.getElementById('rentalServiceCenter')?.value.trim();
+    const servicePerson = document.getElementById('rentalServicePerson')?.value.trim();
+    const servicePhoneRaw = document.getElementById('rentalServicePhone')?.value.trim();
+    const givenToServiceDate = document.getElementById('rentalHandoverDate')?.value || today();
+    const expectedReturnDate = document.getElementById('rentalReturnDate')?.value || '';
+    const repairCost = parseFloat(document.getElementById('rentalRepairCost')?.value) || 0;
+    const repairIssue = document.getElementById('rentalRepairIssue')?.value.trim();
+
+    if (!serviceCenter) { UI.showToast('Please enter the service center name', 'error'); return; }
+    if (!repairIssue) { UI.showToast('Please describe the fault/issue', 'error'); return; }
+
+    let servicePhone = '';
+    if (servicePhoneRaw) {
+      servicePhone = cleanPhone(servicePhoneRaw);
+      if (!/^[0-9]{10}$/.test(servicePhone)) {
+        UI.showToast('Technician phone must be exactly 10 digits', 'error');
+        return;
+      }
+    }
+
+    // 1. Handle Rental Action
+    if (action === 'swap') {
+      if (!replacementItemId) {
+        UI.showToast('Please select a replacement laptop from stock', 'error');
+        return;
+      }
+      const newItem = getItem(replacementItemId);
+      if (!newItem) { UI.showToast('Replacement item not found', 'error'); return; }
+      newItem.status = 'rented';
+      r.itemId = replacementItemId;
+      if (!r.swapHistory) r.swapHistory = [];
+      r.swapHistory.push({
+        previousItemId: oldItem.id,
+        previousItemTitle: getItemFullTitle(oldItem),
+        swappedAt: today(),
+        reason: repairIssue
+      });
+    } else if (action === 'close') {
+      r.status = 'closed';
+      r.endDate = today();
+    }
+
+    // 2. Dispatch Old Laptop to Repairs
+    oldItem.status = 'repair';
+    oldItem.repairInfo = {
+      serviceCenter,
+      servicePerson,
+      servicePhone,
+      givenToServiceDate,
+      expectedReturnDate,
+      repairCost,
+      repairIssue,
+      customerName: getCustomer(r.customerId)?.name || ''
+    };
+
+    Data.save();
+    UI.hideModal();
+    UI.showToast(`Laptop dispatched to Repairs Tracker${action === 'swap' ? ' and replacement device assigned' : ''}`, 'success');
+    UI.renderAll();
   },
 
   markItemRepaired(itemId) {
