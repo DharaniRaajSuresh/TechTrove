@@ -278,6 +278,34 @@ function getActiveRentalForItem(itemId) {
   return state.rentals.find(r => r.itemId === itemId && isActiveRental(r));
 }
 
+function isItemAvailable(item, preselectedItemId) {
+  if (!item) return false;
+  if (preselectedItemId && item.id === preselectedItemId) return true;
+  const s = String(item.status || '').toLowerCase().trim();
+  if (s === 'repair') return false;
+  const activeRental = getActiveRentalForItem(item.id);
+  return !activeRental;
+}
+
+function sanitizeFleetState() {
+  if (!state || !Array.isArray(state.items)) return;
+  state.items.forEach(item => {
+    if (!item) return;
+    const s = String(item.status || '').toLowerCase().trim();
+    if (s === 'repair') {
+      item.status = 'repair';
+    } else {
+      const activeRental = getActiveRentalForItem(item.id);
+      item.status = activeRental ? 'rented' : 'available';
+    }
+  });
+}
+
+function getAvailableItems(preselectedItemId) {
+  sanitizeFleetState();
+  return state.items.filter(i => isItemAvailable(i, preselectedItemId));
+}
+
 function buildWaReminderMessage(customer, rental, item, status) {
   const itemTitle = getItemFullTitle(item);
   const specsText = item && item.specs ? ` (${item.specs})` : '';
@@ -608,6 +636,7 @@ const Data = {
     } catch(e) {
       if (e.message !== 'Unauthorized') console.warn('Server load failed, running on offline data:', e.message);
     } finally {
+      sanitizeFleetState();
       UI.showLoading(false);
       UI.renderAll();
     }
@@ -633,6 +662,7 @@ const Data = {
             state.items = d.items || [];
             state.rentals = d.rentals || [];
             state.payments = d.payments || [];
+            sanitizeFleetState();
             try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
             if (!isModalOpen) {
               UI.renderAll();
@@ -2611,20 +2641,30 @@ const UI = {
         c.phone = phoneDigits;
         c.address = address;
       }
+      Data.save();
+      UI.hideModal();
+      UI.showToast('Customer updated', 'success');
+      UI.renderAll();
     } else {
+      const newCustId = uid();
       state.customers.push({
-        id: uid(),
+        id: newCustId,
         name,
         phone: phoneDigits,
         address,
         createdAt: today()
       });
+      Data.save();
+      UI.hideModal();
+      UI.showToast(`Customer "${name}" added!`, 'success');
+      UI.renderAll();
+      if (window.innerWidth >= 1200) {
+        UI.navigate('customers');
+        setTimeout(() => UI.selectCustomer(newCustId, false), 50);
+      } else {
+        UI.pushPage('customer-detail', newCustId);
+      }
     }
-
-    Data.save();
-    UI.hideModal();
-    UI.showToast(id ? 'Customer updated' : 'Customer added successfully', 'success');
-    UI.renderAll();
   },
 
   deleteCustomer(customerId) {
@@ -3239,7 +3279,7 @@ const UI = {
   },
 
   showAddRentalModal(preselectedItemId) {
-    const availableItems = state.items.filter(i => i.status === 'available' || i.id === preselectedItemId);
+    const availableItems = getAvailableItems(preselectedItemId);
     const customers = state.customers;
 
     if (customers.length === 0) {
@@ -3262,8 +3302,14 @@ const UI = {
         <select id="rentalItem">
           ${availableItems.length === 0 
             ? '<option value="">— No available devices in inventory —</option>' 
-            : availableItems.map(i => `<option value="${i.id}" ${i.id === preselectedItemId ? 'selected' : ''}>${escHtml(getItemFullTitle(i))} [SN: ${escHtml(i.serial)}]${i.specs ? ' - ' + escHtml(i.specs) : ''}</option>`).join('')}
+            : availableItems.map(i => `<option value="${i.id}" ${i.id === preselectedItemId ? 'selected' : ''}>${escHtml(getItemFullTitle(i))} [SN: ${escHtml(i.serial)}]${i.specs ? ' — ' + escHtml(i.specs) : ''}</option>`).join('')}
         </select>
+        ${availableItems.length === 0 ? `
+          <div style="margin-top:6px;font-size:0.75rem;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center">
+            <span>All laptops are currently rented out or in repair.</span>
+            <button type="button" class="btn btn-outline btn-micro" onclick="UI.showAddItemModal()">+ Add New Laptop</button>
+          </div>
+        ` : ''}
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -3335,8 +3381,8 @@ const UI = {
     this.saveNewRental(customerId);
   },
 
-  showNewRentalModal(customerId) {
-    const availableItems = state.items.filter(i => i.status === 'available');
+  showNewRentalModal(customerId, preselectedItemId) {
+    const availableItems = getAvailableItems(preselectedItemId);
     const c = getCustomer(customerId);
     this.showModal(`
       <button class="modal-close" onclick="UI.hideModal()">&times;</button>
@@ -3350,8 +3396,14 @@ const UI = {
         <select id="rentalItem">
           ${availableItems.length === 0 
             ? '<option value="">— No available devices in inventory —</option>' 
-            : availableItems.map(i => `<option value="${i.id}">${escHtml(getItemFullTitle(i))} [SN: ${escHtml(i.serial)}]${i.specs ? ' - ' + escHtml(i.specs) : ''}</option>`).join('')}
+            : availableItems.map(i => `<option value="${i.id}" ${i.id === preselectedItemId ? 'selected' : ''}>${escHtml(getItemFullTitle(i))} [SN: ${escHtml(i.serial)}]${i.specs ? ' — ' + escHtml(i.specs) : ''}</option>`).join('')}
         </select>
+        ${availableItems.length === 0 ? `
+          <div style="margin-top:6px;font-size:0.75rem;color:var(--text-muted);display:flex;justify-content:space-between;align-items:center">
+            <span>All laptops are currently rented out or in repair.</span>
+            <button type="button" class="btn btn-outline btn-micro" onclick="UI.showAddItemModal()">+ Add New Laptop</button>
+          </div>
+        ` : ''}
       </div>
       <div class="form-row">
         <div class="form-group">
