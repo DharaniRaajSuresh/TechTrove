@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v9-theme-toggle';
+const CACHE = 'techtrove-v10-4k-logo';
 const ASSETS = [
   '/',
   '/index.html',

@@ -319,6 +319,40 @@ header h1#headerTitle {
 }
 .header-btn.hidden { visibility: hidden; pointer-events: none; }
 
+/* Due Alert Banner */
+.due-alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--status-danger-bg);
+  border-bottom: 1px solid var(--status-danger-border);
+  color: var(--status-danger);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.due-alert-banner:active {
+  opacity: 0.85;
+}
+.due-alert-banner.due-soon-banner {
+  background: var(--status-warn-bg);
+  border-bottom-color: var(--status-warn-border);
+  color: var(--status-warn);
+}
+.due-alert-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.due-alert-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
 /* ==========================================================================
    MAIN CONTENT AREA & PAGE TRANSITIONS
    ========================================================================== */
@@ -828,6 +862,16 @@ header h1#headerTitle {
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.4);
 }
 
+.confirm-box {
+  padding: 24px 20px;
+}
+.confirm-box p {
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .modal-content {
     animation: sheetUp 0.22s cubic-bezier(0.16, 1, 0.3, 1);
@@ -947,7 +991,27 @@ header h1#headerTitle {
   border-color: var(--status-danger-border);
   color: var(--status-danger);
 }
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  min-height: 32px;
+}
 .btn-block { width: 100%; }
+
+.btn-group {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.btn-arrow {
+  margin-left: 4px;
+  transition: transform 0.15s;
+}
+.btn:hover .btn-arrow {
+  transform: translateX(2px);
+}
 
 /* Toast */
 .hidden { display: none !important; }
@@ -1061,6 +1125,24 @@ header h1#headerTitle {
 .preset-result-model { font-weight: 600; color: var(--text-primary); font-size: 0.84rem; }
 .preset-result-type { font-size: 0.65rem; background: var(--surface); padding: 1px 5px; border-radius: 4px; color: var(--text-muted); margin-left: auto; }
 .preset-result-specs { font-size: 0.74rem; color: var(--text-muted); margin-top: 2px; }
+.preset-brand-pills {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+  scrollbar-width: none;
+}
+.preset-brand-pills::-webkit-scrollbar { display: none; }
+
+.preset-custom-option {
+  background: var(--accent-muted);
+  border-color: var(--accent-border);
+}
+.preset-custom-option:hover {
+  background: var(--accent-muted);
+}
+
 .selected-preset-banner {
   display: flex;
   justify-content: space-between;
@@ -1073,6 +1155,38 @@ header h1#headerTitle {
   font-size: 0.8rem;
   font-weight: 500;
   margin-top: 8px;
+}
+
+.repair-section-form {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.fab {
+  position: fixed;
+  right: 20px;
+  bottom: calc(var(--nav-h) + 20px + env(safe-area-inset-bottom, 0px));
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 1.4rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  transition: transform 0.15s;
+}
+.fab:active {
+  transform: scale(0.95);
 }
 
 /* Ops Key-Value Parameter Grid */

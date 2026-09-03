@@ -57,6 +57,9 @@ function saveDataLocal(data) {
   try { fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8'); } catch (e) {}
 }
 
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '';
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
+
 /* Upstash Redis storage */
 async function loadData() {
   if (UPSTASH_URL && UPSTASH_TOKEN) {
@@ -64,11 +67,13 @@ async function loadData() {
       const res = await fetch(`${UPSTASH_URL}/get/${UPSTASH_KEY}`, {
         headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` }
       });
-      const d = await res.json();
-      if (d.result) {
-        let parsed = typeof d.result === 'string' ? JSON.parse(d.result) : d.result;
-        if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-        if (parsed.customers) return parsed;
+      if (res.ok) {
+        const d = await res.json();
+        if (d && d.result) {
+          let parsed = typeof d.result === 'string' ? JSON.parse(d.result) : d.result;
+          if (typeof parsed === 'string') parsed = JSON.parse(parsed);
+          if (parsed && Array.isArray(parsed.customers)) return parsed;
+        }
       }
     } catch (e) { console.error('Upstash read error, falling back to local:', e.message); }
   }
@@ -80,14 +85,24 @@ async function saveData(data) {
   const payload = JSON.stringify(data);
   if (UPSTASH_URL && UPSTASH_TOKEN) {
     try {
-      await fetch(`${UPSTASH_URL}/set/${UPSTASH_KEY}`, {
+      const res = await fetch(UPSTASH_URL, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${UPSTASH_TOKEN}`,
           'Content-Type': 'application/json'
         },
-        body: payload
+        body: JSON.stringify(['SET', UPSTASH_KEY, payload])
       });
+      if (!res.ok) {
+        await fetch(`${UPSTASH_URL}/set/${UPSTASH_KEY}`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${UPSTASH_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: payload
+        });
+      }
     } catch (e) { console.error('Upstash write error:', e.message); }
   }
   saveDataLocal(data); /* Always keep local backup */

@@ -7,27 +7,24 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="icon" type="image/svg+xml" href="icon.svg">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
 <link rel="manifest" href="manifest.json">
 <title>TechTrove Systems Rental Tracker</title>
-<link rel="stylesheet" href="styles.css?v=3.5-theme-toggle">
+<link rel="stylesheet" href="styles.css?v=3.6-logo-update">
 </head>
 <body>
   <div id="splash" class="splash"><div class="spinner"></div></div>
   <div id="loginScreen" class="login-screen hidden">
     <div class="login-bg-art">
       <svg viewBox="0 0 375 280" width="375" height="280" preserveAspectRatio="none" style="position:absolute;top:0;left:0;width:100%">
-        <path d="M0 0h375v200c-62.5 40-156.25 60-250 40C62.5 224 31.25 212 0 200V0z" fill="var(--primary)" opacity=".08"/>
-        <path d="M0 0h375v160c-83.3 30-166.7 20-250 10-41.7-5-83.3-10-125-30V0z" fill="var(--primary)" opacity=".05"/>
+        <path d="M0 0h375v200c-62.5 40-156.25 60-250 40C62.5 224 31.25 212 0 200V0z" fill="var(--accent)" opacity=".08"/>
+        <path d="M0 0h375v160c-83.3 30-166.7 20-250 10-41.7-5-83.3-10-125-30V0z" fill="var(--accent)" opacity=".05"/>
       </svg>
     </div>
     <div class="login-box">
       <div class="login-brand">
-        <svg viewBox="0 0 40 40" width="44" height="44">
-          <rect width="40" height="40" rx="10" fill="var(--primary)"/>
-          <text x="20" y="28" font-family="Arial,sans-serif" font-size="22" font-weight="bold" fill="white" text-anchor="middle">TT</text>
-        </svg>
+        <img src="icon.png" alt="TechTrove Emblem" width="56" height="56" style="display:block;margin:0 auto;object-fit:contain;">
       </div>
       <h1>TechTrove Systems</h1>
       <p class="login-sub">Rental Management System</p>
@@ -36,7 +33,7 @@
           <svg class="login-input-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
         </div>
-        <div id="loginError" class="login-error hidden">&#10007; Incorrect password</div>
+        <div id="loginError" class="login-error hidden">Incorrect password</div>
         <button id="loginBtn" class="btn btn-primary btn-block">
           <span>Sign In</span>
           <svg class="btn-arrow" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
@@ -82,8 +79,8 @@
       <span class="nav-label">Inventory</span>
     </button>
     <button class="nav-btn" data-page="customers" onclick="UI.navigate('customers')">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-      <span class="nav-label">Rentals</span>
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span class="nav-label">Customers</span>
     </button>
     <button class="nav-btn" data-page="repairs" onclick="UI.openRepairsFilter()">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>

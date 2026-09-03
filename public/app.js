@@ -28,8 +28,19 @@ let currentTheme = 'dark';
 try {
   notifEnabled = localStorage.getItem('notifEnabled') !== 'false';
   lastNotifDate = localStorage.getItem('lastNotifDate') || '';
-  currentTheme = localStorage.getItem('techtrove_theme') || 'dark';
+  const savedTheme = localStorage.getItem('techtrove_theme');
+  if (savedTheme === 'light' || savedTheme === 'dark') {
+    currentTheme = savedTheme;
+  } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+    currentTheme = 'light';
+  } else {
+    currentTheme = 'dark';
+  }
   document.documentElement.setAttribute('data-theme', currentTheme);
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) {
+    themeMeta.setAttribute('content', currentTheme === 'light' ? '#FFFFFF' : '#1A1D24');
+  }
 } catch(e) {}
 
 function setTheme(theme) {
@@ -42,10 +53,27 @@ function setTheme(theme) {
   }
 }
 
+// Live OS media query listener for system theme changes when no manual override is set
+if (typeof window !== 'undefined' && window.matchMedia) {
+  const mql = window.matchMedia('(prefers-color-scheme: dark)');
+  const handleOSThemeChange = (e) => {
+    const saved = localStorage.getItem('techtrove_theme');
+    if (!saved) {
+      setTheme(e.matches ? 'dark' : 'light');
+    }
+  };
+  if (mql.addEventListener) {
+    mql.addEventListener('change', handleOSThemeChange);
+  } else if (mql.addListener) {
+    mql.addListener(handleOSThemeChange);
+  }
+}
+
 /* OUTLINE SVG ICON SET (1.5px stroke, zero emoji) */
 const Icons = {
   dashboard: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>`,
   inventory: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>`,
+  customers: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
   rentals: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
   repairs: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
   settings: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
@@ -64,7 +92,9 @@ const Icons = {
   bell: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>`,
   alert: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
   sun: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
-  moon: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`
+  moon: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
+  edit: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+  trash: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`
 };
 
 /* PRESET CATALOGUE FOR LAPTOPS, DESKTOPS & MONITORS */
@@ -360,8 +390,8 @@ const AppNotif = {
       }
 
       let summaryText = overdue.length > 0
-        ? `⚠️ ${overdue.length} overdue rental payment(s) require follow-up!`
-        : `⏰ ${dueSoon.length} payment(s) due this week.`;
+        ? `${overdue.length} overdue rental payment(s) require follow-up.`
+        : `${dueSoon.length} payment(s) due this week.`;
 
       await ln.schedule({
         notifications: [{
@@ -713,8 +743,8 @@ const UI = {
 
     const titles = {
       'dashboard': 'TechTrove Console',
-      'customers': 'Rentals & Clients',
-      'customer-detail': 'Client Agreement',
+      'customers': 'Customers',
+      'customer-detail': 'Customer Agreement',
       'inventory': 'Fleet Inventory',
       'repairs': 'Repairs Tracker',
       'search': 'Global Search',
@@ -767,11 +797,11 @@ const UI = {
     if (banner) {
       if (overdue.length > 0) {
         banner.className = 'due-alert-banner';
-        banner.innerHTML = `<span class="due-alert-icon">⚠️</span> <span><strong>${overdue.length} Overdue Payment(s)</strong> — Tap to review & send reminders</span>`;
+        banner.innerHTML = `<span class="due-alert-icon">${Icons.alert}</span> <span><strong>${overdue.length} Overdue Payment(s)</strong> — Tap to review & send reminders</span>`;
         banner.classList.remove('hidden');
       } else if (dueSoon.length > 0) {
         banner.className = 'due-alert-banner due-soon-banner';
-        banner.innerHTML = `<span class="due-alert-icon">⏰</span> <span><strong>${dueSoon.length} Payment(s) Due Within 7 Days</strong></span>`;
+        banner.innerHTML = `<span class="due-alert-icon">${Icons.bell}</span> <span><strong>${dueSoon.length} Payment(s) Due Within 7 Days</strong></span>`;
         banner.classList.remove('hidden');
       } else {
         banner.classList.add('hidden');
@@ -943,10 +973,10 @@ const UI = {
     if (list.length === 0) {
       listHtml = `
       <div class="ops-empty">
-        <div class="ops-empty-icon">${Icons.rentals}</div>
-        <div class="ops-empty-title">No matching clients</div>
-        <div class="ops-empty-sub">${q ? 'Try a different search keyword.' : 'No clients registered yet in your console.'}</div>
-        <button class="btn btn-primary btn-micro" style="margin-top:12px;padding:8px 16px" onclick="UI.showAddCustomerModal()">+ Add client</button>
+        <div class="ops-empty-icon">${Icons.customers}</div>
+        <div class="ops-empty-title">No matching customers</div>
+        <div class="ops-empty-sub">${q ? 'Try a different search keyword.' : 'No customers registered yet in your console.'}</div>
+        <button class="btn btn-primary btn-micro" style="margin-top:12px;padding:8px 16px" onclick="UI.showAddCustomerModal()">+ Add Customer</button>
       </div>`;
     } else {
       list.forEach(c => {
@@ -967,7 +997,7 @@ const UI = {
           }
         }
 
-        let subText = `📞 ${escHtml(fmtPhone(c.phone))}`;
+        let subText = `${escHtml(fmtPhone(c.phone))}`;
         if (active.length > 0) {
           const deviceNames = active.map(r => {
             const it = getItem(r.itemId);
@@ -1013,7 +1043,7 @@ const UI = {
     const countContainer = document.getElementById('customerSectionCount');
     if (listContainer && query !== undefined) {
       listContainer.innerHTML = listHtml;
-      if (countContainer) countContainer.textContent = `${list.length} client${list.length === 1 ? '' : 's'}`;
+      if (countContainer) countContainer.textContent = `${list.length} customer${list.length === 1 ? '' : 's'}`;
       return;
     }
 
@@ -1021,7 +1051,7 @@ const UI = {
     <!-- Top Live Search Bar -->
     <div class="search-input-wrap">
       <div class="search-icon-inside">${Icons.search}</div>
-      <input type="search" id="customerSearch" class="ops-search-input" placeholder="Search clients, phone, address..." value="${escHtml(q)}" oninput="UI.renderCustomers(this.value, '${filter}')">
+      <input type="search" id="customerSearch" class="ops-search-input" placeholder="Search customers, phone, address..." value="${escHtml(q)}" oninput="UI.renderCustomers(this.value, '${filter}')">
     </div>
 
     <!-- Client Status Filter Pills -->
@@ -1246,10 +1276,10 @@ const UI = {
             </div>
             <div style="display:flex;gap:4px">
               <button class="btn-micro" onclick="UI.showEditPaymentModal('${p.id}')" title="Edit payment">
-                ✏️
+                ${Icons.edit}
               </button>
               <button class="btn-micro" onclick="UI.deletePayment('${p.id}')" style="color:var(--status-danger)" title="Delete payment">
-                &times;
+                ${Icons.trash}
               </button>
             </div>
           </div>
@@ -1724,7 +1754,7 @@ const UI = {
           </div>
           <div class="ops-row-main">
             <div class="ops-row-title">${escHtml(c.name)}</div>
-            <div class="ops-row-sub">📞 ${escHtml(fmtPhone(c.phone))}${c.address ? ` &middot; ${escHtml(c.address)}` : ''}</div>
+            <div class="ops-row-sub">${escHtml(fmtPhone(c.phone))}${c.address ? ` &middot; ${escHtml(c.address)}` : ''}</div>
           </div>
           <div class="ops-row-end">
             <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppReminder('${c.phone}', 'Hello ${c.name}, from TechTrove Systems.')" title="Message Client">
@@ -1743,6 +1773,15 @@ const UI = {
   /* SETTINGS & BACKUP (OPS CONSOLE REDESIGN) */
   renderMore() {
     const html = `
+    <!-- Branded System Badge -->
+    <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:14px">
+      <img src="icon.png" alt="TechTrove" width="42" height="42" style="border-radius:8px;object-fit:contain;flex-shrink:0">
+      <div>
+        <div style="font-weight:700;font-size:0.95rem;letter-spacing:-0.2px;color:var(--text-primary)">TechTrove Systems</div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">Rental Management Console &middot; v3.6</div>
+      </div>
+    </div>
+
     <!-- Summary Metric Chips -->
     <div class="dash-chips-row" style="margin-bottom:14px">
       <div class="stat-chip" onclick="UI.navigate('customers')">
@@ -1937,7 +1976,7 @@ const UI = {
       return;
     }
     UI.showToast('Sending test notification to your phone...', 'info');
-    await AppNotif.sendSystemNotification('🔔 TechTrove System Alert', 'Background notification active! You will receive due alerts even outside the app.', 8888);
+    await AppNotif.sendSystemNotification('TechTrove System Alert', 'Background notification active! You will receive due alerts even outside the app.', 8888);
   },
 
   /* MODALS: CUSTOMER */
@@ -2079,7 +2118,7 @@ const UI = {
 
     let html = '';
     if (list.length === 0) {
-      html += `<div style="padding:12px;text-align:center;color:var(--gray-500);font-size:.82rem">No preset models matching "<strong>${escHtml(query)}</strong>"</div>`;
+      html += `<div style="padding:12px;text-align:center;color:var(--text-muted);font-size:.82rem">No preset models matching "<strong>${escHtml(query)}</strong>"</div>`;
     } else {
       list.forEach(p => {
         html += `
@@ -2097,8 +2136,8 @@ const UI = {
     if (q) {
       html += `
       <div class="preset-result-item preset-custom-option" onclick="UI.selectCustomModel(\`${escHtml(query).replace(/`/g, '\\`')}\`)">
-        <div style="font-weight:700;color:var(--primary)">✏️ Use "${escHtml(query)}" as Custom Model</div>
-        <div style="font-size:.74rem;color:var(--gray-600)">Click to set custom model and adjust specs below</div>
+        <div style="font-weight:700;color:var(--accent)">Use "${escHtml(query)}" as Custom Model</div>
+        <div style="font-size:.74rem;color:var(--text-muted)">Click to set custom model and adjust specs below</div>
       </div>`;
     }
 
@@ -2159,10 +2198,10 @@ const UI = {
     if (bannerEl) {
       bannerEl.innerHTML = `
         <div>
-          <span>✓ Selected: <strong>${escHtml(preset.brand)} ${escHtml(preset.model)}</strong></span>
+          <span>Selected: <strong>${escHtml(preset.brand)} ${escHtml(preset.model)}</strong></span>
           <div style="font-size:.75rem;opacity:.9;margin-top:1px">${escHtml(preset.specs)}</div>
         </div>
-        <button type="button" class="btn btn-sm btn-outline" style="padding:2px 8px;min-height:24px;font-size:.72rem;background:#fff;border-color:#86efac;color:#166534" onclick="UI.clearPresetSelection()">Change</button>
+        <button type="button" class="btn btn-sm btn-outline" style="padding:2px 8px;min-height:24px;font-size:.72rem;background:var(--surface);border-color:var(--status-ok-border);color:var(--status-ok)" onclick="UI.clearPresetSelection()">Change</button>
       `;
       bannerEl.style.display = 'flex';
     }
@@ -2181,9 +2220,9 @@ const UI = {
     if (bannerEl) {
       bannerEl.innerHTML = `
         <div>
-          <span>✏️ Custom Model: <strong>${escHtml(customVal)}</strong></span>
+          <span>Custom Model: <strong>${escHtml(customVal)}</strong></span>
         </div>
-        <button type="button" class="btn btn-sm btn-outline" style="padding:2px 8px;min-height:24px;font-size:.72rem;background:#fff;border-color:#86efac;color:#166534" onclick="UI.clearPresetSelection()">Change</button>
+        <button type="button" class="btn btn-sm btn-outline" style="padding:2px 8px;min-height:24px;font-size:.72rem;background:var(--surface);border-color:var(--accent-border);color:var(--accent)" onclick="UI.clearPresetSelection()">Change</button>
       `;
       bannerEl.style.display = 'flex';
     }
@@ -2239,8 +2278,8 @@ const UI = {
       <!-- SEARCHABLE PRESET MODEL PICKER -->
       <div class="preset-search-box">
         <div class="preset-search-header">
-          <label style="font-weight:700;color:var(--primary-dark);font-size:.85rem">⚡ Search &amp; Pick Model Preset (40+ Models)</label>
-          <div style="font-size:.74rem;color:var(--gray-600)">Type any model name (e.g. <em>3420, T14, M1, 840, i5</em>) or tap a brand:</div>
+          <label style="font-weight:700;color:var(--text-primary);font-size:.85rem">Search &amp; Pick Model Preset (40+ Models)</label>
+          <div style="font-size:.74rem;color:var(--text-muted)">Type any model name (e.g. <em>3420, T14, M1, 840, i5</em>) or tap a brand:</div>
         </div>
 
         <div class="preset-brand-pills" id="presetBrandPills">
@@ -2255,8 +2294,8 @@ const UI = {
         </div>
 
         <div class="preset-input-wrapper">
-          <input type="text" id="presetSearchInput" class="preset-search-input" placeholder="🔍 Type model name (e.g. 3420, T14, M1, EliteBook)..." oninput="UI.onPresetSearchInput(this.value)" onfocus="document.getElementById('presetResultsList').style.display='block'" autocomplete="off">
-          <button type="button" class="preset-clear-btn" onclick="UI.clearPresetSelection()">✕</button>
+          <input type="text" id="presetSearchInput" class="preset-search-input" placeholder="Type model name (e.g. 3420, T14, M1, EliteBook)..." oninput="UI.onPresetSearchInput(this.value)" onfocus="document.getElementById('presetResultsList').style.display='block'" autocomplete="off">
+          <button type="button" class="preset-clear-btn" onclick="UI.clearPresetSelection()">&times;</button>
         </div>
 
         <div id="presetResultsList" class="preset-results-dropdown">
@@ -2301,7 +2340,7 @@ const UI = {
 
       <!-- COMPONENT PICKER DROPDOWNS -->
       <div class="spec-builder-box">
-        <div class="spec-builder-title">🛠️ Quick Spec Builder (Pick or Customize)</div>
+        <div class="spec-builder-title">Quick Spec Builder (Pick or Customize)</div>
         <div class="form-row">
           <div class="form-group">
             <label style="font-size:.75rem">Processor</label>
@@ -2336,7 +2375,7 @@ const UI = {
 
       <!-- DYNAMIC UNDER REPAIR / SERVICE FORM -->
       <div id="repairSection" class="repair-section-form" style="display:none">
-        <div style="font-weight:700;color:var(--purple);margin-bottom:8px;font-size:.9rem">🛠️ Under Repair &amp; Service Details</div>
+        <div style="font-weight:700;color:var(--text-primary);margin-bottom:8px;font-size:.9rem">Under Repair &amp; Service Details</div>
         <div class="form-group">
           <label>Service Center / Shop Name &amp; Location *</label>
           <input type="text" id="repairServiceCenter" placeholder="e.g. Dell Authorized Service, SP Road / Nehru Place">
@@ -2400,8 +2439,8 @@ const UI = {
       <!-- SEARCHABLE PRESET MODEL PICKER -->
       <div class="preset-search-box">
         <div class="preset-search-header">
-          <label style="font-weight:700;color:var(--primary-dark);font-size:.85rem">⚡ Search &amp; Pick Model Preset</label>
-          <div style="font-size:.74rem;color:var(--gray-600)">Type any model name (e.g. <em>3420, T14, M1, 840</em>) or tap a brand:</div>
+          <label style="font-weight:700;color:var(--text-primary);font-size:.85rem">Search &amp; Pick Model Preset</label>
+          <div style="font-size:.74rem;color:var(--text-muted)">Type any model name (e.g. <em>3420, T14, M1, 840</em>) or tap a brand:</div>
         </div>
 
         <div class="preset-brand-pills" id="presetBrandPills">
@@ -2416,8 +2455,8 @@ const UI = {
         </div>
 
         <div class="preset-input-wrapper">
-          <input type="text" id="presetSearchInput" class="preset-search-input" value="${escHtml(i.brand ? i.brand + ' ' + (i.model || '') : '')}" placeholder="🔍 Search models..." oninput="UI.onPresetSearchInput(this.value)" onfocus="document.getElementById('presetResultsList').style.display='block'" autocomplete="off">
-          <button type="button" class="preset-clear-btn" onclick="UI.clearPresetSelection()">✕</button>
+          <input type="text" id="presetSearchInput" class="preset-search-input" value="${escHtml(i.brand ? i.brand + ' ' + (i.model || '') : '')}" placeholder="Search models..." oninput="UI.onPresetSearchInput(this.value)" onfocus="document.getElementById('presetResultsList').style.display='block'" autocomplete="off">
+          <button type="button" class="preset-clear-btn" onclick="UI.clearPresetSelection()">&times;</button>
         </div>
 
         <div id="presetResultsList" class="preset-results-dropdown" style="display:none">
@@ -2428,7 +2467,7 @@ const UI = {
           <div>
             <span>Current: <strong>${escHtml(i.brand || '')} ${escHtml(i.model || '')}</strong></span>
           </div>
-          <button type="button" class="btn btn-sm btn-outline" style="padding:2px 8px;min-height:24px;font-size:.72rem;background:#fff;border-color:#86efac;color:#166534" onclick="UI.clearPresetSelection()">Change</button>
+          <button type="button" class="btn btn-sm btn-outline" style="padding:2px 8px;min-height:24px;font-size:.72rem;background:var(--surface);border-color:var(--accent-border);color:var(--accent)" onclick="UI.clearPresetSelection()">Change</button>
         </div>
       </div>
 
@@ -2467,7 +2506,7 @@ const UI = {
 
       <!-- COMPONENT PICKER DROPDOWNS -->
       <div class="spec-builder-box">
-        <div class="spec-builder-title">🛠️ Quick Spec Builder (Pick or Customize)</div>
+        <div class="spec-builder-title">Quick Spec Builder (Pick or Customize)</div>
         <div class="form-row">
           <div class="form-group">
             <label style="font-size:.75rem">Processor</label>
@@ -2502,7 +2541,7 @@ const UI = {
 
       <!-- DYNAMIC UNDER REPAIR / SERVICE FORM -->
       <div id="repairSection" class="repair-section-form" style="display:${i.status==='repair'?'block':'none'}">
-        <div style="font-weight:700;color:var(--purple);margin-bottom:8px;font-size:.9rem">🛠️ Under Repair &amp; Service Details</div>
+        <div style="font-weight:700;color:var(--text-primary);margin-bottom:8px;font-size:.9rem">Under Repair &amp; Service Details</div>
         <div class="form-group">
           <label>Service Center / Shop Name &amp; Location</label>
           <input type="text" id="repairServiceCenter" value="${escHtml(rep.serviceCenter || '')}" placeholder="e.g. Dell Authorized Service, SP Road">
@@ -2545,7 +2584,7 @@ const UI = {
         <button class="btn btn-outline" onclick="UI.hideModal()">Cancel</button>
         <button class="btn btn-primary" onclick="UI.saveItem('${i.id}')">Update Device</button>
       </div>
-      ${!isRented ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--gray-200)"><button class="btn btn-danger btn-block btn-sm" onclick="UI.deleteItem('${i.id}')">Delete Item</button></div>` : '<div style="margin-top:8px;font-size:.8rem;color:var(--gray-500);text-align:center">Cannot delete — currently rented out.</div>'}`);
+      ${!isRented ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"><button class="btn btn-danger btn-block btn-sm" onclick="UI.deleteItem('${i.id}')">Delete Item</button></div>` : '<div style="margin-top:8px;font-size:.8rem;color:var(--text-muted);text-align:center">Cannot delete — currently rented out.</div>'}`);
   },
 
 
@@ -2711,7 +2750,7 @@ const UI = {
       <h2>New Rental Assignment</h2>
       <div class="form-group">
         <label>Customer</label>
-        <input type="text" value="${escHtml(c ? c.name + ' (' + fmtPhone(c.phone) + ')' : '')}" disabled style="background:var(--gray-100)">
+        <input type="text" value="${escHtml(c ? c.name + ' (' + fmtPhone(c.phone) + ')' : '')}" disabled style="background:var(--surface-raised);color:var(--text-muted);border-color:var(--border)">
       </div>
       <div class="form-group">
         <label>Select Laptop / Computer *</label>
@@ -2836,7 +2875,7 @@ const UI = {
     this.showModal(`
       <button class="modal-close" onclick="UI.hideModal()">&times;</button>
       <h2>Close Rental</h2>
-      <p style="margin-bottom:12px;color:var(--gray-600)">Closing this rental will mark <strong>${escHtml(getItemFullTitle(item))}</strong> as Available in inventory.</p>
+      <p style="margin-bottom:12px;color:var(--text-muted)">Closing this rental will mark <strong>${escHtml(getItemFullTitle(item))}</strong> as Available in inventory.</p>
       <div class="form-group">
         <label>Return / End Date *</label>
         <input type="date" id="closeEndDate" value="${today()}">
@@ -2875,7 +2914,7 @@ const UI = {
       <h2>Log Rental Payment</h2>
       <div class="form-group">
         <label>Customer</label>
-        <input type="text" value="${escHtml(c ? c.name + ' (' + fmtPhone(c.phone) + ')' : '')}" disabled style="background:var(--gray-100)">
+        <input type="text" value="${escHtml(c ? c.name + ' (' + fmtPhone(c.phone) + ')' : '')}" disabled style="background:var(--surface-raised);color:var(--text-muted);border-color:var(--border)">
       </div>
       <div class="form-group">
         <label>Rental *</label>
@@ -2954,7 +2993,7 @@ const UI = {
       <h2>Edit Payment Record</h2>
       <div class="form-group">
         <label>Customer</label>
-        <input type="text" value="${escHtml(c ? c.name : '')}" disabled style="background:var(--gray-100)">
+        <input type="text" value="${escHtml(c ? c.name : '')}" disabled style="background:var(--surface-raised);color:var(--text-muted);border-color:var(--border)">
       </div>
       <div class="form-row">
         <div class="form-group">
