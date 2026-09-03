@@ -574,27 +574,18 @@ const Data = {
       }
     } catch(e) {}
 
-    // 2. Background fetch from server if authenticated
+    // 2. Background fetch authoritative state from server if authenticated
     UI.showLoading(true);
     try {
       const res = await this._fetch('/api/data', { headers: Auth.header() });
       if (res.ok) {
         const d = await res.json();
-        if (d && Array.isArray(d.customers)) {
-          const serverHasData = d.customers.length > 0 || (d.items && d.items.length > 0) || (d.rentals && d.rentals.length > 0);
-          const localHasData = state.customers.length > 0 || state.items.length > 0 || state.rentals.length > 0;
-
-          if (serverHasData) {
-            // Server has data, update state and cache to localStorage
-            state.customers = d.customers || [];
-            state.items = d.items || [];
-            state.rentals = d.rentals || [];
-            state.payments = d.payments || [];
-            try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
-          } else if (localHasData) {
-            // Server was empty/reset but local has data: Push local data up to server!
-            this.save();
-          }
+        if (d && Array.isArray(d.customers) && Array.isArray(d.items)) {
+          state.customers = d.customers || [];
+          state.items = d.items || [];
+          state.rentals = d.rentals || [];
+          state.payments = d.payments || [];
+          try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
         }
       }
     } catch(e) {
@@ -617,21 +608,18 @@ const Data = {
       const res = await this._fetch('/api/data', { headers: Auth.header() });
       if (res.ok) {
         const d = await res.json();
-        if (d && Array.isArray(d.customers)) {
-          const serverHasData = d.customers.length > 0 || (d.items && d.items.length > 0) || (d.rentals && d.rentals.length > 0);
-          if (serverHasData) {
-            const currentStr = JSON.stringify(state);
-            const serverStr = JSON.stringify(d);
-            if (currentStr !== serverStr) {
-              state.customers = d.customers || [];
-              state.items = d.items || [];
-              state.rentals = d.rentals || [];
-              state.payments = d.payments || [];
-              try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
-              if (!isModalOpen) {
-                UI.renderAll();
-                UI.updateDueBanner();
-              }
+        if (d && Array.isArray(d.customers) && Array.isArray(d.items)) {
+          const currentStr = JSON.stringify(state);
+          const serverStr = JSON.stringify(d);
+          if (currentStr !== serverStr) {
+            state.customers = d.customers || [];
+            state.items = d.items || [];
+            state.rentals = d.rentals || [];
+            state.payments = d.payments || [];
+            try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+            if (!isModalOpen) {
+              UI.renderAll();
+              UI.updateDueBanner();
             }
           }
         }

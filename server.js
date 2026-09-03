@@ -4,16 +4,18 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-/* Upstash Redis config — also reads from techtrove.env if present */
+/* Upstash Redis config — reads from .env or techtrove.env if present */
 try {
-  const envFile = path.join(__dirname, 'techtrove.env');
-  if (fs.existsSync(envFile)) {
-    const lines = fs.readFileSync(envFile, 'utf8').split('\n').filter(Boolean);
-    for (const line of lines) {
-      const [k, ...v] = line.split('=');
-      if (k && v.length) process.env[k.trim()] = v.join('=').trim();
+  ['.env', 'techtrove.env'].forEach(file => {
+    const envFile = path.join(__dirname, file);
+    if (fs.existsSync(envFile)) {
+      const lines = fs.readFileSync(envFile, 'utf8').split('\n').filter(Boolean);
+      for (const line of lines) {
+        const [k, ...v] = line.split('=');
+        if (k && v.length) process.env[k.trim()] = v.join('=').trim();
+      }
     }
-  }
+  });
 } catch(e) {}
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || '';
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
