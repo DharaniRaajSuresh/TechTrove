@@ -1,5 +1,6 @@
 /* STATE & LOCAL STORAGE PERSISTENCE */
 const LOCAL_STORAGE_KEY = 'techtrove_state_v1';
+const PAYMENT_COLLECTORS = ['Suresh', 'Pragathi', 'Varusha', 'Dharani'];
 let state = { customers: [], items: [], rentals: [], payments: [] };
 
 try {
@@ -1435,9 +1436,10 @@ const UI = {
           <div class="ops-timeline-node"></div>
           <div class="ops-timeline-content">
             <div>
-              <div style="display:flex;align-items:center;gap:6px">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
                 <span class="tnum" style="font-weight:700;font-size:0.95rem;color:var(--status-ok)">+ ${fmtCurrency(p.amount)}</span>
                 <span class="status-pill muted" style="font-size:0.68rem;padding:1px 6px">${escHtml(p.method || 'Cash / UPI')}</span>
+                ${p.paidTo ? `<span class="status-pill ok" style="font-size:0.68rem;padding:1px 6px">Paid to: ${escHtml(p.paidTo)}</span>` : ''}
               </div>
               <div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px">
                 <span class="tnum">${fmtDate(p.date)}</span>${item ? ` &middot; ${escHtml(getItemFullTitle(item))}` : ''}${p.remarks ? ` &middot; <em>${escHtml(p.remarks)}</em>` : ''}
@@ -3248,7 +3250,7 @@ const UI = {
 
     this.showModal(`
       <button class="modal-close" onclick="UI.hideModal()">&times;</button>
-      <h2 style="font-size:1.05rem;font-weight:600;margin-bottom:14px">New Rental Agreement</h2>
+      <h2 style="font-size:1.05rem;font-weight:700;margin-bottom:14px">New Rental Agreement</h2>
       <div class="form-group">
         <label>Select Client *</label>
         <select id="rentalCustomer">
@@ -3266,7 +3268,7 @@ const UI = {
       <div class="form-row">
         <div class="form-group">
           <label>Rent Amount (₹) *</label>
-          <input type="number" id="rentalAmount" placeholder="e.g. 1500" min="0" step="1">
+          <input type="number" id="rentalAmount" placeholder="e.g. 1500" min="0" step="1" oninput="const adv=document.getElementById('rentalAdvanceAmount'); if(adv && !adv.dataset.touched) adv.value=this.value;">
         </div>
         <div class="form-group">
           <label>Billing Cycle</label>
@@ -3285,6 +3287,42 @@ const UI = {
         <label>Rental Start Date *</label>
         <input type="date" id="rentalStart" value="${today()}">
       </div>
+
+      <!-- Upfront Payment on Handover Section -->
+      <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.22);border-radius:var(--radius-md);padding:14px;margin-top:14px;margin-bottom:14px">
+        <div style="font-size:0.78rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+          <span>💵 Initial Payment Collected on Handover</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Advance Rent (₹)</label>
+            <input type="number" id="rentalAdvanceAmount" placeholder="0" min="0" step="1" oninput="this.dataset.touched='true'">
+          </div>
+          <div class="form-group">
+            <label>Security Deposit (₹)</label>
+            <input type="number" id="rentalDepositAmount" placeholder="0 (Optional)" min="0" step="1">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Paid To (Received By) *</label>
+            <select id="rentalPaidTo">
+              ${PAYMENT_COLLECTORS.map(name => `<option value="${name}">${name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Payment Mode</label>
+            <select id="rentalPayMethod">
+              <option value="GPay / UPI" selected>GPay / UPI</option>
+              <option value="Cash">Cash</option>
+              <option value="PhonePe">PhonePe</option>
+              <option value="Bank Transfer">Bank Transfer / NEFT</option>
+              <option value="Card">Card</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div class="form-actions">
         <button class="btn btn-outline" onclick="UI.hideModal()">Cancel</button>
         <button class="btn btn-primary" onclick="UI.saveNewRentalFromGlobal()">Start Rental</button>
@@ -3318,7 +3356,7 @@ const UI = {
       <div class="form-row">
         <div class="form-group">
           <label>Rent Amount (₹) *</label>
-          <input type="number" id="rentalAmount" placeholder="e.g. 1500" min="0" step="1">
+          <input type="number" id="rentalAmount" placeholder="e.g. 1500" min="0" step="1" oninput="const adv=document.getElementById('rentalAdvanceAmount'); if(adv && !adv.dataset.touched) adv.value=this.value;">
         </div>
         <div class="form-group">
           <label>Billing Cycle</label>
@@ -3337,6 +3375,42 @@ const UI = {
         <label>Rental Start Date *</label>
         <input type="date" id="rentalStart" value="${today()}">
       </div>
+
+      <!-- Upfront Payment on Handover Section -->
+      <div style="background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.22);border-radius:var(--radius-md);padding:14px;margin-top:14px;margin-bottom:14px">
+        <div style="font-size:0.78rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px">
+          <span>💵 Initial Payment Collected on Handover</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Advance Rent (₹)</label>
+            <input type="number" id="rentalAdvanceAmount" placeholder="0" min="0" step="1" oninput="this.dataset.touched='true'">
+          </div>
+          <div class="form-group">
+            <label>Security Deposit (₹)</label>
+            <input type="number" id="rentalDepositAmount" placeholder="0 (Optional)" min="0" step="1">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Paid To (Received By) *</label>
+            <select id="rentalPaidTo">
+              ${PAYMENT_COLLECTORS.map(name => `<option value="${name}">${name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Payment Mode</label>
+            <select id="rentalPayMethod">
+              <option value="GPay / UPI" selected>GPay / UPI</option>
+              <option value="Cash">Cash</option>
+              <option value="PhonePe">PhonePe</option>
+              <option value="Bank Transfer">Bank Transfer / NEFT</option>
+              <option value="Card">Card</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <div class="form-actions">
         <button class="btn btn-outline" onclick="UI.hideModal()">Cancel</button>
         <button class="btn btn-primary" onclick="UI.saveNewRental('${customerId}')">Start Rental</button>
@@ -3350,12 +3424,18 @@ const UI = {
     const customDays = parseInt(document.getElementById('rentalCustomDays').value) || 0;
     const start = document.getElementById('rentalStart').value;
 
+    const advanceAmount = parseFloat(document.getElementById('rentalAdvanceAmount')?.value) || 0;
+    const depositAmount = parseFloat(document.getElementById('rentalDepositAmount')?.value) || 0;
+    const paidTo = document.getElementById('rentalPaidTo')?.value || PAYMENT_COLLECTORS[0];
+    const payMethod = document.getElementById('rentalPayMethod')?.value || 'GPay / UPI';
+
     if (!itemId) { UI.showToast('Please select a device from inventory', 'error'); return; }
     if (!amount || amount <= 0) { UI.showToast('Please enter a valid rent amount', 'error'); return; }
     if (!start) { UI.showToast('Please select a start date', 'error'); return; }
 
+    const newRentalId = uid();
     state.rentals.push({
-      id: uid(),
+      id: newRentalId,
       customerId,
       itemId,
       rentAmount: amount,
@@ -3370,9 +3450,42 @@ const UI = {
     const item = getItem(itemId);
     if (item) item.status = 'rented';
 
+    let totalCollected = 0;
+    if (advanceAmount > 0) {
+      state.payments.push({
+        id: uid(),
+        rentalId: newRentalId,
+        amount: advanceAmount,
+        date: start,
+        method: payMethod,
+        paidTo: paidTo,
+        remarks: 'Advance Rent on Handover',
+        createdAt: today()
+      });
+      totalCollected += advanceAmount;
+    }
+
+    if (depositAmount > 0) {
+      state.payments.push({
+        id: uid(),
+        rentalId: newRentalId,
+        amount: depositAmount,
+        date: start,
+        method: payMethod,
+        paidTo: paidTo,
+        remarks: 'Security Deposit (Refundable)',
+        createdAt: today()
+      });
+      totalCollected += depositAmount;
+    }
+
     Data.save();
     UI.hideModal();
-    UI.showToast('Rental activated successfully', 'success');
+    if (totalCollected > 0) {
+      UI.showToast(`Rental started! ${fmtCurrency(totalCollected)} received by ${paidTo}`, 'success');
+    } else {
+      UI.showToast('Rental activated successfully', 'success');
+    }
     UI.renderAll();
   },
 
@@ -3490,15 +3603,23 @@ const UI = {
           <input type="date" id="payDate" value="${today()}">
         </div>
       </div>
-      <div class="form-group">
-        <label>Payment Method</label>
-        <select id="payMethod">
-          <option value="GPay / UPI" selected>GPay / UPI</option>
-          <option value="Cash">Cash</option>
-          <option value="PhonePe">PhonePe</option>
-          <option value="Bank Transfer">Bank Transfer / NEFT</option>
-          <option value="Card">Card</option>
-        </select>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Paid To (Received By) *</label>
+          <select id="payPaidTo">
+            ${PAYMENT_COLLECTORS.map(name => `<option value="${name}">${name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Payment Method</label>
+          <select id="payMethod">
+            <option value="GPay / UPI" selected>GPay / UPI</option>
+            <option value="Cash">Cash</option>
+            <option value="PhonePe">PhonePe</option>
+            <option value="Bank Transfer">Bank Transfer / NEFT</option>
+            <option value="Card">Card</option>
+          </select>
+        </div>
       </div>
       <div class="form-group">
         <label>Remarks / Notes (optional)</label>
@@ -3515,6 +3636,7 @@ const UI = {
     const rentalId = document.getElementById('payRental').value;
     const amount = parseFloat(document.getElementById('payAmount').value);
     const date = document.getElementById('payDate').value;
+    const paidTo = document.getElementById('payPaidTo').value || PAYMENT_COLLECTORS[0];
     const method = document.getElementById('payMethod').value.trim();
     const remarks = document.getElementById('payRemarks').value.trim();
 
@@ -3527,6 +3649,7 @@ const UI = {
       rentalId,
       amount,
       date,
+      paidTo,
       method,
       remarks,
       createdAt: today()
@@ -3534,7 +3657,7 @@ const UI = {
 
     Data.save();
     UI.hideModal();
-    UI.showToast(`Payment of ${fmtCurrency(amount)} recorded!`, 'success');
+    UI.showToast(`Payment of ${fmtCurrency(amount)} recorded (Received by ${paidTo})!`, 'success');
     UI.renderAll();
   },
 
@@ -3560,9 +3683,23 @@ const UI = {
           <input type="date" id="editPayDate" value="${p.date}">
         </div>
       </div>
-      <div class="form-group">
-        <label>Payment Method</label>
-        <input type="text" id="editPayMethod" value="${escHtml(p.method || '')}">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Paid To (Received By) *</label>
+          <select id="editPayPaidTo">
+            ${PAYMENT_COLLECTORS.map(name => `<option value="${name}" ${p.paidTo === name ? 'selected' : ''}>${name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Payment Method</label>
+          <select id="editPayMethod">
+            <option value="GPay / UPI" ${p.method==='GPay / UPI'?'selected':''}>GPay / UPI</option>
+            <option value="Cash" ${p.method==='Cash'?'selected':''}>Cash</option>
+            <option value="PhonePe" ${p.method==='PhonePe'?'selected':''}>PhonePe</option>
+            <option value="Bank Transfer" ${p.method==='Bank Transfer'?'selected':''}>Bank Transfer / NEFT</option>
+            <option value="Card" ${p.method==='Card'?'selected':''}>Card</option>
+          </select>
+        </div>
       </div>
       <div class="form-group">
         <label>Remarks</label>
@@ -3579,6 +3716,7 @@ const UI = {
     if (!p) return;
     const amount = parseFloat(document.getElementById('editPayAmount').value);
     const date = document.getElementById('editPayDate').value;
+    const paidTo = document.getElementById('editPayPaidTo').value;
     const method = document.getElementById('editPayMethod').value.trim();
     const remarks = document.getElementById('editPayRemarks').value.trim();
 
@@ -3587,6 +3725,7 @@ const UI = {
 
     p.amount = amount;
     p.date = date;
+    p.paidTo = paidTo;
     p.method = method;
     p.remarks = remarks;
 
