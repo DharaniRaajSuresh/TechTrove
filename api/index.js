@@ -7,7 +7,8 @@ const UPSTASH_KEY = 'techtrove:data';
 
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '';
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
-const APP_PASSWORD = process.env.APP_PASSWORD || 'rent123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.APP_PASSWORD || 'rent123';
+const EMPLOYEE_PASSWORD = process.env.EMPLOYEE_PASSWORD || 'staff123';
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -21,8 +22,16 @@ function requireAuth(req, res, next) {
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : '';
   const pw = req.headers['x-password'] || req.body?.password || token;
-  if (pw !== APP_PASSWORD && token !== 'admin-token') return res.status(401).json({ error: 'Invalid password or token' });
-  next();
+
+  if (pw === ADMIN_PASSWORD || token === 'admin-token') {
+    req.userRole = 'admin';
+    return next();
+  }
+  if (pw === EMPLOYEE_PASSWORD || token === 'employee-token') {
+    req.userRole = 'employee';
+    return next();
+  }
+  return res.status(401).json({ error: 'Invalid password or token' });
 }
 app.use('/api', requireAuth);
 
@@ -77,8 +86,13 @@ async function saveData(data) {
 
 const handleLogin = (req, res) => {
   const { password } = req.body || {};
-  if (password === APP_PASSWORD) res.json({ success: true, token: 'admin-token' });
-  else res.status(401).json({ error: 'Invalid password' });
+  if (password === ADMIN_PASSWORD) {
+    res.json({ success: true, token: 'admin-token', role: 'admin', user: 'Administrator' });
+  } else if (password === EMPLOYEE_PASSWORD) {
+    res.json({ success: true, token: 'employee-token', role: 'employee', user: 'Employee' });
+  } else {
+    res.status(401).json({ error: 'Invalid password' });
+  }
 };
 app.post('/api/login', handleLogin);
 app.post('/api/auth/login', handleLogin);
