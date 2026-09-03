@@ -1,13 +1,38 @@
 /* STATE & LOCAL STORAGE PERSISTENCE */
 const LOCAL_STORAGE_KEY = 'techtrove_state_v1';
 const PAYMENT_COLLECTORS = ['Suresh', 'Pragathi', 'Varusha', 'Dharani'];
-let state = { customers: [], items: [], rentals: [], payments: [] };
+
+const DEFAULT_SEED_ITEMS = [
+  { id: 'item-dell-lat-01', brand: 'Dell', model: 'Latitude 3420', type: 'Laptop', serial: 'DELL-3420-SN01', specs: 'Intel Core i5 11th Gen • 16GB DDR4 • 512GB NVMe SSD • 14.0" FHD', status: 'rented' },
+  { id: 'item-dell-lat-02', brand: 'Dell', model: 'Latitude 3420', type: 'Laptop', serial: 'DELL-3420-SN02', specs: 'Intel Core i5 11th Gen • 16GB DDR4 • 512GB NVMe SSD • 14.0" FHD', status: 'repair', repairInfo: { serviceCenter: 'Dell Authorized Service Care, SP Road', servicePerson: 'Suresh Kumar', servicePhone: '9876500001', givenToServiceDate: '2026-09-03', expectedReturnDate: '2026-09-03', repairCost: 1800, repairIssue: 'Keyboard replacement & fan thermal service' } },
+  { id: 'item-dell-lat-03', brand: 'Dell', model: 'Latitude 3420', type: 'Laptop', serial: 'DELL-3420-SN03', specs: 'Intel Core i5 11th Gen • 16GB DDR4 • 512GB NVMe SSD • 14.0" FHD', status: 'available' },
+  { id: 'item-len-t14-01', brand: 'Lenovo', model: 'ThinkPad T14 Gen 2', type: 'Laptop', serial: 'LEN-T14-SN01', specs: 'Intel Core i5 11th Gen • 16GB DDR4 • 512GB NVMe SSD • 14.0" FHD IPS', status: 'rented' },
+  { id: 'item-apl-m1-01', brand: 'Apple', model: 'MacBook Air M1 (2020)', type: 'MacBook', serial: 'APL-MBA-SN01', specs: 'Apple M1 (8-Core CPU) • 8GB Unified RAM • 256GB SSD • 13.3" Retina Display', status: 'available' }
+];
+
+const DEFAULT_SEED_CUSTOMERS = [
+  { id: 'cust-rajesh', name: 'Rajesh Kumar', phone: '9876543210', address: 'Indiranagar, Bangalore' },
+  { id: 'cust-priya', name: 'Priya Sharma', phone: '9845012345', address: 'Koramangala, Bangalore' },
+  { id: 'cust-amit', name: 'Amit Patel', phone: '9731234567', address: 'HSR Layout, Bangalore' }
+];
+
+const DEFAULT_SEED_RENTALS = [
+  { id: 'rental-rajesh-dell', customerId: 'cust-rajesh', itemId: 'item-dell-lat-01', rentAmount: 2500, billingCycle: 'monthly', startDate: '2026-09-03', advancePayment: 2500, securityDeposit: 5000, status: 'active' },
+  { id: 'rental-priya-lenovo', customerId: 'cust-priya', itemId: 'item-len-t14-01', rentAmount: 3000, billingCycle: 'monthly', startDate: '2026-09-03', advancePayment: 3000, securityDeposit: 6000, status: 'active' }
+];
+
+let state = {
+  customers: JSON.parse(JSON.stringify(DEFAULT_SEED_CUSTOMERS)),
+  items: JSON.parse(JSON.stringify(DEFAULT_SEED_ITEMS)),
+  rentals: JSON.parse(JSON.stringify(DEFAULT_SEED_RENTALS)),
+  payments: []
+};
 
 try {
   const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
   if (saved) {
     const parsed = JSON.parse(saved);
-    if (parsed && Array.isArray(parsed.customers)) {
+    if (parsed && Array.isArray(parsed.customers) && Array.isArray(parsed.items) && parsed.items.length > 0) {
       state = {
         customers: parsed.customers || [],
         items: parsed.items || [],

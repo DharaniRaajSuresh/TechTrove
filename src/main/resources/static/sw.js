@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v14-hardware-cards';
+const CACHE = 'techtrove-v15-live-cards';
 const ASSETS = [
   '/',
   '/index.html',
