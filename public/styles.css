@@ -1,6 +1,6 @@
 /* ==========================================================================
-   TECHTROVE SYSTEMS — OPS CONSOLE DESIGN SYSTEM
-   Theme: Precision IT Asset & Billing Terminal
+   TECHTROVE SYSTEMS — KUVERA-GRADE FINTECH DESIGN SYSTEM
+   Theme: Precision IT Asset & Billing Terminal (High-Density Glassmorphic)
    ========================================================================== */
 
 *, *::before, *::after {
@@ -10,61 +10,69 @@
 }
 
 :root {
-  /* Ops Console Dark Graphite Palette */
-  --bg: #0F1115;
-  --surface: #1A1D24;
-  --surface-raised: #22262F;
-  --surface-hover: #262B35;
-  --surface-active: #2C323E;
-  --border: #2A2E38;
-  --border-subtle: #20242D;
-  --border-focus: #3D8BFF;
+  /* Kuvera-Grade Obsidian Graphite Palette */
+  --bg: #090C13;
+  --surface: #121622;
+  --surface-raised: #1A2030;
+  --surface-hover: #22293D;
+  --surface-active: #2B334B;
+  --surface-glass: rgba(18, 22, 34, 0.78);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.04);
+  --border-focus: #3B82F6;
 
   /* Typography */
-  --text-primary: #E8E9EC;
-  --text-muted: #8A8F9C;
-  --text-dim: #5A5F6D;
+  --text-primary: #F8FAFC;
+  --text-muted: #94A3B8;
+  --text-dim: #64748B;
 
-  /* Precision Accent (Strictly for primary CTA and active nav tab) */
-  --accent: #3D8BFF;
-  --accent-hover: #2B7AF0;
-  --accent-muted: rgba(61, 139, 255, 0.12);
-  --accent-border: rgba(61, 139, 255, 0.35);
+  /* Electric FinTech Blue Accent */
+  --accent: #3B82F6;
+  --accent-hover: #2563EB;
+  --accent-muted: rgba(59, 130, 246, 0.14);
+  --accent-border: rgba(59, 130, 246, 0.35);
+  --accent-gradient: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
 
-  /* Status Tokens (Small dots & subtle badge fills only) */
-  --status-ok: #34C77B;
-  --status-ok-bg: rgba(52, 199, 123, 0.12);
-  --status-ok-border: rgba(52, 199, 123, 0.3);
+  /* Multi-Tier High-Depth Shadows & Inset Highlights */
+  --card-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  --card-hover-shadow: 0 20px 40px -8px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(59, 130, 246, 0.35);
 
-  --status-warn: #F5A623;
-  --status-warn-bg: rgba(245, 166, 35, 0.12);
-  --status-warn-border: rgba(245, 166, 35, 0.3);
+  /* Status Tokens (Subtle glows and rich tints) */
+  --status-ok: #10B981;
+  --status-ok-bg: rgba(16, 185, 129, 0.12);
+  --status-ok-border: rgba(16, 185, 129, 0.28);
 
-  --status-danger: #FF5A5F;
-  --status-danger-bg: rgba(255, 90, 95, 0.12);
-  --status-danger-border: rgba(255, 90, 95, 0.3);
+  --status-warn: #F59E0B;
+  --status-warn-bg: rgba(245, 158, 11, 0.12);
+  --status-warn-border: rgba(245, 158, 11, 0.28);
+
+  --status-danger: #EF4444;
+  --status-danger-bg: rgba(239, 68, 68, 0.14);
+  --status-danger-border: rgba(239, 68, 68, 0.32);
 
   /* Dimensions & Spacing */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --nav-h: 60px;
-  --header-h: 52px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --nav-h: 62px;
+  --header-h: 54px;
   --max-w: 480px;
 
-  /* Font Stack */
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Kuvera Typography Stack */
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'Inter', 'SF Pro Display', -apple-system, monospace;
 }
 
 [data-theme="light"] {
-  /* Clean Studio Light Palette */
-  --bg: #F4F6F9;
+  /* Clean FinTech Studio Light Palette */
+  --bg: #F8FAFC;
   --surface: #FFFFFF;
-  --surface-raised: #F0F2F6;
-  --surface-hover: #E8ECF2;
-  --surface-active: #DFE4ED;
-  --border: #DDE2EC;
-  --border-subtle: #E8ECF4;
+  --surface-raised: #F1F5F9;
+  --surface-hover: #E2E8F0;
+  --surface-active: #CBD5E1;
+  --surface-glass: rgba(255, 255, 255, 0.85);
+  --border: #E2E8F0;
+  --border-subtle: #F1F5F9;
   --border-focus: #2563EB;
 
   --text-primary: #0F172A;
@@ -75,10 +83,14 @@
   --accent-hover: #1D4ED8;
   --accent-muted: rgba(37, 99, 235, 0.1);
   --accent-border: rgba(37, 99, 235, 0.3);
+  --accent-gradient: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
 
-  --status-ok: #16A34A;
-  --status-ok-bg: rgba(22, 163, 74, 0.1);
-  --status-ok-border: rgba(22, 163, 74, 0.25);
+  --card-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+  --card-hover-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(37, 99, 235, 0.25);
+
+  --status-ok: #059669;
+  --status-ok-bg: rgba(5, 150, 105, 0.1);
+  --status-ok-border: rgba(5, 150, 105, 0.25);
 
   --status-warn: #D97706;
   --status-warn-bg: rgba(217, 119, 6, 0.1);
@@ -504,112 +516,226 @@ header h1#headerTitle {
 }
 
 /* ==========================================================================
-   DASHBOARD / OPS CONSOLE HOME SCREEN
+   DASHBOARD / OPS CONSOLE HOME SCREEN (KUVERA FINTECH REDESIGN)
    ========================================================================== */
-/* Hero Overdue Total Box */
+/* Hero Overdue Total Box with Ambient Radial Mesh */
 .dash-hero-box {
-  background: var(--surface);
+  background: linear-gradient(135deg, rgba(26, 32, 48, 0.85) 0%, rgba(14, 18, 28, 0.95) 100%);
+  backdrop-filter: blur(20px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 20px 18px;
-  margin-bottom: 12px;
+  padding: 22px 20px;
+  margin-bottom: 14px;
+  box-shadow: var(--card-shadow);
+  position: relative;
+  overflow: hidden;
+}
+.dash-hero-box::before {
+  content: '';
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+  pointer-events: none;
 }
 .dash-hero-label {
-  font-size: 0.78rem;
-  font-weight: 500;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
   color: var(--text-muted);
-  letter-spacing: -0.1px;
+  letter-spacing: 0.8px;
   margin-bottom: 6px;
 }
 .dash-hero-num {
-  font-size: 1.95rem;
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.5px;
+  font-size: 2.3rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -1px;
   color: var(--text-primary);
-  margin-bottom: 6px;
+  margin-bottom: 10px;
+  font-family: var(--font-mono);
 }
 .dash-hero-num.has-overdue {
   color: var(--status-danger);
+  text-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
 }
 .dash-hero-meta {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
-/* Stat Chips Row (3 Compact 1-Tap Filter Pills) */
+/* Kuvera Visual Progress Meter for Billing Settlement */
+.fintech-meter-box {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: rgba(10, 13, 20, 0.8);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.fintech-meter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.fintech-meter-track {
+  width: 100%;
+  height: 8px;
+  background: var(--surface-raised);
+  border-radius: 999px;
+  overflow: hidden;
+  display: flex;
+  gap: 2px;
+  padding: 1px;
+}
+.fintech-meter-fill-ok {
+  background: linear-gradient(90deg, #10B981, #34D399);
+  height: 100%;
+  border-radius: 999px 0 0 999px;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.fintech-meter-fill-warn {
+  background: #F59E0B;
+  height: 100%;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.fintech-meter-fill-danger {
+  background: #EF4444;
+  height: 100%;
+  border-radius: 0 999px 999px 0;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.fintech-meter-legend {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Stat Chips Row (Kuvera FinTech KPI Cards) */
 .dash-chips-row {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 10px;
+  margin-bottom: 14px;
 }
 .stat-chip {
-  background: var(--surface);
+  background: linear-gradient(135deg, rgba(26, 32, 48, 0.7) 0%, rgba(18, 22, 34, 0.85) 100%);
+  backdrop-filter: blur(16px);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 10px 10px;
+  padding: 14px 12px;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.15s, background 0.15s;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  justify-content: space-between;
+  gap: 4px;
+  box-shadow: var(--card-shadow);
+  position: relative;
+  overflow: hidden;
+}
+.stat-chip::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: transparent;
+  transition: background 0.2s;
+}
+.stat-chip:hover {
+  transform: translateY(-2px);
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: var(--card-hover-shadow);
+}
+.stat-chip:hover::before {
+  background: var(--accent);
 }
 .stat-chip:active {
-  background: var(--surface-hover);
-  border-color: var(--text-muted);
+  transform: scale(0.98);
 }
 .stat-chip-header {
   display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: space-between;
 }
 .stat-chip-num {
-  font-size: 1.15rem;
-  font-weight: 700;
+  font-size: 1.35rem;
+  font-weight: 800;
   color: var(--text-primary);
+  font-family: var(--font-mono);
+  letter-spacing: -0.5px;
 }
 .stat-chip-label {
-  font-size: 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.stat-chip-sub {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  margin-top: 2px;
 }
 
 /* Quick Action Command Row */
 .dash-cmd-row {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: 10px;
+  margin-bottom: 18px;
 }
 .cmd-btn {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 10px 8px;
+  padding: 12px 10px;
   color: var(--text-primary);
-  font-size: 0.78rem;
-  font-weight: 500;
+  font-size: 0.8rem;
+  font-weight: 600;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  transition: border-color 0.15s, background 0.15s;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--card-shadow);
+}
+.cmd-btn:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  color: #FFF;
 }
 .cmd-btn:active {
-  background: var(--surface-raised);
-  border-color: var(--accent);
+  transform: scale(0.97);
 }
 .cmd-btn svg {
   color: var(--accent);
+  transition: transform 0.2s;
+}
+.cmd-btn:hover svg {
+  transform: scale(1.1);
 }
 
 /* Section Header (Sentence Case) */
@@ -617,43 +743,53 @@ header h1#headerTitle {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 16px 0 8px;
-  padding: 0 2px;
+  margin: 18px 0 10px;
+  padding: 0 4px;
 }
 .section-title {
-  font-size: 0.84rem;
-  font-weight: 600;
-  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--text-primary);
 }
 .section-count {
   font-size: 0.74rem;
-  color: var(--text-dim);
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
 }
 
 /* ==========================================================================
-   DENSE HAIRLINE LIST ROWS (BANKING / TERMINAL GRADE)
+   DENSE HAIRLINE LIST ROWS & TACTILE CARDS (KUVERA GRADE)
    ========================================================================== */
 .ops-list {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: var(--card-shadow);
 }
 
 .ops-row {
   display: flex;
   align-items: center;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
-  gap: 12px;
-  transition: background 0.12s;
+  gap: 14px;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .ops-row:last-child {
   border-bottom: none;
 }
-.ops-row:hover, .ops-row:active {
+.ops-row:hover {
   background: var(--surface-hover);
+}
+.ops-row:active {
+  background: var(--surface-active);
 }
 
 .ops-row-status {
@@ -661,40 +797,63 @@ header h1#headerTitle {
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
-  min-width: 78px;
+  min-width: 82px;
   flex-shrink: 0;
 }
 .ops-status-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   font-size: 0.72rem;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1;
+  padding: 3px 7px;
+  border-radius: var(--radius-sm);
 }
-.ops-status-badge.danger { color: var(--status-danger); }
-.ops-status-badge.warn { color: var(--status-warn); }
-.ops-status-badge.ok { color: var(--status-ok); }
+.ops-status-badge.danger {
+  color: var(--status-danger);
+  background: var(--status-danger-bg);
+  border: 1px solid var(--status-danger-border);
+}
+.ops-status-badge.warn {
+  color: var(--status-warn);
+  background: var(--status-warn-bg);
+  border: 1px solid var(--status-warn-border);
+}
+.ops-status-badge.ok {
+  color: var(--status-ok);
+  background: var(--status-ok-bg);
+  border: 1px solid var(--status-ok-border);
+}
+.ops-status-badge.muted {
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+}
 
 .ops-row-main {
   flex: 1;
   min-width: 0;
 }
 .ops-row-title {
-  font-size: 0.88rem;
-  font-weight: 600;
+  font-size: 0.92rem;
+  font-weight: 700;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: -0.2px;
 }
 .ops-row-sub {
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
-  margin-top: 2px;
+  margin-top: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .ops-row-end {
@@ -702,40 +861,74 @@ header h1#headerTitle {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 .ops-row-amount {
-  font-size: 0.92rem;
-  font-weight: 600;
+  font-size: 0.98rem;
+  font-weight: 800;
   color: var(--text-primary);
+  font-family: var(--font-mono);
 }
-.ops-row-amount.danger { color: var(--status-danger); }
+.ops-row-amount.danger {
+  color: var(--status-danger);
+}
 
 /* Micro Action Buttons */
 .btn-micro {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 5px 9px;
+  gap: 5px;
+  padding: 6px 12px;
   border-radius: var(--radius-sm);
-  font-size: 0.74rem;
-  font-weight: 500;
+  font-size: 0.76rem;
+  font-weight: 600;
   cursor: pointer;
   border: 1px solid var(--border);
   background: var(--surface-raised);
   color: var(--text-primary);
-  transition: all 0.12s;
-  min-height: 28px;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  min-height: 30px;
 }
-.btn-micro:active {
+.btn-micro:hover {
   background: var(--surface-hover);
   border-color: var(--accent);
 }
+.btn-micro:active {
+  transform: scale(0.96);
+}
 .btn-micro-wa {
-  background: rgba(37, 211, 102, 0.1);
-  border-color: rgba(37, 211, 102, 0.25);
+  background: rgba(37, 211, 102, 0.12);
+  border-color: rgba(37, 211, 102, 0.3);
   color: #25D366;
+}
+.btn-micro-wa:hover {
+  background: rgba(37, 211, 102, 0.2);
+  border-color: #25D366;
+}
+
+/* Avatar Initials Badge */
+.avatar-initials {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%);
+  color: #FFF;
+  font-weight: 800;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+/* Hardware Brand Chips */
+.brand-chip-dell { background: rgba(0, 118, 206, 0.15); color: #0076CE; border: 1px solid rgba(0, 118, 206, 0.3); }
+.brand-chip-lenovo { background: rgba(226, 38, 26, 0.15); color: #E2261A; border: 1px solid rgba(226, 38, 26, 0.3); }
+.brand-chip-hp { background: rgba(0, 150, 214, 0.15); color: #0096D6; border: 1px solid rgba(0, 150, 214, 0.3); }
+.brand-chip-apple { background: rgba(162, 170, 173, 0.15); color: #CBD5E1; border: 1px solid rgba(162, 170, 173, 0.3); }
+.brand-chip-default { background: var(--surface-raised); color: var(--text-muted); border: 1px solid var(--border); }
 }
 .btn-micro-wa:hover, .btn-micro-wa:active {
   background: rgba(37, 211, 102, 0.2);

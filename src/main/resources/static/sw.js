@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v11-desktop-layer';
+const CACHE = 'techtrove-v12-kuvera-fintech';
 const ASSETS = [
   '/',
   '/index.html',

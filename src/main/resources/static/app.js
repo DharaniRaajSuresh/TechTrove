@@ -227,6 +227,22 @@ function getItemFullTitle(item) {
   return parts.join(' ') || item.type || 'Item';
 }
 
+function getInitials(name) {
+  if (!name) return 'TT';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function getBrandBadgeClass(brand) {
+  const b = (brand || '').toLowerCase();
+  if (b.includes('dell')) return 'brand-chip-dell';
+  if (b.includes('lenovo') || b.includes('thinkpad')) return 'brand-chip-lenovo';
+  if (b.includes('hp') || b.includes('hewlett') || b.includes('elitebook') || b.includes('probook')) return 'brand-chip-hp';
+  if (b.includes('apple') || b.includes('macbook')) return 'brand-chip-apple';
+  return 'brand-chip-default';
+}
+
 function cycleDays(rental) {
   if (rental.billingCycle === 'weekly') return 7;
   if (rental.billingCycle === 'monthly') return 30;
@@ -856,18 +872,35 @@ const UI = {
     this.navigate('repairs');
   },
 
-  /* DASHBOARD (OPS CONSOLE REDESIGN) */
+  /* DASHBOARD (KUVERA FINTECH OPS CONSOLE) */
   renderDashboard() {
     const activeRentals = state.rentals.filter(isActiveRental);
     const repairItems = state.items.filter(i => i.status === 'repair');
     const overdueList = getOverdueList();
     const dueSoonList = getDueSoonList();
 
-    // Total overdue outstanding across all rentals
+    // Financial Metrics
+    const totalRevenueCollected = state.payments.reduce((sum, p) => sum + (p.amount || 0), 0);
     const totalOverdueOutstanding = overdueList.reduce((sum, item) => sum + (item.status.outstanding || item.rental.rentAmount || 0), 0);
+    const dueSoonAmount = dueSoonList.reduce((sum, item) => sum + (item.rental.rentAmount || 0), 0);
     const criticalOverdueCount = overdueList.filter(x => x.status.daysOverdue > 30).length;
 
-    // Combined "Needs attention" queue sorted by urgency (overdue days desc, then due soonest first)
+    // Billing Settlement Ratio Calculations
+    const grandTotal = totalRevenueCollected + totalOverdueOutstanding + dueSoonAmount;
+    const settledPct = grandTotal > 0 ? Math.min(100, Math.max(5, Math.round((totalRevenueCollected / grandTotal) * 100))) : 100;
+    const dueSoonPct = grandTotal > 0 ? Math.round((dueSoonAmount / grandTotal) * 100) : 0;
+    const overduePct = grandTotal > 0 ? Math.round((totalOverdueOutstanding / grandTotal) * 100) : 0;
+
+    // Fleet Utilization Calculations
+    const totalUnits = state.items.length;
+    const deployedUnits = activeRentals.length;
+    const availableUnits = state.items.filter(i => i.status === 'available').length;
+    const repairUnits = repairItems.length;
+    const deployedPct = totalUnits > 0 ? Math.round((deployedUnits / totalUnits) * 100) : 0;
+    const availablePct = totalUnits > 0 ? Math.round((availableUnits / totalUnits) * 100) : 0;
+    const repairPct = totalUnits > 0 ? Math.round((repairUnits / totalUnits) * 100) : 0;
+
+    // Combined "Needs attention" queue sorted by urgency
     const attentionList = [
       ...overdueList.map(x => ({ type: 'overdue', ...x })),
       ...dueSoonList.map(x => ({ type: 'dueSoon', ...x }))
@@ -895,9 +928,27 @@ const UI = {
             </span>
           `}
         </div>
+
+        <!-- Kuvera Billing Settlement Progress Meter -->
+        <div class="fintech-meter-box">
+          <div class="fintech-meter-header">
+            <span>Billing Settlement Ratio</span>
+            <span style="color:var(--status-ok);font-weight:700" class="tnum">${settledPct}% Collected</span>
+          </div>
+          <div class="fintech-meter-track">
+            <div class="fintech-meter-fill-ok" style="width: ${settledPct}%" title="Settled"></div>
+            ${dueSoonPct > 0 ? `<div class="fintech-meter-fill-warn" style="width: ${dueSoonPct}%" title="Due Soon"></div>` : ''}
+            ${overduePct > 0 ? `<div class="fintech-meter-fill-danger" style="width: ${overduePct}%" title="Overdue"></div>` : ''}
+          </div>
+          <div class="fintech-meter-legend">
+            <span style="display:flex;align-items:center;gap:4px"><span class="status-dot ok"></span> ${fmtCurrency(totalRevenueCollected)} Settled</span>
+            ${dueSoonAmount > 0 ? `<span style="display:flex;align-items:center;gap:4px"><span class="status-dot warn"></span> ${fmtCurrency(dueSoonAmount)} Due 7d</span>` : ''}
+            ${totalOverdueOutstanding > 0 ? `<span style="display:flex;align-items:center;gap:4px"><span class="status-dot danger"></span> ${fmtCurrency(totalOverdueOutstanding)} Overdue</span>` : ''}
+          </div>
+        </div>
       </div>
 
-      <!-- 3 Stat Chips -->
+      <!-- 3 Stat Chips with Visual Sub-Metrics & Fleet Allocation -->
       <div class="dash-chips-row">
         <div class="stat-chip" onclick="UI.navigate('customers')">
           <div class="stat-chip-header">
@@ -905,6 +956,7 @@ const UI = {
             <span class="stat-chip-num">${activeRentals.length}</span>
           </div>
           <div class="stat-chip-label">Active rentals</div>
+          <div class="stat-chip-sub"><span style="color:var(--status-ok);font-weight:600">${deployedPct}% Utilization</span></div>
         </div>
         <div class="stat-chip" onclick="UI.navigate('customers')">
           <div class="stat-chip-header">
@@ -912,6 +964,7 @@ const UI = {
             <span class="stat-chip-num">${dueSoonList.length}</span>
           </div>
           <div class="stat-chip-label">Due this week</div>
+          <div class="stat-chip-sub"><span style="color:var(--status-warn);font-weight:600">${dueSoonAmount > 0 ? fmtCurrency(dueSoonAmount) : '₹0'} Exp.</span></div>
         </div>
         <div class="stat-chip" onclick="UI.openRepairsFilter()">
           <div class="stat-chip-header">
@@ -919,6 +972,7 @@ const UI = {
             <span class="stat-chip-num">${repairItems.length}</span>
           </div>
           <div class="stat-chip-label">Under repair</div>
+          <div class="stat-chip-sub"><span style="color:${repairItems.length > 0 ? 'var(--status-danger)' : 'var(--text-dim)'};font-weight:600">${repairItems.length > 0 ? (repairItems[0].brand || '1 Device') : 'Fleet Ready'}</span></div>
         </div>
       </div>
     </div>
@@ -967,6 +1021,8 @@ const UI = {
         const isOverdue = item.type === 'overdue';
         const itemTitle = getItemFullTitle(dev);
         const waMsg = buildWaReminderMessage(c, item.rental, dev, st);
+        const brandBadgeClass = getBrandBadgeClass(dev?.brand);
+        const initials = getInitials(c.name);
 
         return `
         <div class="ops-row" onclick="UI.pushPage('customer-detail', '${c.id}')">
@@ -976,9 +1032,15 @@ const UI = {
               ${isOverdue ? `Overdue ${st.daysOverdue}d` : `Due in ${st.daysUntilDue}d`}
             </span>
           </div>
-          <div class="ops-row-main">
-            <div class="ops-row-title">${escHtml(c.name)}</div>
-            <div class="ops-row-sub">${escHtml(itemTitle)}${dev && dev.specs ? ` &middot; ${escHtml(dev.specs)}` : ''}</div>
+          <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
+            <div class="avatar-initials">${initials}</div>
+            <div class="ops-row-main">
+              <div class="ops-row-title">${escHtml(c.name)}</div>
+              <div class="ops-row-sub">
+                <span class="${brandBadgeClass}" style="font-size:0.65rem;padding:1px 6px;border-radius:4px;font-weight:700">${escHtml(dev ? dev.brand : 'Laptop')}</span>
+                <span>${escHtml(itemTitle)}</span>${dev && dev.specs ? ` &middot; ${escHtml(dev.specs)}` : ''}
+              </div>
+            </div>
           </div>
           <div class="ops-row-end">
             <div class="ops-row-amount ${isOverdue ? 'danger' : ''}">
@@ -1056,6 +1118,8 @@ const UI = {
           subText += ` &middot; ${escHtml(c.address)}`;
         }
 
+        const initials = getInitials(c.name);
+
         listHtml += `
         <div class="ops-row ${idx === 0 ? 'active-selection' : ''}" data-cust-id="${c.id}" onclick="UI.selectCustomer('${c.id}')">
           <div class="ops-row-status">
@@ -1064,9 +1128,12 @@ const UI = {
               ${statusText}
             </span>
           </div>
-          <div class="ops-row-main">
-            <div class="ops-row-title">${escHtml(c.name)}</div>
-            <div class="ops-row-sub">${subText}</div>
+          <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
+            <div class="avatar-initials">${initials}</div>
+            <div class="ops-row-main">
+              <div class="ops-row-title">${escHtml(c.name)}</div>
+              <div class="ops-row-sub">${subText}</div>
+            </div>
           </div>
           <div class="ops-row-end">
             ${totalOutstanding > 0 ? `
@@ -1166,19 +1233,25 @@ const UI = {
     const allPayments = customerPayments(customerId);
     const activeRentals = rentals.filter(isActiveRental);
     const totalOutstanding = activeRentals.reduce((s, r) => s + rentalStatus(r).outstanding, 0);
+    const initials = getInitials(c.name);
 
     let html = `
-    <!-- Top Client Card -->
-    <div class="card" style="margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div>
-          <h2 style="font-size:1.2rem;font-weight:700;letter-spacing:-0.3px;color:var(--text-primary)">${escHtml(c.name)}</h2>
-          <div style="font-size:0.84rem;color:var(--text-muted);margin-top:4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <a href="tel:${escHtml(c.phone)}" style="color:var(--accent);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px">
-              ${Icons.phone}
-              <span>${escHtml(fmtPhone(c.phone))}</span>
-            </a>
-            ${c.address ? `<span>&middot; ${escHtml(c.address)}</span>` : ''}
+    <!-- Top Client Card (Kuvera Glassmorphic Header) -->
+    <div class="card" style="margin-bottom:16px;position:relative;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div class="avatar-initials" style="width:48px;height:48px;font-size:1.15rem;border-radius:14px">
+            ${initials}
+          </div>
+          <div>
+            <h2 style="font-size:1.25rem;font-weight:800;letter-spacing:-0.4px;color:var(--text-primary);margin-bottom:2px">${escHtml(c.name)}</h2>
+            <div style="font-size:0.84rem;color:var(--text-muted);display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <a href="tel:${escHtml(c.phone)}" style="color:var(--accent);text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:4px">
+                ${Icons.phone}
+                <span class="tnum">${escHtml(fmtPhone(c.phone))}</span>
+              </a>
+              ${c.address ? `<span>&middot; ${escHtml(c.address)}</span>` : ''}
+            </div>
           </div>
         </div>
         <div style="text-align:right">
@@ -1235,13 +1308,23 @@ const UI = {
         const item = getItem(r.itemId);
         const itemTitle = getItemFullTitle(item);
         const waMsg = buildWaReminderMessage(c, r, item, st);
+        const brandBadgeClass = getBrandBadgeClass(item?.brand);
 
         html += `
         <div class="card" style="margin-bottom:14px;border-left:3px solid ${st.isOverdue ? 'var(--status-danger)' : st.isDueSoon ? 'var(--status-warn)' : 'var(--status-ok)'}">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
-            <div>
-              <div style="font-weight:700;font-size:0.98rem;color:var(--text-primary)">${escHtml(itemTitle)} <span class="status-pill muted" style="font-size:0.65rem;padding:1px 5px">${item ? item.type : 'Device'}</span></div>
-              <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px">SN: <span class="tnum" style="color:var(--text-primary);font-weight:600">${escHtml(item ? item.serial : 'N/A')}</span>${item && item.specs ? ` &middot; ${escHtml(item.specs)}` : ''}</div>
+            <div style="display:flex;align-items:flex-start;gap:10px">
+              <span class="${brandBadgeClass}" style="padding:4px 8px;border-radius:6px;font-size:0.75rem;font-weight:800;margin-top:2px">
+                ${escHtml(item ? item.brand : 'Laptop')}
+              </span>
+              <div>
+                <div style="font-weight:800;font-size:1.02rem;color:var(--text-primary);letter-spacing:-0.2px">
+                  ${escHtml(itemTitle)} <span class="status-pill muted" style="font-size:0.65rem;padding:1px 5px">${item ? item.type : 'Device'}</span>
+                </div>
+                <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px">
+                  SN: <span class="tnum" style="color:var(--text-primary);font-weight:700">${escHtml(item ? item.serial : 'N/A')}</span>${item && item.specs ? ` &middot; ${escHtml(item.specs)}` : ''}
+                </div>
+              </div>
             </div>
             <div style="text-align:right">
               <span class="ops-status-badge ${st.isOverdue ? 'danger' : st.isDueSoon ? 'warn' : 'ok'}">
@@ -1252,14 +1335,14 @@ const UI = {
           </div>
 
           <!-- Parameter Grid -->
-          <div class="ops-param-grid">
+          <div class="ops-param-grid" style="margin-top:14px;margin-bottom:14px">
             <div class="ops-param-item">
               <span class="ops-param-label">Rent rate</span>
-              <span class="ops-param-value tnum">${fmtCurrency(r.rentAmount)} / ${r.billingCycle}${r.billingCycle === 'custom' ? ` (${r.customDays}d)` : ''}</span>
+              <span class="ops-param-value tnum" style="font-weight:700">${fmtCurrency(r.rentAmount)} / ${r.billingCycle}${r.billingCycle === 'custom' ? ` (${r.customDays}d)` : ''}</span>
             </div>
             <div class="ops-param-item">
               <span class="ops-param-label">Outstanding balance</span>
-              <span class="ops-param-value tnum" style="color:${st.outstanding > 0 ? 'var(--status-danger)' : 'var(--status-ok)'}">
+              <span class="ops-param-value tnum" style="font-weight:800;color:${st.outstanding > 0 ? 'var(--status-danger)' : 'var(--status-ok)'}">
                 ${fmtCurrency(st.outstanding)}
               </span>
             </div>
@@ -1274,7 +1357,7 @@ const UI = {
           </div>
 
           <!-- Actions -->
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <button class="btn btn-primary btn-micro" onclick="UI.showLogPaymentModal('${c.id}','${r.id}')">
               ${Icons.payment}
               <span>Log payment</span>
@@ -1290,7 +1373,7 @@ const UI = {
             <button class="btn btn-outline btn-micro" onclick="UI.showEditRentalModal('${r.id}')">
               Edit
             </button>
-            <button class="btn btn-outline btn-micro" onclick="UI.showCloseRentalModal('${r.id}')" style="color:var(--status-danger)">
+            <button class="btn btn-outline btn-micro" onclick="UI.showCloseRentalModal('${r.id}')" style="color:var(--status-danger);margin-left:auto">
               Close rental
             </button>
           </div>
@@ -1501,11 +1584,15 @@ const UI = {
           </div>`;
         }
 
+        const brandBadgeClass = getBrandBadgeClass(i.brand);
+
         listHtml += `
         <div class="ops-row" style="flex-direction:column;align-items:stretch" onclick="UI.showEditItemModal('${i.id}')">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-            <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">
-              <span class="status-dot ${isAvail ? 'ok' : isRented ? 'warn' : 'danger'}"></span>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+            <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+              <span class="${brandBadgeClass}" style="padding:4px 8px;border-radius:6px;font-size:0.75rem;font-weight:800;flex-shrink:0">
+                ${escHtml(i.brand || 'Device')}
+              </span>
               <div style="min-width:0">
                 <div class="ops-row-title">${escHtml(itemTitle)} <span class="status-pill muted" style="font-size:0.65rem;padding:1px 5px">${escHtml(i.type || 'Laptop')}</span></div>
                 <div class="ops-row-sub">${subLine}</div>
@@ -1513,10 +1600,11 @@ const UI = {
             </div>
             <div class="ops-row-end">
               <span class="ops-status-badge ${isAvail ? 'ok' : isRented ? 'warn' : 'danger'}">
+                <span class="status-dot ${isAvail ? 'ok' : isRented ? 'warn' : 'danger'}"></span>
                 ${isAvail ? 'Available' : isRented ? 'Rented' : 'In Repair'}
               </span>
               ${isAvail ? `
-                <button class="btn-micro btn-micro-primary" onclick="event.stopPropagation();UI.showAddRentalWithItem('${i.id}')">
+                <button class="btn btn-primary btn-micro" onclick="event.stopPropagation();UI.showAddRentalWithItem('${i.id}')">
                   + Rent
                 </button>
               ` : ''}

@@ -7,11 +7,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="manifest" href="manifest.json">
 <title>TechTrove Systems Rental Tracker</title>
-<link rel="stylesheet" href="styles.css?v=4.0-desktop-layer">
+<link rel="stylesheet" href="styles.css?v=5.0-kuvera-grade">
 </head>
 <body>
   <div id="splash" class="splash"><div class="spinner"></div></div>
@@ -169,10 +172,10 @@
   <div id="confirmContent" class="modal-content confirm-box"></div>
 </div>
 
-<script src="app.js?v=4.0-desktop-layer"></script>
+<script src="app.js?v=5.0-kuvera-grade"></script>
 <script>
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js?v=4.0-desktop-layer').then(function(reg) {
+  navigator.serviceWorker.register('sw.js?v=5.0-kuvera-grade').then(function(reg) {
     reg.update();
   }).catch(function(){});
 }
