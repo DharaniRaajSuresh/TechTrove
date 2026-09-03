@@ -193,7 +193,14 @@ const SCREEN_LIST = [
 /* UTILITY */
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
-const parseDate = (s) => { if (!s) return new Date(NaN); const p = s.split('-'); return new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2])); };
+const parseDate = (s) => {
+  if (!s) return new Date(NaN);
+  if (s instanceof Date) return isNaN(s.getTime()) ? new Date(NaN) : s;
+  if (typeof s !== 'string') return new Date(s);
+  const p = s.split('-');
+  if (p.length < 3) return new Date(s);
+  return new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+};
 const fmtDate = (s) => { if (!s) return '—'; const d = parseDate(s); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); };
 const fmtCurrency = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
 const daysBetween = (a, b) => Math.round((parseDate(b) - parseDate(a)) / 86400000);
@@ -880,6 +887,31 @@ const UI = {
     this.showSendToRepairModal();
   },
 
+  sendRentalWaReminder(rentalId) {
+    const r = getRental(rentalId);
+    if (!r) return;
+    const c = getCustomer(r.customerId);
+    const item = getItem(r.itemId);
+    if (!c) return;
+    const st = rentalStatus(r);
+    const msg = buildWaReminderMessage(c, r, item, st);
+    openWhatsAppReminder(c.phone, msg);
+  },
+
+  sendTechWaReminder(itemId) {
+    const item = getItem(itemId);
+    if (!item || !item.repairInfo) return;
+    const rep = item.repairInfo;
+    openWhatsAppTech(rep.servicePhone, getItemFullTitle(item), item.serial, rep.servicePerson);
+  },
+
+  sendCustomerWaMessage(customerId) {
+    const c = getCustomer(customerId);
+    if (!c) return;
+    const msg = `Hello ${c.name}, from TechTrove Systems.`;
+    openWhatsAppReminder(c.phone, msg);
+  },
+
   handleDesktopSearch(q) {
     if (currentPage === 'customers') this.renderCustomers(q);
     else if (currentPage === 'inventory') this.renderInventory(q);
@@ -1122,7 +1154,7 @@ const UI = {
             <div class="ops-row-amount ${isOverdue ? 'danger' : ''}">
               ${fmtCurrency(st.outstanding || item.rental.rentAmount)}
             </div>
-            <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppReminder('${c.phone}', \`${waMsg.replace(/`/g, '\\`')}\`)" title="Send WhatsApp Reminder">
+            <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();UI.sendRentalWaReminder('${item.rental.id}')" title="Send WhatsApp Reminder">
               ${Icons.whatsapp}
               <span>WA</span>
             </button>
@@ -1340,7 +1372,7 @@ const UI = {
 
       <!-- Quick Action Toolbar -->
       <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
-        <button class="btn btn-primary btn-micro" onclick="openWhatsAppReminder('${c.phone}', 'Hello ${c.name}, from TechTrove Systems.')">
+        <button class="btn btn-primary btn-micro" onclick="UI.sendCustomerWaMessage('${c.id}')">
           ${Icons.whatsapp}
           <span>WhatsApp reminder</span>
         </button>
@@ -1440,7 +1472,7 @@ const UI = {
               ${Icons.payment}
               <span>Log payment</span>
             </button>
-            <button class="btn-micro btn-micro-wa" onclick="openWhatsAppReminder('${c.phone}', \`${waMsg.replace(/`/g, '\\`')}\`)">
+            <button class="btn-micro btn-micro-wa" onclick="UI.sendRentalWaReminder('${r.id}')">
               ${Icons.whatsapp}
               <span>WA reminder</span>
             </button>
@@ -1642,7 +1674,7 @@ const UI = {
                 </div>
               </div>
               <div style="display:flex;gap:4px">
-                <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppReminder('${customer.phone}', \`${buildWaReminderMessage(customer, rental, i, st).replace(/`/g, '\\`')}\`)">
+                <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();UI.sendRentalWaReminder('${rental.id}')">
                   ${Icons.whatsapp}
                   <span>WA</span>
                 </button>
@@ -1670,7 +1702,7 @@ const UI = {
             </div>
             <div style="display:flex;gap:6px;margin-top:8px">
               ${rep.servicePhone ? `
-                <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppTech('${rep.servicePhone}', '${escHtml(itemTitle)}', '${escHtml(i.serial)}', '${escHtml(rep.servicePerson)}')">
+                <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();UI.sendTechWaReminder('${i.id}')">
                   ${Icons.whatsapp}
                   <span>WA Tech</span>
                 </button>
@@ -1900,7 +1932,7 @@ const UI = {
               <span>Mark Repaired / Return to Fleet</span>
             </button>
             ${rep.servicePhone ? `
-              <button class="btn-micro btn-micro-wa" onclick="openWhatsAppTech('${rep.servicePhone}', '${escHtml(itemTitle)}', '${escHtml(i.serial)}', '${escHtml(rep.servicePerson)}')">
+              <button class="btn-micro btn-micro-wa" onclick="UI.sendTechWaReminder('${i.id}')">
                 ${Icons.whatsapp}
                 <span>WhatsApp Tech</span>
               </button>
