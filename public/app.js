@@ -738,7 +738,31 @@ const UI = {
       'search': 'Global Search',
       'more': 'Settings & Backup'
     };
-    document.getElementById('headerTitle').textContent = titles[page] || 'TechTrove Console';
+    const titleText = titles[page] || 'TechTrove Console';
+    const headerTitleEl = document.getElementById('headerTitle');
+    if (headerTitleEl) headerTitleEl.textContent = titleText;
+    const desktopTitleEl = document.getElementById('desktopHeaderTitle');
+    if (desktopTitleEl) desktopTitleEl.textContent = titleText;
+
+    // Sync Desktop Sidebar active links
+    document.querySelectorAll('.desktop-nav-item').forEach(b => {
+      b.classList.toggle('active', b.dataset.page === page);
+    });
+
+    // Sync Desktop Topbar Contextual Primary Action
+    const desktopPrimaryBtn = document.getElementById('desktopPrimaryBtn');
+    if (desktopPrimaryBtn) {
+      const primaryLabels = {
+        'dashboard': '+ New Rental',
+        'customers': '+ Add Customer',
+        'customer-detail': '+ New Rental',
+        'inventory': '+ Add Laptop',
+        'repairs': '+ Log Repair',
+        'search': '+ New Rental',
+        'more': 'Lock Console'
+      };
+      desktopPrimaryBtn.innerHTML = `<span>${primaryLabels[page] || '+ New Rental'}</span>`;
+    }
 
     if (page === 'dashboard') this.renderDashboard();
     else if (page === 'customers') this.renderCustomers();
@@ -749,6 +773,28 @@ const UI = {
     else if (page === 'more') this.renderMore();
 
     this.updateDueBanner();
+  },
+
+  handleDesktopPrimaryAction() {
+    if (currentPage === 'dashboard' || currentPage === 'customer-detail') this.showAddRentalModal();
+    else if (currentPage === 'customers') this.showAddCustomerModal();
+    else if (currentPage === 'inventory') this.showAddItemModal();
+    else if (currentPage === 'repairs') this.showAddRepairModal();
+    else if (currentPage === 'more') Auth.logout();
+    else this.showAddRentalModal();
+  },
+
+  handleDesktopSearch(q) {
+    if (currentPage === 'customers') this.renderCustomers(q);
+    else if (currentPage === 'inventory') this.renderInventory(q);
+    else if (currentPage === 'repairs') this.renderRepairs(q);
+    else {
+      this.navigate('search');
+      setTimeout(() => {
+        const input = document.getElementById('globalSearchInput');
+        if (input) { input.value = q; this.performSearch(q); }
+      }, 50);
+    }
   },
 
   goBack() {
@@ -824,50 +870,52 @@ const UI = {
     ];
 
     let html = `
-    <!-- Top Hero Section: The single most important financial figure at a glance -->
-    <div class="dash-hero-box">
-      <div class="dash-hero-label">Total overdue outstanding</div>
-      <div class="dash-hero-num ${totalOverdueOutstanding > 0 ? 'has-overdue' : ''}">
-        ${fmtCurrency(totalOverdueOutstanding)}
+    <!-- Top KPI Grid: Hero overdue figure + 3 Status Chips -->
+    <div class="desktop-kpi-container">
+      <div class="dash-hero-box">
+        <div class="dash-hero-label">Total overdue outstanding</div>
+        <div class="dash-hero-num ${totalOverdueOutstanding > 0 ? 'has-overdue' : ''}">
+          ${fmtCurrency(totalOverdueOutstanding)}
+        </div>
+        <div class="dash-hero-meta">
+          ${totalOverdueOutstanding > 0 ? `
+            <span class="status-pill danger">
+              <span class="status-dot danger"></span>
+              ${overdueList.length} overdue rental${overdueList.length === 1 ? '' : 's'}
+            </span>
+            ${criticalOverdueCount > 0 ? `<span style="color:var(--text-muted);font-size:0.75rem">&middot; ${criticalOverdueCount} critical (&gt;30d)</span>` : ''}
+          ` : `
+            <span class="status-pill ok">
+              <span class="status-dot ok"></span>
+              All active rentals are paid up to date
+            </span>
+          `}
+        </div>
       </div>
-      <div class="dash-hero-meta">
-        ${totalOverdueOutstanding > 0 ? `
-          <span class="status-pill danger">
-            <span class="status-dot danger"></span>
-            ${overdueList.length} overdue rental${overdueList.length === 1 ? '' : 's'}
-          </span>
-          ${criticalOverdueCount > 0 ? `<span style="color:var(--text-muted);font-size:0.75rem">&middot; ${criticalOverdueCount} critical (&gt;30d)</span>` : ''}
-        ` : `
-          <span class="status-pill ok">
-            <span class="status-dot ok"></span>
-            All active rentals are paid up to date
-          </span>
-        `}
-      </div>
-    </div>
 
-    <!-- 3 Compact Stat Chips (1-tap filters) -->
-    <div class="dash-chips-row">
-      <div class="stat-chip" onclick="UI.navigate('customers')">
-        <div class="stat-chip-header">
-          <span class="status-dot ok"></span>
-          <span class="stat-chip-num">${activeRentals.length}</span>
+      <!-- 3 Stat Chips -->
+      <div class="dash-chips-row">
+        <div class="stat-chip" onclick="UI.navigate('customers')">
+          <div class="stat-chip-header">
+            <span class="status-dot ok"></span>
+            <span class="stat-chip-num">${activeRentals.length}</span>
+          </div>
+          <div class="stat-chip-label">Active rentals</div>
         </div>
-        <div class="stat-chip-label">Active rentals</div>
-      </div>
-      <div class="stat-chip" onclick="UI.navigate('customers')">
-        <div class="stat-chip-header">
-          <span class="status-dot ${dueSoonList.length > 0 ? 'warn' : 'ok'}"></span>
-          <span class="stat-chip-num">${dueSoonList.length}</span>
+        <div class="stat-chip" onclick="UI.navigate('customers')">
+          <div class="stat-chip-header">
+            <span class="status-dot ${dueSoonList.length > 0 ? 'warn' : 'ok'}"></span>
+            <span class="stat-chip-num">${dueSoonList.length}</span>
+          </div>
+          <div class="stat-chip-label">Due this week</div>
         </div>
-        <div class="stat-chip-label">Due this week</div>
-      </div>
-      <div class="stat-chip" onclick="UI.openRepairsFilter()">
-        <div class="stat-chip-header">
-          <span class="status-dot ${repairItems.length > 0 ? 'danger' : 'ok'}"></span>
-          <span class="stat-chip-num">${repairItems.length}</span>
+        <div class="stat-chip" onclick="UI.openRepairsFilter()">
+          <div class="stat-chip-header">
+            <span class="status-dot ${repairItems.length > 0 ? 'danger' : 'ok'}"></span>
+            <span class="stat-chip-num">${repairItems.length}</span>
+          </div>
+          <div class="stat-chip-label">Under repair</div>
         </div>
-        <div class="stat-chip-label">Under repair</div>
       </div>
     </div>
 
@@ -891,6 +939,14 @@ const UI = {
     <div class="section-head">
       <div class="section-title">Needs attention</div>
       <div class="section-count">${attentionList.length} pending</div>
+    </div>
+
+    <div class="ops-table-head">
+      <div>Status</div>
+      <div>Customer</div>
+      <div>Assigned Device</div>
+      <div class="ops-th-amount">Outstanding</div>
+      <div class="ops-th-actions">Actions</div>
     </div>
 
     <div class="ops-list">
@@ -937,7 +993,7 @@ const UI = {
     document.getElementById('page-dashboard').innerHTML = html;
   },
 
-  /* CUSTOMERS / RENTALS LIST (OPS CONSOLE REDESIGN) */
+  /* CUSTOMERS / RENTALS LIST (OPS CONSOLE REDESIGN & MASTER-DETAIL SUPPORT) */
   renderCustomers(query, filter = 'all') {
     let list = state.customers;
     const searchInput = document.getElementById('customerSearch');
@@ -967,7 +1023,7 @@ const UI = {
         <button class="btn btn-primary btn-micro" style="margin-top:12px;padding:8px 16px" onclick="UI.showAddCustomerModal()">+ Add Customer</button>
       </div>`;
     } else {
-      list.forEach(c => {
+      list.forEach((c, idx) => {
         const active = customerActiveRentals(c.id);
         const hasOverdue = active.some(r => rentalStatus(r).isOverdue);
         const totalOutstanding = active.reduce((s, r) => s + rentalStatus(r).outstanding, 0);
@@ -997,7 +1053,7 @@ const UI = {
         }
 
         listHtml += `
-        <div class="ops-row" onclick="UI.pushPage('customer-detail', '${c.id}')">
+        <div class="ops-row ${idx === 0 ? 'active-selection' : ''}" data-cust-id="${c.id}" onclick="UI.selectCustomer('${c.id}')">
           <div class="ops-row-status">
             <span class="ops-status-badge ${statusClass}">
               <span class="status-dot ${statusClass}"></span>
@@ -1032,41 +1088,75 @@ const UI = {
     if (listContainer && query !== undefined) {
       listContainer.innerHTML = listHtml;
       if (countContainer) countContainer.textContent = `${list.length} customer${list.length === 1 ? '' : 's'}`;
+      if (list.length > 0 && window.innerWidth >= 1200) {
+        this.selectCustomer(list[0].id, false);
+      }
       return;
     }
 
     let html = `
-    <!-- Top Live Search Bar -->
-    <div class="search-input-wrap">
-      <div class="search-icon-inside">${Icons.search}</div>
-      <input type="search" id="customerSearch" class="ops-search-input" placeholder="Search customers, phone, address..." value="${escHtml(q)}" oninput="UI.renderCustomers(this.value, '${filter}')">
-    </div>
+    <div class="desktop-split-pane">
+      <!-- Left Pane: Search, Filter Rail, & List -->
+      <div class="desktop-pane-list">
+        <!-- Top Live Search Bar -->
+        <div class="search-input-wrap">
+          <div class="search-icon-inside">${Icons.search}</div>
+          <input type="search" id="customerSearch" class="ops-search-input" placeholder="Search customers, phone, address..." value="${escHtml(q)}" oninput="UI.renderCustomers(this.value, '${filter}')">
+        </div>
 
-    <!-- Client Status Filter Pills -->
-    <div class="brand-pills-scroll">
-      <button class="brand-pill ${filter === 'all' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'all')">All (${state.customers.length})</button>
-      <button class="brand-pill ${filter === 'active' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'active')">Active Rentals (${activeList.length})</button>
-      <button class="brand-pill ${filter === 'overdue' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'overdue')">Overdue (${overdueList.length})</button>
-      <button class="brand-pill ${filter === 'inactive' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'inactive')">No Active Rental (${inactiveList.length})</button>
-    </div>
+        <!-- Client Status Filter Pills -->
+        <div class="brand-pills-scroll">
+          <button class="brand-pill ${filter === 'all' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'all')">All (${state.customers.length})</button>
+          <button class="brand-pill ${filter === 'active' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'active')">Active (${activeList.length})</button>
+          <button class="brand-pill ${filter === 'overdue' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'overdue')">Overdue (${overdueList.length})</button>
+          <button class="brand-pill ${filter === 'inactive' ? 'active' : ''}" onclick="UI.renderCustomers(undefined, 'inactive')">No Rental (${inactiveList.length})</button>
+        </div>
 
-    <!-- Section Count & Add Client Command -->
-    <div class="section-head">
-      <div class="section-title">Client directory</div>
-      <div class="section-count" id="customerSectionCount">${list.length} client${list.length === 1 ? '' : 's'}</div>
-    </div>
+        <!-- Section Count & Add Client Command -->
+        <div class="section-head">
+          <div class="section-title">Customers</div>
+          <div class="section-count" id="customerSectionCount">${list.length} customer${list.length === 1 ? '' : 's'}</div>
+        </div>
 
-    <div class="ops-list" id="customerListContainer">
-      ${listHtml}
+        <div class="ops-list" id="customerListContainer">
+          ${listHtml}
+        </div>
+      </div>
+
+      <!-- Right Pane: Desktop Live Agreement Detail Pane -->
+      <div class="desktop-pane-detail" id="desktopCustomerDetailPane">
+        ${list.length > 0 ? this.getCustomerDetailHtml(list[0].id) : `
+          <div class="desktop-pane-empty-detail">
+            <div class="ops-empty-icon">${Icons.customers}</div>
+            <div class="ops-empty-title">No customer selected</div>
+            <div class="ops-empty-sub">Select a customer from the left list to view their live agreement details.</div>
+          </div>
+        `}
+      </div>
     </div>`;
 
     document.getElementById('page-customers').innerHTML = html;
   },
 
-  /* CUSTOMER & RENTAL DETAIL (OPS CONSOLE REDESIGN) */
-  renderCustomerDetail(customerId) {
+  selectCustomer(customerId, navigateOnMobile = true) {
+    if (window.innerWidth >= 1200) {
+      document.querySelectorAll('#customerListContainer .ops-row').forEach(r => {
+        r.classList.toggle('active-selection', r.dataset.custId === customerId);
+      });
+      const detailPane = document.getElementById('desktopCustomerDetailPane');
+      if (detailPane) {
+        detailPane.innerHTML = this.getCustomerDetailHtml(customerId);
+      }
+    } else if (navigateOnMobile) {
+      this.pushPage('customer-detail', customerId);
+    }
+  },
+
+  getCustomerDetailHtml(customerId) {
     const c = getCustomer(customerId);
-    if (!c) { UI.showToast('Client not found', 'error'); UI.goBack(); return; }
+    if (!c) {
+      return `<div class="desktop-pane-empty-detail"><div class="ops-empty-title">Customer not found</div></div>`;
+    }
 
     const rentals = customerAllRentals(customerId);
     const allPayments = customerPayments(customerId);
@@ -1075,12 +1165,12 @@ const UI = {
 
     let html = `
     <!-- Top Client Card -->
-    <div class="card" style="margin-bottom:14px">
+    <div class="card" style="margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div>
-          <h2 style="font-size:1.15rem;font-weight:700;letter-spacing:-0.3px;color:var(--text-primary)">${escHtml(c.name)}</h2>
-          <div style="font-size:0.8rem;color:var(--text-muted);margin-top:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <a href="tel:${escHtml(c.phone)}" style="color:var(--accent);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:3px">
+          <h2 style="font-size:1.2rem;font-weight:700;letter-spacing:-0.3px;color:var(--text-primary)">${escHtml(c.name)}</h2>
+          <div style="font-size:0.84rem;color:var(--text-muted);margin-top:4px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <a href="tel:${escHtml(c.phone)}" style="color:var(--accent);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:4px">
               ${Icons.phone}
               <span>${escHtml(fmtPhone(c.phone))}</span>
             </a>
@@ -1096,7 +1186,7 @@ const UI = {
       </div>
 
       <!-- Quick Action Toolbar -->
-      <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap">
+      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
         <button class="btn btn-primary btn-micro" onclick="openWhatsAppReminder('${c.phone}', 'Hello ${c.name}, from TechTrove Systems.')">
           ${Icons.whatsapp}
           <span>WhatsApp reminder</span>
@@ -1127,7 +1217,7 @@ const UI = {
 
     if (activeRentals.length === 0) {
       html += `
-      <div class="ops-list" style="margin-bottom:14px">
+      <div class="ops-list" style="margin-bottom:16px">
         <div class="ops-empty">
           <div class="ops-empty-icon">${Icons.rentals}</div>
           <div class="ops-empty-title">No active rentals</div>
@@ -1143,11 +1233,11 @@ const UI = {
         const waMsg = buildWaReminderMessage(c, r, item, st);
 
         html += `
-        <div class="card" style="margin-bottom:12px;border-left:3px solid ${st.isOverdue ? 'var(--status-danger)' : st.isDueSoon ? 'var(--status-warn)' : 'var(--status-ok)'}">
+        <div class="card" style="margin-bottom:14px;border-left:3px solid ${st.isOverdue ? 'var(--status-danger)' : st.isDueSoon ? 'var(--status-warn)' : 'var(--status-ok)'}">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
             <div>
-              <div style="font-weight:700;font-size:0.96rem;color:var(--text-primary)">${escHtml(itemTitle)} <span class="status-pill muted" style="font-size:0.65rem;padding:1px 5px">${item ? item.type : 'Device'}</span></div>
-              <div style="font-size:0.76rem;color:var(--text-muted);margin-top:2px">SN: <span class="tnum" style="color:var(--text-primary);font-weight:600">${escHtml(item ? item.serial : 'N/A')}</span>${item && item.specs ? ` &middot; ${escHtml(item.specs)}` : ''}</div>
+              <div style="font-weight:700;font-size:0.98rem;color:var(--text-primary)">${escHtml(itemTitle)} <span class="status-pill muted" style="font-size:0.65rem;padding:1px 5px">${item ? item.type : 'Device'}</span></div>
+              <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px">SN: <span class="tnum" style="color:var(--text-primary);font-weight:600">${escHtml(item ? item.serial : 'N/A')}</span>${item && item.specs ? ` &middot; ${escHtml(item.specs)}` : ''}</div>
             </div>
             <div style="text-align:right">
               <span class="ops-status-badge ${st.isOverdue ? 'danger' : st.isDueSoon ? 'warn' : 'ok'}">
@@ -1180,7 +1270,7 @@ const UI = {
           </div>
 
           <!-- Actions -->
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-primary btn-micro" onclick="UI.showLogPaymentModal('${c.id}','${r.id}')">
               ${Icons.payment}
               <span>Log payment</span>
@@ -1208,7 +1298,7 @@ const UI = {
         <div class="section-title">Past agreements</div>
         <div class="section-count">${closedRentals.length} closed</div>
       </div>
-      <div class="ops-list" style="margin-bottom:14px">`;
+      <div class="ops-list" style="margin-bottom:16px">`;
       closedRentals.forEach(r => {
         const item = getItem(r.itemId);
         html += `
@@ -1228,7 +1318,7 @@ const UI = {
       html += `</div>`;
     }
 
-    /* Payment History Compact Timeline */
+    /* Payment History Timeline */
     html += `
     <div class="section-head">
       <div class="section-title">Payment history</div>
@@ -3153,4 +3243,24 @@ function setupApp() {
   setInterval(() => {
     if (document.visibilityState === 'visible') Data.sync(true);
   }, 20000);
+
+  /* Desktop Global Keyboard Shortcuts */
+  document.addEventListener('keydown', (e) => {
+    // 1. Press '/' to focus global search
+    if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+      const searchInput = document.getElementById('desktopGlobalSearch') || document.getElementById('customerSearch') || document.getElementById('inventorySearch');
+      if (searchInput) {
+        e.preventDefault();
+        searchInput.focus();
+        searchInput.select?.();
+      }
+    }
+    // 2. Press 'Escape' to close modals or confirm dialogs
+    if (e.key === 'Escape') {
+      const modalOpen = !document.getElementById('modalOverlay')?.classList.contains('hidden');
+      const confirmOpen = !document.getElementById('confirmOverlay')?.classList.contains('hidden');
+      if (modalOpen) UI.hideModal();
+      if (confirmOpen) UI.hideConfirm();
+    }
+  });
 }
