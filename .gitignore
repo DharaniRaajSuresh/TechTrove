@@ -8,6 +8,10 @@ name-groups.txt
 *.xls
 ~$*
 
+.env
+.env.local
+.env.*.local
+*.env
 techtrove.env
 
 .vercel
