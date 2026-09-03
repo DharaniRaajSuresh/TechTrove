@@ -1366,7 +1366,19 @@ const UI = {
       html += `</div>`;
     }
 
-    document.getElementById('page-customer-detail').innerHTML = html;
+    return html;
+  },
+
+  /* CUSTOMER & RENTAL DETAIL (MOBILE / TABLET FULL PAGE FALLBACK) */
+  renderCustomerDetail(customerId) {
+    if (window.innerWidth >= 1200) {
+      this.navigate('customers');
+      setTimeout(() => this.selectCustomer(customerId, false), 50);
+      return;
+    }
+    const html = this.getCustomerDetailHtml(customerId);
+    const target = document.getElementById('page-customer-detail');
+    if (target) target.innerHTML = html;
   },
 
   /* INVENTORY (OPS CONSOLE REDESIGN) */
