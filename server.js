@@ -17,8 +17,8 @@ try {
     }
   });
 } catch(e) {}
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || 'https://ideal-hyena-156293.upstash.io';
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || 'gQAAAAAAAmKFAAIgcDE2YmMyZWI3NDYxZjM0ZTg4OGE4OGY2ZGIwMTkxNTg0ZQ';
+const UPSTASH_URL = 'https://ideal-hyena-156293.upstash.io';
+const UPSTASH_TOKEN = 'gQAAAAAAAmKFAAIgcDE2YmMyZWI3NDYxZjM0ZTg4OGE4OGY2ZGIwMTkxNTg0ZQ';
 const UPSTASH_KEY = 'techtrove:data';
 
 /* Simple shared password auth */
