@@ -137,7 +137,7 @@ async function saveData(data) {
 function isTombstonedRecord(item, deletedMap) {
   if (!item || !item.id) return false;
   const id = String(item.id);
-  const delTs = deletedMap[id] || (item.serial && deletedMap[item.serial]);
+  const delTs = deletedMap[id] || (item.serial && deletedMap[item.serial]) || (item.assetNo && deletedMap[item.assetNo]);
   if (!delTs) return false;
 
   const itemTs = new Date(item.updatedAt || item.createdAt || 0).getTime();
@@ -147,6 +147,7 @@ function isTombstonedRecord(item, deletedMap) {
   if (itemTs > delTime) {
     delete deletedMap[id];
     if (item.serial) delete deletedMap[item.serial];
+    if (item.assetNo) delete deletedMap[item.assetNo];
     return false;
   }
   return true;
@@ -199,6 +200,27 @@ function mergeState(serverState = {}, incomingState = {}) {
   let rentals = mergeRecords(serverState.rentals || [], incomingState.rentals || [], deletedMap);
   let payments = mergeRecords(serverState.payments || [], incomingState.payments || [], deletedMap);
   let items = mergeRecords(serverState.items || [], incomingState.items || [], deletedMap);
+
+  // Deduplicate items by Asset Number (the physical primary key)
+  const seenAssets = new Map();
+  const dedupedItems = [];
+  for (const it of items) {
+    const assetKey = (it.assetNo || '').trim().toLowerCase();
+    if (assetKey) {
+      if (seenAssets.has(assetKey)) {
+        const existing = seenAssets.get(assetKey);
+        const existingTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+        const itTime = new Date(it.updatedAt || it.createdAt || 0).getTime();
+        if (itTime >= existingTime) {
+          Object.assign(existing, it);
+        }
+        continue;
+      }
+      seenAssets.set(assetKey, it);
+    }
+    dedupedItems.push(it);
+  }
+  items = dedupedItems;
 
   // Cascading tombstone enforcement:
   // 1. Purge rentals if customer is deleted

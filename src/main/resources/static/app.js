@@ -1885,8 +1885,10 @@ const UI = {
                 <div style="font-weight:800;font-size:1.02rem;color:var(--text-primary);letter-spacing:-0.2px">
                   ${escHtml(itemTitle)} <span class="status-pill muted" style="font-size:0.65rem;padding:1px 5px">${item ? item.type : 'Device'}</span>
                 </div>
-                <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px">
-                  SN: <span class="tnum" style="color:var(--text-primary);font-weight:700">${escHtml(item ? item.serial : 'N/A')}</span>${item && item.specs ? ` &middot; ${escHtml(item.specs)}` : ''}
+                <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                  ${item && item.assetNo ? `<span style="background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.35);color:var(--accent);padding:1px 6px;border-radius:4px;font-size:0.72rem;font-weight:700">🏷️ Asset #${escHtml(item.assetNo)}</span>` : ''}
+                  <span>SN: <span class="tnum" style="color:var(--text-primary);font-weight:700">${escHtml(item ? item.serial : 'N/A')}</span></span>
+                  ${item && item.specs ? `<span>&middot; ${escHtml(item.specs)}</span>` : ''}
                 </div>
               </div>
             </div>
@@ -2096,7 +2098,7 @@ const UI = {
     const query = (searchQuery !== undefined ? searchQuery : (searchInput?.value || '')).trim().toLowerCase();
     if (query) {
       list = list.filter(i => {
-        const full = `${i.brand || ''} ${i.model || ''} ${i.serial || ''} ${i.specs || ''} ${i.type || ''}`.toLowerCase();
+        const full = `${i.brand || ''} ${i.model || ''} ${i.assetNo || ''} ${i.serial || ''} ${i.specs || ''} ${i.type || ''}`.toLowerCase();
         return full.includes(query);
       });
     }
@@ -2219,9 +2221,15 @@ const UI = {
           <div class="hardware-card-title-row">
             <div class="hardware-card-title">${escHtml(itemTitle)}</div>
             <div class="hardware-serial-row">
+              ${i.assetNo ? `
+                <span class="hardware-serial-pill" style="background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.4);color:var(--accent);font-weight:700">
+                  <span>🏷️ Asset:</span>
+                  <span class="tnum" style="font-weight:800">${escHtml(i.assetNo)}</span>
+                </span>
+              ` : ''}
               <span class="hardware-serial-pill">
-                <span>🏷️ SN:</span>
-                <span class="tnum">${escHtml(i.serial)}</span>
+                <span>SN:</span>
+                <span class="tnum">${escHtml(i.serial || 'N/A')}</span>
               </span>
             </div>
           </div>
@@ -3772,9 +3780,15 @@ const UI = {
         <input type="text" id="itemSpecs" placeholder="e.g. Intel Core i5 11th Gen • 16GB RAM • 512GB NVMe SSD • 14.0 FHD">
       </div>
 
-      <div class="form-group">
-        <label>Serial Number / Asset Tag *</label>
-        <input type="text" id="itemSerial" placeholder="Unique Serial or Asset Tag (e.g. SN-8823)">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Asset Number / Tag <span style="color:var(--accent);font-weight:700">(Primary ID)</span> *</label>
+          <input type="text" id="itemAssetNo" placeholder="e.g. 760, 780, TT-01">
+        </div>
+        <div class="form-group">
+          <label>Manufacturer Serial Number</label>
+          <input type="text" id="itemSerial" placeholder="e.g. 52119506H, SMHP1V7079J">
+        </div>
       </div>
 
       <!-- DYNAMIC UNDER REPAIR / SERVICE FORM -->
@@ -3938,9 +3952,15 @@ const UI = {
         <input type="text" id="itemSpecs" value="${escHtml(i.specs || '')}">
       </div>
 
-      <div class="form-group">
-        <label>Serial Number / Asset Tag *</label>
-        <input type="text" id="itemSerial" value="${escHtml(i.serial || '')}">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Asset Number / Tag <span style="color:var(--accent);font-weight:700">(Primary ID)</span> *</label>
+          <input type="text" id="itemAssetNo" value="${escHtml(i.assetNo || '')}" placeholder="e.g. 760, 780, TT-01">
+        </div>
+        <div class="form-group">
+          <label>Manufacturer Serial Number</label>
+          <input type="text" id="itemSerial" value="${escHtml(i.serial || '')}" placeholder="e.g. 52119506H, SMHP1V7079J">
+        </div>
       </div>
 
       <!-- DYNAMIC UNDER REPAIR / SERVICE FORM -->
@@ -3991,17 +4011,29 @@ const UI = {
       ${Auth.isAdmin() ? (!isRented ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"><button class="btn btn-danger btn-block btn-sm" onclick="UI.deleteItem('${i.id}')">Delete Item</button></div>` : '<div style="margin-top:8px;font-size:.8rem;color:var(--text-muted);text-align:center">Cannot delete — currently rented out.</div>') : ''}`);
   },
 
-
   saveItem(id) {
     const type = document.getElementById('itemType').value;
     const brand = document.getElementById('itemBrand').value.trim();
     const model = document.getElementById('itemModel').value.trim();
     const specs = document.getElementById('itemSpecs').value.trim();
-    const serial = document.getElementById('itemSerial').value.trim();
+    const assetNo = document.getElementById('itemAssetNo')?.value.trim() || '';
+    const serial = document.getElementById('itemSerial')?.value.trim() || '';
     const status = document.getElementById('itemStatus').value;
 
     if (!brand) { UI.showToast('Please enter brand (e.g. Dell, HP)', 'error'); return; }
-    if (!serial) { UI.showToast('Please enter serial number / asset tag', 'error'); return; }
+    if (!assetNo && !serial) { UI.showToast('Please enter Asset Number or Serial Number', 'error'); return; }
+
+    const finalAsset = assetNo || serial;
+    const finalSerial = serial || assetNo;
+
+    // Check duplicate Asset Number in other inventory units
+    if (assetNo) {
+      const dup = state.items.find(it => it.id !== id && it.assetNo && it.assetNo.trim().toLowerCase() === assetNo.toLowerCase());
+      if (dup) {
+        UI.showToast(`Asset Number "${assetNo}" already exists on ${dup.brand} ${dup.model}!`, 'error');
+        return;
+      }
+    }
 
     let repairInfo = null;
     if (status === 'repair') {
@@ -4029,7 +4061,8 @@ const UI = {
         item.brand = brand;
         item.model = model;
         item.specs = specs;
-        item.serial = serial;
+        item.assetNo = finalAsset;
+        item.serial = finalSerial;
         item.status = status;
         if (repairInfo) item.repairInfo = repairInfo;
         else if (status !== 'repair') delete item.repairInfo;
@@ -4042,7 +4075,8 @@ const UI = {
         brand,
         model,
         specs,
-        serial,
+        assetNo: finalAsset,
+        serial: finalSerial,
         status,
         repairInfo: repairInfo || undefined,
         createdAt: today(),
@@ -4052,7 +4086,8 @@ const UI = {
 
     if (state._deleted) {
       if (id) delete state._deleted[id];
-      if (serial) delete state._deleted[serial];
+      if (finalSerial) delete state._deleted[finalSerial];
+      if (finalAsset) delete state._deleted[finalAsset];
     }
 
     Data.save();
@@ -5268,34 +5303,44 @@ function parseDeliveryChallanText(text) {
     let baseSpecs = descLines.join(' • ').replace(/\s+/g, ' ').trim();
     if (baseSpecs.length > 150) baseSpecs = baseSpecs.substring(0, 150) + '...';
 
-    // Extract Units (Serial & Asset)
+    // Extract Units (Serial & Asset) from PDF
     const units = [];
 
-    // Pattern A: ASSETNO: 760 - SLNO: 52119506H
-    const batchRegex = /ASSETNO:\s*([A-Za-z0-9]+)\s*-\s*SLNO:\s*([A-Za-z0-9]+)/gi;
+    // Pattern A: ASSETNO: 760 - SLNO: 52119506H or ASSET NO: 760 - SERIAL NO: ...
+    const batchRegex = /(?:ASSET\s*NO|ASSETNO|AST\s*NO)\s*[:\-.]?\s*([A-Za-z0-9\-_]+)\s*[-|/]\s*(?:SL\s*NO|SLNO|SERIAL\s*NO|SR\s*NO|SN)\s*[:\-.]?\s*([A-Za-z0-9\-_]+)/gi;
     let bMatch;
     while ((bMatch = batchRegex.exec(fullBlockText)) !== null) {
-      units.push({ assetNo: bMatch[1], serial: bMatch[2] });
+      units.push({ assetNo: bMatch[1].trim(), serial: bMatch[2].trim() });
     }
 
-    // Pattern B: Serial No: SMHP1V7079J ... Asset No: 780
+    // Pattern A2: Reverse order -> SLNO: 52119506H - ASSETNO: 760
     if (units.length === 0) {
-      const serialMatch = fullBlockText.match(/Serial\s*No\s*[:\-]?\s*([A-Za-z0-9]+)/i) ||
-                          fullBlockText.match(/SLNO\s*[:\-]?\s*([A-Za-z0-9]+)/i);
-      const assetMatch = fullBlockText.match(/Asset\s*No\s*[:\-]?\s*([A-Za-z0-9]+)/i) ||
-                         fullBlockText.match(/ASSETNO\s*[:\-]?\s*([A-Za-z0-9]+)/i);
+      const reverseBatchRegex = /(?:SL\s*NO|SLNO|SERIAL\s*NO|SR\s*NO|SN)\s*[:\-.]?\s*([A-Za-z0-9\-_]+)\s*[-|/]\s*(?:ASSET\s*NO|ASSETNO|AST\s*NO)\s*[:\-.]?\s*([A-Za-z0-9\-_]+)/gi;
+      let rbMatch;
+      while ((rbMatch = reverseBatchRegex.exec(fullBlockText)) !== null) {
+        units.push({ assetNo: rbMatch[2].trim(), serial: rbMatch[1].trim() });
+      }
+    }
 
-      if (serialMatch) {
+    // Pattern B: Separate matches anywhere in the block (e.g. Serial No: SMHP1V7079J ... Asset No: 780)
+    if (units.length === 0) {
+      const assetMatch = fullBlockText.match(/(?:Asset\s*No|ASSETNO|ASSET\s*NO|Asset\s*Tag|Asset\s*#|AST\s*NO)\s*[:\-.]?\s*([A-Za-z0-9\-_]+)/i);
+      const serialMatch = fullBlockText.match(/(?:Serial\s*No|SLNO|SL\s*NO|SERIAL\s*NO|SR\s*NO|SN)\s*[:\-.]?\s*([A-Za-z0-9\-_]+)/i);
+
+      if (assetMatch || serialMatch) {
+        const foundAsset = assetMatch ? assetMatch[1].trim() : '';
+        const foundSerial = serialMatch ? serialMatch[1].trim() : '';
         units.push({
-          serial: serialMatch[1],
-          assetNo: assetMatch ? assetMatch[1] : ''
+          assetNo: foundAsset,
+          serial: foundSerial || foundAsset
         });
       }
     }
 
+    // Fallback if neither found: Use deterministic index, not random timestamp
     if (units.length === 0) {
       units.push({
-        serial: `SN-${Date.now().toString(36).toUpperCase()}-${bIdx + 1}`,
+        serial: `${challanNo}-ITEM-${bIdx + 1}`,
         assetNo: ''
       });
     }
@@ -5734,22 +5779,60 @@ UI.confirmDCImport = function() {
     cust.updatedAt = new Date().toISOString();
   }
 
-  // 2. Create items & rentals
-  let addedItemsCount = 0;
-  currentParsedDC.items.forEach((item, i) => {
-    if (state._deleted && item.serial) {
-      delete state._deleted[item.serial];
-    }
-    let existing = state.items.find(it => it.serial && it.serial.toLowerCase() === item.serial.toLowerCase());
-    let itemId = existing ? existing.id : 'item-' + Date.now().toString(36) + '-' + (i + 1);
+  // 2. Create or update items & rentals (Differentiated by Asset Number)
+  let importedCount = 0;
+  let updatedExistingCount = 0;
+  let newlyAddedCount = 0;
 
-    if (!existing) {
+  currentParsedDC.items.forEach((item, i) => {
+    const cleanAsset = (item.assetNo || '').trim().toLowerCase();
+    const cleanSerial = (item.serial || '').trim().toLowerCase();
+
+    // Clear deletion tombstones for this asset or serial
+    if (state._deleted) {
+      if (item.assetNo) delete state._deleted[item.assetNo];
+      if (item.serial) delete state._deleted[item.serial];
+    }
+
+    // PRIMARY DIFFERENTIATOR: Match by Asset Number first!
+    let existing = null;
+    if (cleanAsset) {
+      existing = state.items.find(it => 
+        (it.assetNo && it.assetNo.trim().toLowerCase() === cleanAsset) ||
+        (it.serial && it.serial.trim().toLowerCase() === cleanAsset)
+      );
+    }
+    // Secondary match: Serial Number (if asset didn't match or was not in DC)
+    if (!existing && cleanSerial) {
+      existing = state.items.find(it => 
+        (it.serial && it.serial.trim().toLowerCase() === cleanSerial) ||
+        (it.assetNo && it.assetNo.trim().toLowerCase() === cleanSerial)
+      );
+    }
+
+    let itemId;
+    if (existing) {
+      // EXACT SAME PHYSICAL EQUIPMENT ALREADY IN FLEET: UPDATE, DO NOT DUPLICATE!
+      itemId = existing.id;
+      existing.brand = item.brand || existing.brand;
+      existing.model = item.model || existing.model;
+      existing.specs = item.specs || existing.specs;
+      if (item.assetNo) existing.assetNo = item.assetNo;
+      if (item.serial && (!existing.serial || existing.serial.startsWith('DC-') || existing.serial.startsWith('SN-'))) {
+        existing.serial = item.serial;
+      }
+      existing.status = 'rented';
+      existing.updatedAt = new Date().toISOString();
+      updatedExistingCount++;
+    } else {
+      // NEW FLEET PRODUCT: ADD TO INVENTORY
+      itemId = 'item-' + Date.now().toString(36) + '-' + (i + 1);
       const newItem = {
         id: itemId,
         brand: item.brand,
         model: item.model,
         type: item.type || 'laptop',
-        serial: item.serial,
+        serial: item.serial || item.assetNo || `${currentParsedDC.challanNo}-ITEM-${i + 1}`,
         assetNo: item.assetNo || '',
         specs: item.specs || '',
         status: 'rented',
@@ -5757,16 +5840,10 @@ UI.confirmDCImport = function() {
         updatedAt: new Date().toISOString()
       };
       state.items.push(newItem);
-    } else {
-      existing.brand = item.brand || existing.brand;
-      existing.model = item.model || existing.model;
-      existing.specs = item.specs || existing.specs;
-      existing.assetNo = item.assetNo || existing.assetNo;
-      existing.status = 'rented';
-      existing.updatedAt = new Date().toISOString();
+      newlyAddedCount++;
     }
 
-    // Check if an active rental already exists for this itemId to prevent duplicates
+    // Check if an active rental already exists for this itemId to prevent duplicate agreements
     let existingRental = state.rentals.find(r => r.itemId === itemId && r.status === 'active');
     if (existingRental) {
       existingRental.customerId = cust.id;
@@ -5790,14 +5867,19 @@ UI.confirmDCImport = function() {
         updatedAt: new Date().toISOString()
       });
     }
-    addedItemsCount++;
+    importedCount++;
   });
 
   editingDCItemIdx = -1;
   // 3. Save & Sync
   Data.save();
   UI.hideModal();
-  UI.showToast(`✓ Imported ${addedItemsCount} units from ${currentParsedDC.challanNo}!`, 'success');
+  const summaryMsg = newlyAddedCount > 0 && updatedExistingCount > 0
+    ? `✓ ${currentParsedDC.challanNo}: ${newlyAddedCount} new unit(s) added, ${updatedExistingCount} existing recognized by Asset #!`
+    : updatedExistingCount > 0
+    ? `✓ ${currentParsedDC.challanNo}: All ${updatedExistingCount} units recognized by Asset # & updated (no duplicates)!`
+    : `✓ ${currentParsedDC.challanNo}: ${newlyAddedCount} unit(s) imported!`;
+  UI.showToast(summaryMsg, 'success');
 
   if (currentPage === 'inventory') UI.renderInventory();
   else if (currentPage === 'customers') UI.renderCustomers();
