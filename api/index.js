@@ -271,7 +271,18 @@ app.post('/api/auth/login', handleLogin);
 
 app.get('/api/version', (req, res) => {
   setNoCache(res);
-  res.json({ version: 'v6.3-tombstone-cascade', authRev: 'tt_auth_v6_force_logout', timestamp: Date.now() });
+  res.json({
+    version: '1.8',
+    versionCode: 9,
+    releaseDate: '2026-09-04',
+    features: [
+      'Asset Number Primary Key Deduplication',
+      'Native Device Contacts Autocomplete',
+      'Live Cloud Auto-Sync Active'
+    ],
+    apkDownloadUrl: 'https://ttstts.vercel.app/TechTrove-Rental-Tracker.apk',
+    timestamp: Date.now()
+  });
 });
 
 app.get('/api/data', async (req, res) => {

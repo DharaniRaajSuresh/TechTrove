@@ -16,6 +16,8 @@ techtrove.env
 
 .vercel
 
+
+
 # Maven / Java
 target/
 *.jar
@@ -24,3 +26,4 @@ target/
 .mvn/
 # Android
 *.apk
+!public/TechTrove-Rental-Tracker.apk

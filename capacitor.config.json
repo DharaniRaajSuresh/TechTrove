@@ -2,6 +2,10 @@
   "appId": "com.techtrove.app",
   "appName": "TechTrove",
   "webDir": "public",
+  "server": {
+    "url": "https://ttstts.vercel.app",
+    "cleartext": true
+  },
   "android": {
     "buildOptions": {
       "keystorePath": null

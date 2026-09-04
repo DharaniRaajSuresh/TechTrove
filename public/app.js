@@ -3152,22 +3152,36 @@ const UI = {
       </div>
     </div>
 
-    <!-- Section 3: Maintenance & Security -->
+    <!-- Section 3: App Updates & Live Cloud Sync -->
     <div class="section-head">
-      <div class="section-title">System &amp; security</div>
-      <div class="section-count">Build v3.0</div>
+      <div class="section-title">App updates &amp; live cloud sync</div>
+      <div class="section-count" style="color:var(--status-ok)">Live Auto-Sync Active</div>
     </div>
     <div class="ops-list" style="margin-bottom:14px">
-      <div class="ops-setting-row" onclick="UI.checkForUpdates()">
+      <div class="ops-setting-row" onclick="UI.checkForUpdates(true)">
         <div class="ops-setting-main">
-          <div class="ops-setting-icon">${Icons.refresh}</div>
+          <div class="ops-setting-icon" style="color:var(--accent)">${Icons.refresh}</div>
           <div>
-            <div class="ops-setting-title">Check for updates &amp; reload</div>
-            <div class="ops-setting-sub">Purges stale service worker caches and fetches newest build</div>
+            <div class="ops-setting-title" style="font-weight:700">Check for updates &amp; reload latest build</div>
+            <div class="ops-setting-sub">Instantly syncs newest UI, bug fixes &amp; features from cloud without reinstalling APK</div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-micro" style="padding:4px 10px;font-size:0.75rem" onclick="event.stopPropagation();UI.checkForUpdates(true)">
+          Sync Now
+        </button>
+      </div>
+
+      <div class="ops-setting-row" onclick="window.open('https://ttstts.vercel.app/TechTrove-Rental-Tracker.apk', '_blank')">
+        <div class="ops-setting-main">
+          <div class="ops-setting-icon" style="color:var(--status-ok)">${Icons.download}</div>
+          <div>
+            <div class="ops-setting-title">Download latest APK file (v1.8)</div>
+            <div class="ops-setting-sub">1-tap direct download for manual install or sharing with other devices</div>
           </div>
         </div>
         <div class="ops-setting-chevron">${Icons.chevronRight}</div>
       </div>
+
       <div class="ops-setting-row" onclick="UI.showLogoutConfirm()">
         <div class="ops-setting-main">
           <div class="ops-setting-icon" style="color:var(--status-danger)">${Icons.lock}</div>
@@ -3181,7 +3195,7 @@ const UI = {
     </div>
 
     <div style="text-align:center;padding:12px 0 20px;font-size:0.74rem;color:var(--text-dim)">
-      TechTrove Systems &middot; Terminal v3.0
+      TechTrove Systems &middot; Terminal v1.8 (Cloud Auto-Sync)
     </div>`;
 
     document.getElementById('page-more').innerHTML = html;
@@ -3210,14 +3224,24 @@ const UI = {
     );
   },
 
-  async checkForUpdates() {
-    UI.showToast('Checking for updates...', 'info');
+  async checkForUpdates(userInitiated = false) {
+    if (userInitiated) {
+      UI.showToast('Checking for cloud updates...', 'info');
+    }
+    let serverVer = null;
+    try {
+      const res = await fetch('/api/version?t=' + Date.now(), { cache: 'no-store' });
+      if (res.ok) {
+        const d = await res.json();
+        serverVer = d.version;
+      }
+    } catch(e) {}
+
     try {
       if ('serviceWorker' in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
         for (let reg of regs) {
           await reg.update();
-          await reg.unregister();
         }
       }
       if ('caches' in window) {
@@ -3227,10 +3251,31 @@ const UI = {
         }
       }
     } catch(e) {}
-    UI.showToast('Updated! Reloading...', 'success');
+
+    UI.showToast(serverVer ? `✓ Connected to cloud v${serverVer}! Reloading...` : '✓ Updated! Reloading...', 'success');
     setTimeout(() => {
       window.location.reload(true);
-    }, 400);
+    }, 450);
+  },
+
+  async checkAppUpdate() {
+    try {
+      const res = await fetch('/api/version?t=' + Date.now(), { cache: 'no-store' });
+      if (res.ok) {
+        const info = await res.json();
+        const currentVer = '1.8';
+        if (info.version && info.version !== currentVer) {
+          UI.showConfirm(
+            `🚀 <strong>New Version v${escHtml(info.version)} Available!</strong><br><br>` +
+            `<div style="font-size:0.82rem;color:var(--text-muted);text-align:left;margin-bottom:8px">` +
+            (info.features ? info.features.map(f => `&bull; ${escHtml(f)}`).join('<br>') : 'New features and bug fixes.') +
+            `</div>` +
+            `Tap OK to reload the latest version now.`,
+            () => UI.checkForUpdates()
+          );
+        }
+      }
+    } catch(e) {}
   },
 
   async testSystemNotification() {
@@ -5930,6 +5975,7 @@ function setupApp() {
   requestNotifPermission();
   checkAndNotifyDues();
   setInterval(checkAndNotifyDues, 300000);
+  setTimeout(() => UI.checkAppUpdate(), 3000);
 
   /* Desktop Global Keyboard Shortcuts */
   document.addEventListener('keydown', (e) => {
