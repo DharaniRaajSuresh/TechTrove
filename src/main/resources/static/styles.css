@@ -1882,6 +1882,19 @@ header h1#headerTitle {
   }
 }
 
+/* Master-Detail helper defaults (Mobile/Tablet < 1200px) */
+.desktop-split-pane {
+  display: block;
+  width: 100%;
+}
+.desktop-pane-list {
+  display: block;
+  width: 100%;
+}
+.desktop-pane-detail {
+  display: none !important;
+}
+
 /* ==========================================================================
    FULL DESKTOP SHELL & DATA TABLE LAYER (≥1200px)
    ========================================================================== */
@@ -2074,6 +2087,14 @@ header h1#headerTitle {
     border-radius: var(--radius-lg) !important;
     padding: 18px !important;
     overflow: hidden !important;
+  }
+
+  .desktop-pane-list .ops-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 12px 14px !important;
+    border-radius: var(--radius-sm) !important;
   }
 
   .desktop-pane-detail {

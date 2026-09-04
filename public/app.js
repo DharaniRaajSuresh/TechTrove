@@ -1444,27 +1444,28 @@ const UI = {
         const initials = getInitials(c.name);
 
         listHtml += `
-        <div class="ops-row ${idx === 0 ? 'active-selection' : ''}" data-cust-id="${c.id}" onclick="UI.selectCustomer('${c.id}')">
-          <div class="ops-row-status">
-            <span class="ops-status-badge ${statusClass}">
-              <span class="status-dot ${statusClass}"></span>
-              ${statusText}
-            </span>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
-            <div class="avatar-initials">${initials}</div>
-            <div class="ops-row-main">
-              <div class="ops-row-title">${escHtml(c.name)}</div>
-              <div class="ops-row-sub">${subText}</div>
+        <div class="ops-row ${idx === 0 && window.innerWidth >= 1200 ? 'active-selection' : ''}" data-cust-id="${c.id}" onclick="UI.selectCustomer('${c.id}')">
+          <div class="avatar-initials" style="width:42px;height:42px;font-size:0.95rem;flex-shrink:0;border-radius:12px">${initials}</div>
+          <div class="ops-row-main" style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;flex-wrap:wrap">
+              <span class="ops-row-title" style="font-size:0.96rem;font-weight:700;color:var(--text-primary)">${escHtml(c.name)}</span>
+              <span class="ops-status-badge ${statusClass}" style="font-size:0.7rem;padding:2px 7px;flex-shrink:0">
+                <span class="status-dot ${statusClass}"></span>
+                ${statusText}
+              </span>
+            </div>
+            <div class="ops-row-sub" style="font-size:0.78rem;color:var(--text-muted);display:flex;align-items:center;gap:6px">
+              <span>${escHtml(fmtPhone(c.phone))}</span>
+              ${active.length > 0 ? `<span>&bull; ${active.length} active device${active.length > 1 ? 's' : ''}</span>` : c.address ? `<span>&bull; ${escHtml(c.address.slice(0, 30))}</span>` : ''}
             </div>
           </div>
-          <div class="ops-row-end">
+          <div class="ops-row-end" style="flex-shrink:0;display:flex;align-items:center;gap:10px">
             ${totalOutstanding > 0 ? `
-              <div class="ops-row-amount danger">
+              <div class="ops-row-amount danger" style="font-size:0.92rem;font-weight:800">
                 ${fmtCurrency(totalOutstanding)}
               </div>
             ` : active.length > 0 ? `
-              <div class="ops-row-amount" style="color:var(--status-ok)">
+              <div class="ops-row-amount" style="color:var(--status-ok);font-size:0.92rem;font-weight:800">
                 ${fmtCurrency(active.reduce((s, r) => s + (r.rentAmount || 0), 0))}
               </div>
             ` : ''}
@@ -1517,15 +1518,9 @@ const UI = {
         </div>
       </div>
 
-      <!-- Right Pane: Desktop Live Agreement Detail Pane -->
+      <!-- Right Pane: Desktop Live Agreement Detail Pane (Hidden on mobile <1200px) -->
       <div class="desktop-pane-detail" id="desktopCustomerDetailPane">
-        ${list.length > 0 ? this.getCustomerDetailHtml(list[0].id) : `
-          <div class="desktop-pane-empty-detail">
-            <div class="ops-empty-icon">${Icons.customers}</div>
-            <div class="ops-empty-title">No customer selected</div>
-            <div class="ops-empty-sub">Select a customer from the left list to view their live agreement details.</div>
-          </div>
-        `}
+        ${(window.innerWidth >= 1200 && list.length > 0) ? this.getCustomerDetailHtml(list[0].id) : ''}
       </div>
     </div>`;
 
