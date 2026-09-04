@@ -134,23 +134,38 @@ async function saveData(data) {
 }
 
 /* SMART RECORD-LEVEL MERGE ENGINE */
+function isTombstonedRecord(item, deletedMap) {
+  if (!item || !item.id) return false;
+  const id = String(item.id);
+  const delTs = deletedMap[id] || (item.serial && deletedMap[item.serial]);
+  if (!delTs) return false;
+
+  const itemTs = new Date(item.updatedAt || item.createdAt || 0).getTime();
+  const delTime = new Date(delTs).getTime();
+  // If item was created or updated strictly after the deletion tombstone,
+  // it is a newly added or re-imported item! Do NOT delete it.
+  if (itemTs > delTime) {
+    delete deletedMap[id];
+    if (item.serial) delete deletedMap[item.serial];
+    return false;
+  }
+  return true;
+}
+
 function mergeRecords(serverArr = [], incomingArr = [], deletedMap = {}) {
   const map = new Map();
   // 1. Load server records
   for (const item of serverArr) {
     if (!item || !item.id) continue;
-    const id = String(item.id);
-    const isDeleted = !!(deletedMap[id] || (item.serial && deletedMap[item.serial]));
-    if (isDeleted) continue; // Unconditionally purged
-    map.set(id, item);
+    if (isTombstonedRecord(item, deletedMap)) continue;
+    map.set(String(item.id), item);
   }
 
   // 2. Reconcile with incoming records
   for (const item of incomingArr) {
     if (!item || !item.id) continue;
     const id = String(item.id);
-    const isDeleted = !!(deletedMap[id] || (item.serial && deletedMap[item.serial]));
-    if (isDeleted) {
+    if (isTombstonedRecord(item, deletedMap)) {
       map.delete(id); // Tombstone confirmed
       continue;
     }

@@ -351,18 +351,48 @@ function isItemAvailable(item, preselectedItemId) {
   return !activeRental;
 }
 
+function isItemTombstoned(it, delMap) {
+  if (!it || !it.id) return false;
+  if (!delMap) return false;
+  const delTs = delMap[it.id] || (it.serial && delMap[it.serial]);
+  if (!delTs) return false;
+  const itTs = new Date(it.updatedAt || it.createdAt || 0).getTime();
+  const delTime = new Date(delTs).getTime();
+  if (itTs > delTime) {
+    delete delMap[it.id];
+    if (it.serial) delete delMap[it.serial];
+    return false;
+  }
+  return true;
+}
+
 function sanitizeFleetState() {
   if (!state || !Array.isArray(state.items)) return;
+  const itemMap = new Map(state.items.map(i => [String(i.id), i]));
+
   state.items.forEach(item => {
     if (!item) return;
     const s = String(item.status || '').toLowerCase().trim();
     if (s === 'repair') {
       item.status = 'repair';
     } else {
-      const activeRental = getActiveRentalForItem(item.id);
+      const activeRental = state.rentals.find(r => String(r.itemId) === String(item.id) && isActiveRental(r));
       item.status = activeRental ? 'rented' : 'available';
     }
   });
+
+  // Reconcile orphan rentals if item was re-imported or re-mapped
+  if (Array.isArray(state.rentals)) {
+    state.rentals.forEach(r => {
+      if (isActiveRental(r) && !itemMap.has(String(r.itemId))) {
+        const match = state.items.find(it => (r.notes && it.serial && r.notes.includes(it.serial)) || (it.model && r.notes && r.notes.includes(it.model)));
+        if (match) {
+          r.itemId = match.id;
+          match.status = 'rented';
+        }
+      }
+    });
+  }
 }
 
 function getAvailableItems(preselectedItemId) {
@@ -740,11 +770,10 @@ const Data = {
           // Incorporate merged authoritative state returned by server with cascading tombstone filters
           const delMap = { ...(state._deleted || {}), ...(res.state._deleted || {}) };
           state._deleted = delMap;
-          const isTombstoned = (id, serial) => !!(delMap[id] || (serial && delMap[serial]));
           state.customers = (res.state.customers || []).filter(c => !delMap[c.id]);
           state.rentals = (res.state.rentals || []).filter(r => !delMap[r.id] && !delMap[r.customerId]);
           state.payments = (res.state.payments || []).filter(p => !delMap[p.id] && !delMap[p.rentalId] && !delMap[p.customerId]);
-          state.items = (res.state.items || []).filter(it => !isTombstoned(it.id, it.serial));
+          state.items = (res.state.items || []).filter(it => !isItemTombstoned(it, delMap));
           sanitizeFleetState();
           try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
         }
@@ -801,11 +830,10 @@ const Data = {
         if (d && Array.isArray(d.customers) && Array.isArray(d.items)) {
           const delMap = { ...(state._deleted || {}), ...(d._deleted || {}) };
           state._deleted = delMap;
-          const isTombstoned = (id, serial) => !!(delMap[id] || (serial && delMap[serial]));
           state.customers = (d.customers || []).filter(c => !delMap[c.id]);
           state.rentals = (d.rentals || []).filter(r => !delMap[r.id] && !delMap[r.customerId]);
           state.payments = (d.payments || []).filter(p => !delMap[p.id] && !delMap[p.rentalId] && !delMap[p.customerId]);
-          state.items = (d.items || []).filter(it => !isTombstoned(it.id, it.serial));
+          state.items = (d.items || []).filter(it => !isItemTombstoned(it, delMap));
           try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
         }
       }
@@ -835,8 +863,7 @@ const Data = {
           state._deleted = deletedMap;
 
           // 2. Filter out tombstoned records locally and from incoming server data
-          const isTombstoned = (id, serial) => !!(deletedMap[id] || (serial && deletedMap[serial]));
-          state.items = (state.items || []).filter(it => !isTombstoned(it.id, it.serial));
+          state.items = (state.items || []).filter(it => !isItemTombstoned(it, deletedMap));
           state.customers = (state.customers || []).filter(c => !deletedMap[c.id]);
           state.rentals = (state.rentals || []).filter(r => !deletedMap[r.id] && !deletedMap[r.customerId]);
           state.payments = (state.payments || []).filter(p => !deletedMap[p.id] && !deletedMap[p.rentalId] && !deletedMap[p.customerId]);
@@ -844,7 +871,7 @@ const Data = {
           const cleanCustomers = (d.customers || []).filter(c => !deletedMap[c.id]);
           const cleanRentals = (d.rentals || []).filter(r => !deletedMap[r.id] && !deletedMap[r.customerId]);
           const cleanPayments = (d.payments || []).filter(p => !deletedMap[p.id] && !deletedMap[p.rentalId] && !deletedMap[p.customerId]);
-          const cleanItems = (d.items || []).filter(it => !isTombstoned(it.id, it.serial));
+          const cleanItems = (d.items || []).filter(it => !isItemTombstoned(it, deletedMap));
 
           // 3. GUARD: Check if local client has genuinely unsynced new items or customers
           const localUnsyncedItems = (state.items || []).some(it => !cleanItems.some(di => di.id === it.id));
@@ -887,11 +914,10 @@ const Data = {
         if (d && Array.isArray(d.customers) && Array.isArray(d.items)) {
           const delMap = { ...(state._deleted || {}), ...(d._deleted || {}) };
           state._deleted = delMap;
-          const isTombstoned = (id, serial) => !!(delMap[id] || (serial && delMap[serial]));
           state.customers = (d.customers || []).filter(c => !delMap[c.id]);
           state.rentals = (d.rentals || []).filter(r => !delMap[r.id] && !delMap[r.customerId]);
           state.payments = (d.payments || []).filter(p => !delMap[p.id] && !delMap[p.rentalId] && !delMap[p.customerId]);
-          state.items = (d.items || []).filter(it => !isTombstoned(it.id, it.serial));
+          state.items = (d.items || []).filter(it => !isItemTombstoned(it, delMap));
           sanitizeFleetState();
           try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
           UI.renderAll();
@@ -1214,14 +1240,16 @@ const UI = {
     const dueSoonPct = grandTotal > 0 ? Math.round((dueSoonAmount / grandTotal) * 100) : 0;
     const overduePct = grandTotal > 0 ? Math.round((totalOverdueOutstanding / grandTotal) * 100) : 0;
 
-    // Fleet Utilization Calculations
+    // Fleet Utilization Calculations (strictly based on physical hardware inventory)
+    sanitizeFleetState();
     const totalUnits = state.items.length;
-    const deployedUnits = activeRentals.length;
+    const deployedUnits = state.items.filter(i => i.status === 'rented').length;
     const availableUnits = state.items.filter(i => i.status === 'available').length;
-    const repairUnits = repairItems.length;
-    const deployedPct = totalUnits > 0 ? Math.round((deployedUnits / totalUnits) * 100) : 0;
-    const availablePct = totalUnits > 0 ? Math.round((availableUnits / totalUnits) * 100) : 0;
-    const repairPct = totalUnits > 0 ? Math.round((repairUnits / totalUnits) * 100) : 0;
+    const repairUnits = state.items.filter(i => i.status === 'repair').length;
+    const effectiveTotal = Math.max(totalUnits, deployedUnits + availableUnits + repairUnits);
+    const deployedPct = effectiveTotal > 0 ? Math.min(100, Math.round((deployedUnits / effectiveTotal) * 100)) : 0;
+    const availablePct = effectiveTotal > 0 ? Math.round((availableUnits / effectiveTotal) * 100) : 0;
+    const repairPct = effectiveTotal > 0 ? Math.max(0, 100 - deployedPct - availablePct) : 0;
 
     // Monthly Recurring Revenue (MRR) contracted across all active agreements
     const totalMRR = activeRentals.reduce((sum, r) => sum + (r.rentAmount || 0), 0);
@@ -3812,6 +3840,11 @@ const UI = {
       });
     }
 
+    if (state._deleted) {
+      if (id) delete state._deleted[id];
+      if (serial) delete state._deleted[serial];
+    }
+
     Data.save();
     UI.hideModal();
     UI.showToast(id ? 'Device updated' : 'Device added to inventory', 'success');
@@ -5485,6 +5518,9 @@ UI.confirmDCImport = function() {
   // 2. Create items & rentals
   let addedItemsCount = 0;
   currentParsedDC.items.forEach((item, i) => {
+    if (state._deleted && item.serial) {
+      delete state._deleted[item.serial];
+    }
     let existing = state.items.find(it => it.serial && it.serial.toLowerCase() === item.serial.toLowerCase());
     let itemId = existing ? existing.id : 'item-' + Date.now().toString(36) + '-' + (i + 1);
 
