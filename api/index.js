@@ -12,11 +12,18 @@ const EMPLOYEE_PASSWORD = process.env.EMPLOYEE_PASSWORD || 'staff123';
 
 app.use(express.json({ limit: '10mb' }));
 
+function setNoCache(res) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+}
+
 function requireAuth(req, res, next) {
   const p = req.path || '';
   const orig = req.originalUrl || '';
-  if (p === '/login' || p === '/auth/login' || p === '/health' ||
-      orig.startsWith('/api/login') || orig.startsWith('/api/auth/login') || orig.startsWith('/api/health')) {
+  if (p === '/login' || p === '/auth/login' || p === '/health' || p === '/version' ||
+      orig.startsWith('/api/login') || orig.startsWith('/api/auth/login') || orig.startsWith('/api/health') || orig.startsWith('/api/version')) {
     return next();
   }
   const authHeader = req.headers['authorization'] || '';
@@ -48,7 +55,8 @@ async function loadData() {
   if (UPSTASH_URL && UPSTASH_TOKEN) {
     try {
       const res = await fetch(`${UPSTASH_URL}/get/${UPSTASH_KEY}`, {
-        headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` }
+        headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` },
+        signal: AbortSignal.timeout(1500)
       });
       if (res.ok) {
         const d = await res.json();
@@ -60,7 +68,7 @@ async function loadData() {
       }
     } catch(e) { console.error('Upstash read error:', e.message); }
   }
-  return loadDataLocal() || { customers: [], items: [], rentals: [], payments: [] };
+  return loadDataLocal() || { customers: [], items: [], rentals: [], payments: [], _deleted: {} };
 }
 
 async function saveData(data) {
@@ -70,18 +78,77 @@ async function saveData(data) {
       const res = await fetch(UPSTASH_URL, {
         method: 'POST',
         headers: { Authorization: `Bearer ${UPSTASH_TOKEN}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(['SET', UPSTASH_KEY, payload])
+        body: JSON.stringify(['SET', UPSTASH_KEY, payload]),
+        signal: AbortSignal.timeout(1500)
       });
-      if (!res.ok) {
+      if (!res.ok && res.status !== 401 && res.status !== 403) {
         await fetch(`${UPSTASH_URL}/set/${UPSTASH_KEY}`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${UPSTASH_TOKEN}`, 'Content-Type': 'application/json' },
-          body: payload
+          body: payload,
+          signal: AbortSignal.timeout(1500)
         });
       }
     } catch(e) { console.error('Upstash write error:', e.message); }
   }
   saveDataLocal(data);
+}
+
+/* SMART RECORD-LEVEL MERGE ENGINE */
+function mergeRecords(serverArr = [], incomingArr = [], deletedMap = {}) {
+  const map = new Map();
+  // 1. Load server records
+  for (const item of serverArr) {
+    if (!item || !item.id) continue;
+    const delTime = deletedMap[item.id];
+    const itemTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+    if (delTime && new Date(delTime).getTime() >= itemTime) continue; // Purged
+    map.set(String(item.id), item);
+  }
+
+  // 2. Reconcile with incoming records
+  for (const item of incomingArr) {
+    if (!item || !item.id) continue;
+    const id = String(item.id);
+    const delTime = deletedMap[id];
+    const incomingTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+    if (delTime && new Date(delTime).getTime() >= incomingTime) {
+      map.delete(id); // Tombstone confirmed
+      continue;
+    }
+
+    if (!map.has(id)) {
+      map.set(id, item); // Fresh entity from client
+    } else {
+      const serverItem = map.get(id);
+      const serverTime = serverItem.updatedAt ? new Date(serverItem.updatedAt).getTime() : 0;
+      if (incomingTime >= serverTime) {
+        map.set(id, item); // Incoming update wins
+      }
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+function mergeState(serverState = {}, incomingState = {}) {
+  const deletedMap = { ...(serverState._deleted || {}), ...(incomingState._deleted || {}) };
+  // Prune tombstones older than 30 days
+  const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+  for (const [id, ts] of Object.entries(deletedMap)) {
+    if (new Date(ts).getTime() < thirtyDaysAgo) {
+      delete deletedMap[id];
+    }
+  }
+
+  return {
+    customers: mergeRecords(serverState.customers || [], incomingState.customers || [], deletedMap),
+    items: mergeRecords(serverState.items || [], incomingState.items || [], deletedMap),
+    rentals: mergeRecords(serverState.rentals || [], incomingState.rentals || [], deletedMap),
+    payments: mergeRecords(serverState.payments || [], incomingState.payments || [], deletedMap),
+    _deleted: deletedMap,
+    rev: Date.now()
+  };
 }
 
 const handleLogin = (req, res) => {
@@ -98,17 +165,29 @@ app.post('/api/login', handleLogin);
 app.post('/api/auth/login', handleLogin);
 
 app.get('/api/version', (req, res) => {
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-  res.json({ version: 'v5.5-auto-sync', timestamp: Date.now() });
+  setNoCache(res);
+  res.json({ version: 'v5.6-smart-sync', timestamp: Date.now() });
 });
 
-app.get('/api/data', async (req, res) => { res.json(await loadData()); });
+app.get('/api/data', async (req, res) => {
+  setNoCache(res);
+  const data = await loadData();
+  res.json(data);
+});
 
 app.post('/api/data', async (req, res) => {
+  setNoCache(res);
   const { customers, items, rentals, payments } = req.body;
-  if (!customers || !items || !rentals || !payments) return res.status(400).json({ error: 'Invalid data format' });
-  await saveData(req.body);
-  res.json({ success: true });
+  if (!customers || !items || !rentals || !payments) {
+    return res.status(400).json({ error: 'Invalid data format' });
+  }
+
+  const serverState = await loadData();
+  const mergedState = mergeState(serverState, req.body);
+  await saveData(mergedState);
+
+  // Return authoritative merged state back to caller
+  res.json({ success: true, state: mergedState, rev: mergedState.rev });
 });
 
 module.exports = app;

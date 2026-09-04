@@ -22,4 +22,5 @@ target/
 *.war
 *.class
 .mvn/
-
+# Android
+*.apk

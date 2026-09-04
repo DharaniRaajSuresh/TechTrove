@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v17-auto-sync';
+const CACHE = 'techtrove-v18-smart-sync';
 const ASSETS = [
   '/',
   '/index.html',

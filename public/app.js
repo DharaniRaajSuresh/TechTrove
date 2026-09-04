@@ -25,7 +25,8 @@ let state = {
   customers: JSON.parse(JSON.stringify(DEFAULT_SEED_CUSTOMERS)),
   items: JSON.parse(JSON.stringify(DEFAULT_SEED_ITEMS)),
   rentals: JSON.parse(JSON.stringify(DEFAULT_SEED_RENTALS)),
-  payments: []
+  payments: [],
+  _deleted: {}
 };
 
 try {
@@ -37,7 +38,8 @@ try {
         customers: parsed.customers || [],
         items: parsed.items || [],
         rentals: parsed.rentals || [],
-        payments: parsed.payments || []
+        payments: parsed.payments || [],
+        _deleted: parsed._deleted || {}
       };
     }
   }
@@ -646,18 +648,21 @@ const Auth = {
   }
 };
 
-/* DATA LAYER (OFFLINE-FIRST + DUAL STORAGE) */
+/* DATA LAYER (OFFLINE-FIRST + SMART DELTA ENGINE) */
 const Data = {
   _saving: false,
   _dirty: false,
-  async _fetch(url, opts) {
-    const res = await fetch(url, opts);
+  async _fetch(url, opts = {}) {
+    const defaultHeaders = Auth.header();
+    const finalHeaders = { ...defaultHeaders, ...(opts.headers || {}) };
+    const res = await fetch(url, { ...opts, headers: finalHeaders, cache: 'no-store' });
     if (res.status === 401) { Auth.logout(); throw new Error('Unauthorized'); }
     return res;
   },
   save() {
     // 1. Immediately persist synchronously to localStorage first!
     try {
+      state._deleted = state._deleted || {};
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
     } catch(e) {
       console.error('localStorage save failed:', e);
@@ -668,17 +673,34 @@ const Data = {
     if (this._saving) return;
     this._saving = true;
     this._dirty = false;
-    fetch('/api/data', {
+    fetch('/api/data?t=' + Date.now(), {
       method: 'POST',
       headers: Auth.header(),
+      cache: 'no-store',
       body: JSON.stringify(state)
-    }).then(r => {
-      if (r.status === 401) Auth.logout();
-      return r;
+    }).then(async r => {
+      if (r.status === 401) { Auth.logout(); return; }
+      if (r.ok) {
+        const res = await r.json();
+        if (res && res.state && Array.isArray(res.state.customers)) {
+          // Incorporate merged authoritative state returned by server
+          state.customers = res.state.customers || [];
+          state.items = res.state.items || [];
+          state.rentals = res.state.rentals || [];
+          state.payments = res.state.payments || [];
+          if (res.state._deleted) state._deleted = res.state._deleted;
+          try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+        }
+      }
     }).catch(e => console.warn('Server sync failed, data saved locally in browser:', e.message)).finally(() => {
       this._saving = false;
-      if (this._dirty) this.save();
-      else { checkAndNotifyDues(); UI.updateDueBanner(); }
+      if (this._dirty) {
+        this.save();
+      } else {
+        sanitizeFleetState();
+        checkAndNotifyDues();
+        UI.updateDueBanner();
+      }
     });
   },
   async load() {
@@ -692,6 +714,7 @@ const Data = {
           state.items = parsed.items || [];
           state.rentals = parsed.rentals || [];
           state.payments = parsed.payments || [];
+          state._deleted = parsed._deleted || {};
         }
       }
     } catch(e) {}
@@ -699,7 +722,7 @@ const Data = {
     // 2. Background fetch authoritative state from server if authenticated
     UI.showLoading(true);
     try {
-      const res = await this._fetch('/api/data', { headers: Auth.header() });
+      const res = await this._fetch('/api/data?t=' + Date.now());
       if (res.ok) {
         const d = await res.json();
         if (d && Array.isArray(d.customers) && Array.isArray(d.items)) {
@@ -707,6 +730,7 @@ const Data = {
           state.items = d.items || [];
           state.rentals = d.rentals || [];
           state.payments = d.payments || [];
+          if (d._deleted) state._deleted = d._deleted;
           try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
         }
       }
@@ -724,24 +748,24 @@ const Data = {
     const isModalOpen = !document.getElementById('modalOverlay')?.classList.contains('hidden');
     const activeEl = document.activeElement;
     const isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');
-    if (isModalOpen && isTyping) return;
 
     if (!silent) UI.showLoading(true);
     try {
-      const res = await this._fetch('/api/data', { headers: Auth.header() });
+      const res = await this._fetch('/api/data?t=' + Date.now());
       if (res.ok) {
         const d = await res.json();
         if (d && Array.isArray(d.customers) && Array.isArray(d.items)) {
-          const currentStr = JSON.stringify(state);
-          const serverStr = JSON.stringify(d);
+          const currentStr = JSON.stringify({ c: state.customers, i: state.items, r: state.rentals, p: state.payments });
+          const serverStr = JSON.stringify({ c: d.customers, i: d.items, r: d.rentals, p: d.payments });
           if (currentStr !== serverStr) {
             state.customers = d.customers || [];
             state.items = d.items || [];
             state.rentals = d.rentals || [];
             state.payments = d.payments || [];
+            if (d._deleted) state._deleted = d._deleted;
             sanitizeFleetState();
             try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
-            if (!isModalOpen) {
+            if (!(isModalOpen && isTyping)) {
               UI.renderAll();
               UI.updateDueBanner();
             }
@@ -2180,6 +2204,7 @@ const UI = {
     if (!item) { UI.showToast('Item not found', 'error'); return; }
 
     item.status = 'repair';
+    item.updatedAt = new Date().toISOString();
     item.repairInfo = {
       serviceCenter,
       servicePerson,
@@ -2338,6 +2363,7 @@ const UI = {
     }
 
     // 1. Handle Rental Action
+    const nowIso = new Date().toISOString();
     if (action === 'swap') {
       if (!replacementItemId) {
         UI.showToast('Please select a replacement laptop from stock', 'error');
@@ -2346,7 +2372,9 @@ const UI = {
       const newItem = getItem(replacementItemId);
       if (!newItem) { UI.showToast('Replacement item not found', 'error'); return; }
       newItem.status = 'rented';
+      newItem.updatedAt = nowIso;
       r.itemId = replacementItemId;
+      r.updatedAt = nowIso;
       if (!r.swapHistory) r.swapHistory = [];
       r.swapHistory.push({
         previousItemId: oldItem.id,
@@ -2357,10 +2385,12 @@ const UI = {
     } else if (action === 'close') {
       r.status = 'closed';
       r.endDate = today();
+      r.updatedAt = nowIso;
     }
 
     // 2. Dispatch Old Laptop to Repairs
     oldItem.status = 'repair';
+    oldItem.updatedAt = nowIso;
     oldItem.repairInfo = {
       serviceCenter,
       servicePerson,
@@ -2384,6 +2414,7 @@ const UI = {
     const title = getItemFullTitle(item);
     UI.showConfirm(`Mark <strong>${escHtml(title)}</strong> (SN: ${escHtml(item.serial)}) as repaired and return to available fleet?`, () => {
       item.status = 'available';
+      item.updatedAt = new Date().toISOString();
       if (!item.repairHistory) item.repairHistory = [];
       if (item.repairInfo) {
         item.repairHistory.push({ ...item.repairInfo, resolvedDate: today() });
@@ -2844,6 +2875,7 @@ const UI = {
         c.name = name;
         c.phone = phoneDigits;
         c.address = address;
+        c.updatedAt = new Date().toISOString();
       }
       Data.save();
       UI.hideModal();
@@ -2856,7 +2888,8 @@ const UI = {
         name,
         phone: phoneDigits,
         address,
-        createdAt: today()
+        createdAt: today(),
+        updatedAt: new Date().toISOString()
       });
       Data.save();
       UI.hideModal();
@@ -2887,9 +2920,18 @@ const UI = {
     }
     UI.showConfirm(msg, () => {
       const rentalIds = rentals.map(r => r.id);
+      const nowIso = new Date().toISOString();
+      state._deleted = state._deleted || {};
+      state._deleted[customerId] = nowIso;
+      rentalIds.forEach(rid => {
+        state._deleted[rid] = nowIso;
+      });
       rentals.forEach(r => {
         const item = getItem(r.itemId);
-        if (item) item.status = 'available';
+        if (item) {
+          item.status = 'available';
+          item.updatedAt = nowIso;
+        }
       });
       state.payments = state.payments.filter(p => !rentalIds.includes(p.rentalId));
       state.rentals = state.rentals.filter(r => r.customerId !== customerId);
@@ -3435,6 +3477,7 @@ const UI = {
         item.status = status;
         if (repairInfo) item.repairInfo = repairInfo;
         else if (status !== 'repair') delete item.repairInfo;
+        item.updatedAt = new Date().toISOString();
       }
     } else {
       state.items.push({
@@ -3446,7 +3489,8 @@ const UI = {
         serial,
         status,
         repairInfo: repairInfo || undefined,
-        createdAt: today()
+        createdAt: today(),
+        updatedAt: new Date().toISOString()
       });
     }
 
@@ -3461,6 +3505,7 @@ const UI = {
     if (!item) return;
     UI.showConfirm(`Mark <strong>${escHtml(getItemFullTitle(item))}</strong> as repaired and return to available stock?`, () => {
       item.status = 'available';
+      item.updatedAt = new Date().toISOString();
       if (item.repairInfo) {
         item.repairInfo.repairStatus = 'Resolved';
       }
@@ -3478,6 +3523,8 @@ const UI = {
     UI.showConfirm('Permanently remove this item from inventory?', () => {
       const isRented = state.rentals.some(r => r.itemId === itemId && isActiveRental(r));
       if (isRented) { UI.showToast('Cannot delete — item is currently rented', 'error'); return; }
+      state._deleted = state._deleted || {};
+      state._deleted[itemId] = new Date().toISOString();
       state.items = state.items.filter(i => i.id !== itemId);
       Data.save();
       UI.hideModal();
@@ -3699,6 +3746,7 @@ const UI = {
     if (!start) { UI.showToast('Please select a start date', 'error'); return; }
 
     const newRentalId = uid();
+    const nowIso = new Date().toISOString();
     state.rentals.push({
       id: newRentalId,
       customerId,
@@ -3709,11 +3757,15 @@ const UI = {
       startDate: start,
       endDate: null,
       status: 'active',
-      createdAt: today()
+      createdAt: today(),
+      updatedAt: nowIso
     });
 
     const item = getItem(itemId);
-    if (item) item.status = 'rented';
+    if (item) {
+      item.status = 'rented';
+      item.updatedAt = nowIso;
+    }
 
     let totalCollected = 0;
     if (advanceAmount > 0) {
@@ -3725,7 +3777,8 @@ const UI = {
         method: payMethod,
         paidTo: paidTo,
         remarks: 'Advance Rent on Handover',
-        createdAt: today()
+        createdAt: today(),
+        updatedAt: nowIso
       });
       totalCollected += advanceAmount;
     }
@@ -3739,7 +3792,8 @@ const UI = {
         method: payMethod,
         paidTo: paidTo,
         remarks: 'Security Deposit (Refundable)',
-        createdAt: today()
+        createdAt: today(),
+        updatedAt: nowIso
       });
       totalCollected += depositAmount;
     }
@@ -3795,6 +3849,7 @@ const UI = {
     r.rentAmount = amount;
     r.billingCycle = cycle;
     r.customDays = cycle === 'custom' ? customDays : null;
+    r.updatedAt = new Date().toISOString();
     Data.save();
     UI.hideModal();
     UI.showToast('Rental updated', 'success');
@@ -3824,10 +3879,15 @@ const UI = {
     if (!r) return;
     const endDate = document.getElementById('closeEndDate').value;
     if (!endDate) { UI.showToast('Please select return date', 'error'); return; }
+    const nowIso = new Date().toISOString();
     r.status = 'closed';
     r.endDate = endDate;
+    r.updatedAt = nowIso;
     const item = getItem(r.itemId);
-    if (item) item.status = 'available';
+    if (item) {
+      item.status = 'available';
+      item.updatedAt = nowIso;
+    }
     Data.save();
     UI.hideModal();
     UI.showToast('Rental closed — device returned to inventory', 'success');
@@ -3917,7 +3977,8 @@ const UI = {
       paidTo,
       method,
       remarks,
-      createdAt: today()
+      createdAt: today(),
+      updatedAt: new Date().toISOString()
     });
 
     Data.save();
@@ -3993,6 +4054,7 @@ const UI = {
     p.paidTo = paidTo;
     p.method = method;
     p.remarks = remarks;
+    p.updatedAt = new Date().toISOString();
 
     Data.save();
     UI.hideModal();
@@ -4006,6 +4068,8 @@ const UI = {
       return;
     }
     UI.showConfirm('Permanently delete this payment record?', () => {
+      state._deleted = state._deleted || {};
+      state._deleted[paymentId] = new Date().toISOString();
       state.payments = state.payments.filter(p => p.id !== paymentId);
       Data.save();
       UI.showToast('Payment deleted', 'info');
@@ -4169,23 +4233,25 @@ function setupApp() {
   initAutoUpdateChecker();
 }
 
-/* AUTOMATIC INSTANT UPDATE CHECKER (SEAMLESS PWA AUTO-RELOAD) */
-const CURRENT_BUILD_VERSION = 'v5.5-auto-sync';
+/* AUTOMATIC INSTANT UPDATE CHECKER & CONTINUOUS BACKGROUND DATA SYNC */
+const CURRENT_BUILD_VERSION = 'v5.6-smart-sync';
 
 function initAutoUpdateChecker() {
   let checking = false;
+
   async function checkForUpdate() {
     if (checking || !navigator.onLine) return;
     checking = true;
     try {
-      // 1. Signal service worker to check for new version
       if ('serviceWorker' in navigator) {
         const reg = await navigator.serviceWorker.getRegistration();
         if (reg) reg.update();
       }
 
-      // 2. Query server for current deployment version
-      const res = await fetch('/api/version?t=' + Date.now());
+      const res = await fetch('/api/version?t=' + Date.now(), {
+        headers: Auth.header(),
+        cache: 'no-store'
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.version && data.version !== CURRENT_BUILD_VERSION) {
@@ -4195,6 +4261,7 @@ function initAutoUpdateChecker() {
             await Promise.all(keys.map(k => caches.delete(k)));
           }
           window.location.reload(true);
+          return;
         }
       }
     } catch(e) {
@@ -4204,12 +4271,25 @@ function initAutoUpdateChecker() {
     }
   }
 
-  // Check whenever user switches tabs or returns to the app
-  window.addEventListener('focus', checkForUpdate);
+  function triggerLiveSync() {
+    checkForUpdate();
+    if (Auth.isLoggedIn()) {
+      Data.sync(true);
+    }
+  }
+
+  // 1. Immediate trigger when phone is unlocked or browser tab is focused
+  window.addEventListener('focus', triggerLiveSync);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') checkForUpdate();
+    if (document.visibilityState === 'visible') triggerLiveSync();
   });
 
-  // Background check every 15 seconds
-  setInterval(checkForUpdate, 15000);
+  // 2. Immediate trigger when device reconnects to internet
+  window.addEventListener('online', () => {
+    UI.showToast('📶 Back online — syncing fleet data...', 'info');
+    triggerLiveSync();
+  });
+
+  // 3. Continuous background heartbeat sync every 12 seconds
+  setInterval(triggerLiveSync, 12000);
 }

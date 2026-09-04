@@ -17,31 +17,45 @@ try {
     }
   });
 } catch(e) {}
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || '';
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '';
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
 const UPSTASH_KEY = 'techtrove:data';
 
 /* Simple shared password auth */
-const APP_PASSWORD = process.env.APP_PASSWORD || 'rent123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.APP_PASSWORD || 'rent123';
+const EMPLOYEE_PASSWORD = process.env.EMPLOYEE_PASSWORD || 'staff123';
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+function setNoCache(res) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+}
 
 /* Auth middleware for API routes */
 function requireAuth(req, res, next) {
   const p = req.path || '';
   const orig = req.originalUrl || '';
-  if (p === '/login' || p === '/auth/login' || p === '/health' ||
-      orig.startsWith('/api/login') || orig.startsWith('/api/auth/login') || orig.startsWith('/api/health')) {
+  if (p === '/login' || p === '/auth/login' || p === '/health' || p === '/version' ||
+      orig.startsWith('/api/login') || orig.startsWith('/api/auth/login') || orig.startsWith('/api/health') || orig.startsWith('/api/version')) {
     return next();
   }
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : '';
   const pw = req.headers['x-password'] || req.body?.password || token;
-  if (pw !== APP_PASSWORD && token !== 'admin-token') {
-    return res.status(401).json({ error: 'Invalid password or token' });
+
+  if (pw === ADMIN_PASSWORD || token === 'admin-token') {
+    req.userRole = 'admin';
+    return next();
   }
-  next();
+  if (pw === EMPLOYEE_PASSWORD || token === 'employee-token') {
+    req.userRole = 'employee';
+    return next();
+  }
+  return res.status(401).json({ error: 'Invalid password or token' });
 }
 app.use('/api', requireAuth);
 
@@ -59,15 +73,13 @@ function saveDataLocal(data) {
   try { fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8'); } catch (e) {}
 }
 
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '';
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
-
 /* Upstash Redis storage */
 async function loadData() {
   if (UPSTASH_URL && UPSTASH_TOKEN) {
     try {
       const res = await fetch(`${UPSTASH_URL}/get/${UPSTASH_KEY}`, {
-        headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` }
+        headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` },
+        signal: AbortSignal.timeout(1500)
       });
       if (res.ok) {
         const d = await res.json();
@@ -80,7 +92,7 @@ async function loadData() {
     } catch (e) { console.error('Upstash read error, falling back to local:', e.message); }
   }
   const local = loadDataLocal();
-  return local || { customers: [], items: [], rentals: [], payments: [] };
+  return local || { customers: [], items: [], rentals: [], payments: [], _deleted: {} };
 }
 
 async function saveData(data) {
@@ -93,16 +105,18 @@ async function saveData(data) {
           Authorization: `Bearer ${UPSTASH_TOKEN}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(['SET', UPSTASH_KEY, payload])
+        body: JSON.stringify(['SET', UPSTASH_KEY, payload]),
+        signal: AbortSignal.timeout(1500)
       });
-      if (!res.ok) {
+      if (!res.ok && res.status !== 401 && res.status !== 403) {
         await fetch(`${UPSTASH_URL}/set/${UPSTASH_KEY}`, {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${UPSTASH_TOKEN}`,
             'Content-Type': 'application/json'
           },
-          body: payload
+          body: payload,
+          signal: AbortSignal.timeout(1500)
         });
       }
     } catch (e) { console.error('Upstash write error:', e.message); }
@@ -110,11 +124,67 @@ async function saveData(data) {
   saveDataLocal(data); /* Always keep local backup */
 }
 
+/* SMART RECORD-LEVEL MERGE ENGINE */
+function mergeRecords(serverArr = [], incomingArr = [], deletedMap = {}) {
+  const map = new Map();
+  for (const item of serverArr) {
+    if (!item || !item.id) continue;
+    const delTime = deletedMap[item.id];
+    const itemTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+    if (delTime && new Date(delTime).getTime() >= itemTime) continue;
+    map.set(String(item.id), item);
+  }
+
+  for (const item of incomingArr) {
+    if (!item || !item.id) continue;
+    const id = String(item.id);
+    const delTime = deletedMap[id];
+    const incomingTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+    if (delTime && new Date(delTime).getTime() >= incomingTime) {
+      map.delete(id);
+      continue;
+    }
+
+    if (!map.has(id)) {
+      map.set(id, item);
+    } else {
+      const serverItem = map.get(id);
+      const serverTime = serverItem.updatedAt ? new Date(serverItem.updatedAt).getTime() : 0;
+      if (incomingTime >= serverTime) {
+        map.set(id, item);
+      }
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+function mergeState(serverState = {}, incomingState = {}) {
+  const deletedMap = { ...(serverState._deleted || {}), ...(incomingState._deleted || {}) };
+  const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+  for (const [id, ts] of Object.entries(deletedMap)) {
+    if (new Date(ts).getTime() < thirtyDaysAgo) {
+      delete deletedMap[id];
+    }
+  }
+
+  return {
+    customers: mergeRecords(serverState.customers || [], incomingState.customers || [], deletedMap),
+    items: mergeRecords(serverState.items || [], incomingState.items || [], deletedMap),
+    rentals: mergeRecords(serverState.rentals || [], incomingState.rentals || [], deletedMap),
+    payments: mergeRecords(serverState.payments || [], incomingState.payments || [], deletedMap),
+    _deleted: deletedMap,
+    rev: Date.now()
+  };
+}
+
 /* Login endpoints */
 const handleLogin = (req, res) => {
   const { password } = req.body || {};
-  if (password === APP_PASSWORD) {
-    res.json({ success: true, token: 'admin-token' });
+  if (password === ADMIN_PASSWORD) {
+    res.json({ success: true, token: 'admin-token', role: 'admin', user: 'Administrator' });
+  } else if (password === EMPLOYEE_PASSWORD) {
+    res.json({ success: true, token: 'employee-token', role: 'employee', user: 'Employee' });
   } else {
     res.status(401).json({ error: 'Invalid password' });
   }
@@ -122,18 +192,27 @@ const handleLogin = (req, res) => {
 app.post('/api/login', handleLogin);
 app.post('/api/auth/login', handleLogin);
 
+app.get('/api/version', (req, res) => {
+  setNoCache(res);
+  res.json({ version: 'v5.6-smart-sync', timestamp: Date.now() });
+});
+
 /* Data endpoints */
 app.get('/api/data', async (req, res) => {
+  setNoCache(res);
   res.json(await loadData());
 });
 
 app.post('/api/data', async (req, res) => {
+  setNoCache(res);
   const { customers, items, rentals, payments } = req.body;
   if (!customers || !items || !rentals || !payments) {
     return res.status(400).json({ error: 'Invalid data format' });
   }
-  await saveData(req.body);
-  res.json({ success: true });
+  const serverState = await loadData();
+  const mergedState = mergeState(serverState, req.body);
+  await saveData(mergedState);
+  res.json({ success: true, state: mergedState, rev: mergedState.rev });
 });
 
 /* Serve frontend */
@@ -152,6 +231,6 @@ app.listen(PORT, '0.0.0.0', () => {
   }
   console.log(`  TechTrove Rental Tracker running!`);
   console.log(`  Local:    http://localhost:${PORT}`);
-  console.log(`  Network:  http://${ip}:${PORT}  (phone on same WiFi)`);
-  console.log(`  Password: ${APP_PASSWORD}`);
+  console.log(`  Admin Password: ${ADMIN_PASSWORD}`);
+  console.log(`  Employee Password: ${EMPLOYEE_PASSWORD}`);
 });

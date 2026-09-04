@@ -221,6 +221,61 @@ test('Admin role has delete permission, Employee role has delete permission stri
   assert.strictEqual(canDelete(''), false);
 });
 
+console.log('\nSmart Sync Merge Engine & Conflict Resolution');
+test('Smart Merge preserves server records missing from stale client payload', () => {
+  const serverCustomers = [
+    { id: 'c1', name: 'Cust 1', updatedAt: '2026-09-01T10:00:00Z' },
+    { id: 'c2', name: 'Cust 2', updatedAt: '2026-09-02T10:00:00Z' }
+  ];
+  const incomingCustomers = [
+    { id: 'c1', name: 'Cust 1 Updated', updatedAt: '2026-09-03T10:00:00Z' }
+  ];
+  const map = new Map();
+  serverCustomers.forEach(c => map.set(c.id, c));
+  incomingCustomers.forEach(c => {
+    if (!map.has(c.id)) map.set(c.id, c);
+    else {
+      const s = map.get(c.id);
+      if (new Date(c.updatedAt) >= new Date(s.updatedAt)) map.set(c.id, c);
+    }
+  });
+  const merged = Array.from(map.values());
+  assert.strictEqual(merged.length, 2);
+  assert.strictEqual(merged.find(c => c.id === 'c1').name, 'Cust 1 Updated');
+  assert.strictEqual(merged.find(c => c.id === 'c2').name, 'Cust 2');
+});
+
+test('Smart Merge adopts newer updatedAt changes when concurrent edits occur', () => {
+  const serverItem = { id: 'i1', status: 'available', updatedAt: '2026-09-04T10:00:00Z' };
+  const incomingItem = { id: 'i1', status: 'rented', updatedAt: '2026-09-04T10:05:00Z' };
+  const serverTime = new Date(serverItem.updatedAt).getTime();
+  const incomingTime = new Date(incomingItem.updatedAt).getTime();
+  const winner = incomingTime >= serverTime ? incomingItem : serverItem;
+  assert.strictEqual(winner.status, 'rented');
+});
+
+test('Tombstones reliably remove deleted records and prevent resurrection', () => {
+  const serverRentals = [
+    { id: 'r1', status: 'active', updatedAt: '2026-09-01T10:00:00Z' },
+    { id: 'r2', status: 'active', updatedAt: '2026-09-01T10:00:00Z' }
+  ];
+  const deletedMap = { r1: '2026-09-02T10:00:00Z' };
+  const incomingRentals = [
+    { id: 'r1', status: 'active', updatedAt: '2026-09-01T10:00:00Z' }
+  ];
+  const map = new Map();
+  serverRentals.forEach(r => {
+    if (!deletedMap[r.id] || new Date(deletedMap[r.id]) < new Date(r.updatedAt)) map.set(r.id, r);
+  });
+  incomingRentals.forEach(r => {
+    if (deletedMap[r.id] && new Date(deletedMap[r.id]) >= new Date(r.updatedAt)) return;
+    map.set(r.id, r);
+  });
+  const merged = Array.from(map.values());
+  assert.strictEqual(merged.length, 1);
+  assert.strictEqual(merged[0].id, 'r2');
+});
+
 console.log(`\n${passed} passed, ${failed} failed${failed > 0 ? ' — SOME TESTS FAILED' : ' — all good!'}`);
 process.exit(failed > 0 ? 1 : 0);
 

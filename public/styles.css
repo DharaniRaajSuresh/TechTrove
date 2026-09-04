@@ -23,6 +23,7 @@
 
   /* Typography */
   --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
   --text-muted: #94A3B8;
   --text-dim: #64748B;
 
@@ -32,6 +33,13 @@
   --accent-muted: rgba(59, 130, 246, 0.14);
   --accent-border: rgba(59, 130, 246, 0.35);
   --accent-gradient: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+
+  /* Adaptive Containers */
+  --hero-bg: linear-gradient(135deg, rgba(26, 32, 48, 0.85) 0%, rgba(14, 18, 28, 0.95) 100%);
+  --hero-glow: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+  --chip-bg: linear-gradient(135deg, rgba(26, 32, 48, 0.7) 0%, rgba(18, 22, 34, 0.85) 100%);
+  --chip-shadow: var(--card-shadow);
+  --meter-box-bg: rgba(10, 13, 20, 0.8);
 
   /* Multi-Tier High-Depth Shadows & Inset Highlights */
   --card-shadow: 0 10px 30px -4px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
@@ -64,29 +72,37 @@
 }
 
 [data-theme="light"] {
-  /* Clean FinTech Studio Light Palette */
-  --bg: #F8FAFC;
+  /* Kuvera-Grade Precision FinTech Light Palette */
+  --bg: #F4F6FB;
   --surface: #FFFFFF;
-  --surface-raised: #F1F5F9;
-  --surface-hover: #E2E8F0;
-  --surface-active: #CBD5E1;
-  --surface-glass: rgba(255, 255, 255, 0.85);
-  --border: #E2E8F0;
-  --border-subtle: #F1F5F9;
+  --surface-raised: #EDF2F9;
+  --surface-hover: #E2E8F4;
+  --surface-active: #D5DFEE;
+  --surface-glass: rgba(255, 255, 255, 0.92);
+  --border: rgba(203, 213, 225, 0.7);
+  --border-subtle: rgba(226, 232, 240, 0.8);
   --border-focus: #2563EB;
 
-  --text-primary: #0F172A;
+  --text-primary: #0A0F1D;
+  --text-secondary: #334155;
   --text-muted: #64748B;
   --text-dim: #94A3B8;
 
   --accent: #2563EB;
   --accent-hover: #1D4ED8;
-  --accent-muted: rgba(37, 99, 235, 0.1);
-  --accent-border: rgba(37, 99, 235, 0.3);
+  --accent-muted: rgba(37, 99, 235, 0.08);
+  --accent-border: rgba(37, 99, 235, 0.28);
   --accent-gradient: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
 
-  --card-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
-  --card-hover-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(37, 99, 235, 0.25);
+  /* Adaptive Containers for Light Theme */
+  --hero-bg: linear-gradient(145deg, #FFFFFF 0%, #F8FAFC 45%, #EEF2F8 100%);
+  --hero-glow: radial-gradient(circle at 80% 20%, rgba(37, 99, 235, 0.12) 0%, transparent 65%);
+  --chip-bg: linear-gradient(180deg, #FFFFFF 0%, #FAFCFF 100%);
+  --chip-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03), 0 6px 18px -3px rgba(15, 23, 42, 0.06), inset 0 1px 0 0 #FFFFFF;
+  --meter-box-bg: rgba(248, 250, 252, 0.95);
+
+  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.03), 0 10px 28px -4px rgba(15, 23, 42, 0.07), inset 0 1px 0 0 #FFFFFF;
+  --card-hover-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 20px 38px -6px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(37, 99, 235, 0.3), inset 0 1px 0 0 #FFFFFF;
 
   --status-ok: #059669;
   --status-ok-bg: rgba(5, 150, 105, 0.1);
@@ -554,7 +570,7 @@ header h1#headerTitle {
    ========================================================================== */
 /* Hero Overdue Total Box with Ambient Radial Mesh */
 .dash-hero-box {
-  background: linear-gradient(135deg, rgba(26, 32, 48, 0.85) 0%, rgba(14, 18, 28, 0.95) 100%);
+  background: var(--hero-bg);
   backdrop-filter: blur(20px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -571,7 +587,7 @@ header h1#headerTitle {
   right: -40px;
   width: 140px;
   height: 140px;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+  background: var(--hero-glow);
   pointer-events: none;
 }
 .dash-hero-label {
@@ -608,8 +624,8 @@ header h1#headerTitle {
 .fintech-meter-box {
   margin-top: 14px;
   padding: 12px 14px;
-  background: rgba(10, 13, 20, 0.8);
-  border: 1px solid var(--border-subtle);
+  background: var(--meter-box-bg);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
 .fintech-meter-header {
@@ -667,7 +683,7 @@ header h1#headerTitle {
   margin-bottom: 14px;
 }
 .stat-chip {
-  background: linear-gradient(135deg, rgba(26, 32, 48, 0.7) 0%, rgba(18, 22, 34, 0.85) 100%);
+  background: var(--chip-bg);
   backdrop-filter: blur(16px);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -679,7 +695,7 @@ header h1#headerTitle {
   flex-direction: column;
   justify-content: space-between;
   gap: 4px;
-  box-shadow: var(--card-shadow);
+  box-shadow: var(--chip-shadow);
   position: relative;
   overflow: hidden;
 }
@@ -963,6 +979,11 @@ header h1#headerTitle {
 .brand-chip-hp { background: rgba(0, 150, 214, 0.15); color: #0096D6; border: 1px solid rgba(0, 150, 214, 0.3); }
 .brand-chip-apple { background: rgba(162, 170, 173, 0.15); color: #CBD5E1; border: 1px solid rgba(162, 170, 173, 0.3); }
 .brand-chip-default { background: var(--surface-raised); color: var(--text-muted); border: 1px solid var(--border); }
+
+[data-theme="light"] .brand-chip-apple {
+  background: #F1F5F9;
+  color: #1E293B;
+  border-color: #CBD5E1;
 }
 .btn-micro-wa:hover, .btn-micro-wa:active {
   background: rgba(37, 211, 102, 0.2);
@@ -1844,6 +1865,9 @@ header h1#headerTitle {
     height: 100vh !important;
     background: radial-gradient(circle at 50% 35%, #1F2430 0%, #0F1115 70%) !important;
   }
+  [data-theme="light"] .login-screen {
+    background: radial-gradient(circle at 50% 35%, #F8FAFC 0%, #E2E8F0 70%) !important;
+  }
   .login-box {
     width: 400px !important;
     max-width: 90vw !important;
@@ -1852,6 +1876,9 @@ header h1#headerTitle {
     border-radius: var(--radius-lg) !important;
     padding: 36px 32px !important;
     box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 0 1px rgba(61,139,255,0.15) !important;
+  }
+  [data-theme="light"] .login-box {
+    box-shadow: 0 16px 40px rgba(0,0,0,0.06), 0 0 0 1px rgba(37,99,235,0.12) !important;
   }
 }
 
@@ -2229,4 +2256,259 @@ header h1#headerTitle {
   gap: 8px;
   flex-wrap: wrap;
   padding-top: 4px;
+}
+
+/* Light Theme Brand Badges & Status Banners */
+[data-theme="light"] .hardware-brand-dell {
+  background: #E0F2FE;
+  color: #0284C7;
+  border-color: #BAE6FD;
+}
+[data-theme="light"] .hardware-brand-lenovo {
+  background: #FFE4E6;
+  color: #E11D48;
+  border-color: #FECDD3;
+}
+[data-theme="light"] .hardware-brand-hp {
+  background: #E0F2FE;
+  color: #0369A1;
+  border-color: #BAE6FD;
+}
+[data-theme="light"] .hardware-brand-apple {
+  background: #F1F5F9;
+  color: #1E293B;
+  border-color: #CBD5E1;
+}
+[data-theme="light"] .hardware-brand-other {
+  background: #F3E8FF;
+  color: #7E22CE;
+  border-color: #E9D5FF;
+}
+
+[data-theme="light"] .hardware-card {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .hardware-status-banner.available {
+  background: #ECFDF5;
+  border-color: #A7F3D0;
+  color: #065F46;
+}
+[data-theme="light"] .hardware-status-banner.rented {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+  color: #1E40AF;
+}
+[data-theme="light"] .hardware-status-banner.repair {
+  background: #FFFBEB;
+  border-color: #FDE68A;
+  color: #92400E;
+}
+
+/* ==========================================================================
+   KUVERA-GRADE FINTECH LIGHT THEME PRECISION ENGINE
+   ========================================================================== */
+
+/* Specular Inset Highlights & Ambient Depth */
+[data-theme="light"] .dash-hero-box {
+  background: var(--hero-bg);
+  border: 1px solid rgba(218, 226, 237, 0.9);
+  box-shadow: 0 1px 3px 0 rgba(0,0,0,0.03), 0 14px 35px -6px rgba(15, 23, 42, 0.07), inset 0 1px 0 0 #FFFFFF;
+}
+
+[data-theme="light"] .fintech-meter-box {
+  background: rgba(248, 250, 252, 0.9);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .fintech-meter-track {
+  background: #E2E8F0;
+}
+
+/* Stat KPI Cards (Dashboard, Repairs, Settings) */
+[data-theme="light"] .stat-chip {
+  background: var(--chip-bg);
+  border: 1px solid rgba(218, 226, 237, 0.9);
+  box-shadow: var(--chip-shadow);
+}
+
+[data-theme="light"] .stat-chip-num {
+  color: #0A0F1D;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+[data-theme="light"] .stat-chip-label {
+  color: #475569;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+[data-theme="light"] .stat-chip:hover {
+  transform: translateY(-2px);
+  border-color: rgba(37, 99, 235, 0.4);
+  box-shadow: 0 10px 24px -4px rgba(37, 99, 235, 0.12), 0 0 0 1px rgba(37, 99, 235, 0.25);
+}
+
+[data-theme="light"] .stat-chip:hover::before {
+  background: linear-gradient(90deg, #2563EB, #60A5FA);
+}
+
+/* Quick Action Command Toolbar */
+[data-theme="light"] .cmd-btn {
+  background: linear-gradient(180deg, #FFFFFF 0%, #FAFCFF 100%);
+  border: 1px solid rgba(218, 226, 237, 0.9);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 4px 12px -2px rgba(15, 23, 42, 0.04), inset 0 1px 0 #FFFFFF;
+  color: #0F172A;
+}
+
+[data-theme="light"] .cmd-btn:hover {
+  background: #FFFFFF;
+  border-color: #2563EB;
+  color: #2563EB;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -3px rgba(37, 99, 235, 0.14);
+}
+
+/* Desktop Sidebar & Navigation */
+[data-theme="light"] .desktop-sidebar {
+  background: #FFFFFF;
+  border-right: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .desktop-nav-item.active {
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.09) 0%, rgba(37, 99, 235, 0.02) 100%) !important;
+  color: #2563EB !important;
+  border-left: 3px solid #2563EB !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .desktop-nav-item:hover:not(.active) {
+  background: #F8FAFC !important;
+  color: #0F172A !important;
+}
+
+/* Desktop Topbar & Global Search */
+[data-theme="light"] .desktop-topbar {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+[data-theme="light"] .desktop-search-wrap {
+  background: #F8FAFC;
+  border: 1px solid #CBD5E1;
+}
+
+[data-theme="light"] .desktop-search-wrap:focus-within {
+  background: #FFFFFF;
+  border-color: #2563EB;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+/* Hardware Asset Cards */
+[data-theme="light"] .hardware-card {
+  background: linear-gradient(180deg, #FFFFFF 0%, #FAFCFF 100%);
+  border: 1px solid rgba(218, 226, 237, 0.9);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 8px 24px -4px rgba(15, 23, 42, 0.06), inset 0 1px 0 #FFFFFF;
+  border-radius: var(--radius-lg);
+}
+
+[data-theme="light"] .hardware-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(37, 99, 235, 0.35);
+  box-shadow: 0 16px 36px -6px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(37, 99, 235, 0.25);
+}
+
+[data-theme="light"] .hardware-card-title {
+  color: #0A0F1D;
+  font-weight: 800;
+}
+
+[data-theme="light"] .hardware-spec-chip {
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  color: #334155;
+  font-weight: 600;
+}
+
+[data-theme="light"] .hardware-serial-pill {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #1D4ED8;
+  font-weight: 700;
+}
+
+/* Customer Agreement Detail Split-View */
+[data-theme="light"] .agreement-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(218, 226, 237, 0.9);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03), 0 6px 20px -3px rgba(15, 23, 42, 0.05);
+}
+
+/* Settings Ops Rows */
+[data-theme="light"] .ops-setting-row {
+  background: #FFFFFF;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+[data-theme="light"] .ops-setting-row:hover {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
+/* Filter Pills & Badges */
+[data-theme="light"] .brand-pill {
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  color: #475569;
+}
+
+[data-theme="light"] .brand-pill:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+  border-color: #94A3B8;
+}
+
+[data-theme="light"] .brand-pill.active {
+  background: var(--accent);
+  color: #FFFFFF;
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+/* Modals & Dialogs */
+[data-theme="light"] .modal-content {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  box-shadow: 0 20px 60px -10px rgba(15, 23, 42, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] .modal-overlay {
+  background: rgba(15, 23, 42, 0.35) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+/* Mobile Shell Floating Header & Bottom Nav */
+[data-theme="light"] #topHeader {
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+[data-theme="light"] #bottomNav {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .nav-btn {
+  color: #64748B;
+}
+
+[data-theme="light"] .nav-btn.active {
+  color: #2563EB;
 }

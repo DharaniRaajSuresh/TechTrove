@@ -28,5 +28,8 @@
   "bugs": {
     "url": "https://github.com/DharaniRaajSuresh/TechTrove/issues"
   },
-  "homepage": "https://github.com/DharaniRaajSuresh/TechTrove#readme"
+  "homepage": "https://github.com/DharaniRaajSuresh/TechTrove#readme",
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
 }
