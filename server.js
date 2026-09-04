@@ -17,8 +17,8 @@ try {
     }
   });
 } catch(e) {}
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '';
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || '';
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || 'https://ideal-hyena-156293.upstash.io';
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || 'gQAAAAAAAmKFAAIgcDE2YmMyZWI3NDYxZjM0ZTg4OGE4OGY2ZGIwMTkxNTg0ZQ';
 const UPSTASH_KEY = 'techtrove:data';
 
 /* Simple shared password auth */
@@ -79,20 +79,20 @@ async function loadData() {
     try {
       const res = await fetch(`${UPSTASH_URL}/get/${UPSTASH_KEY}`, {
         headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` },
-        signal: AbortSignal.timeout(1500)
+        signal: AbortSignal.timeout(3500)
       });
       if (res.ok) {
         const d = await res.json();
         if (d && d.result) {
           let parsed = typeof d.result === 'string' ? JSON.parse(d.result) : d.result;
           if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-          if (parsed && Array.isArray(parsed.customers)) return parsed;
+          if (parsed && Array.isArray(parsed.customers) && Array.isArray(parsed.items) && parsed.items.length > 0) return parsed;
         }
       }
     } catch (e) { console.error('Upstash read error, falling back to local:', e.message); }
   }
   const local = loadDataLocal();
-  return local || { customers: [], items: [], rentals: [], payments: [], _deleted: {} };
+  return (local && Array.isArray(local.items) && local.items.length > 0) ? local : { customers: [], items: [], rentals: [], payments: [], _deleted: {} };
 }
 
 async function saveData(data) {
@@ -106,7 +106,7 @@ async function saveData(data) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(['SET', UPSTASH_KEY, payload]),
-        signal: AbortSignal.timeout(1500)
+        signal: AbortSignal.timeout(3500)
       });
       if (!res.ok && res.status !== 401 && res.status !== 403) {
         await fetch(`${UPSTASH_URL}/set/${UPSTASH_KEY}`, {
@@ -116,7 +116,7 @@ async function saveData(data) {
             'Content-Type': 'application/json'
           },
           body: payload,
-          signal: AbortSignal.timeout(1500)
+          signal: AbortSignal.timeout(3500)
         });
       }
     } catch (e) { console.error('Upstash write error:', e.message); }
@@ -194,7 +194,7 @@ app.post('/api/auth/login', handleLogin);
 
 app.get('/api/version', (req, res) => {
   setNoCache(res);
-  res.json({ version: 'v5.6-smart-sync', timestamp: Date.now() });
+  res.json({ version: 'v5.8-fleet-sync', timestamp: Date.now() });
 });
 
 /* Data endpoints */
@@ -234,3 +234,5 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`  Admin Password: ${ADMIN_PASSWORD}`);
   console.log(`  Employee Password: ${EMPLOYEE_PASSWORD}`);
 });
+
+module.exports = app;

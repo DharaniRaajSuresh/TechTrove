@@ -75,6 +75,12 @@ try {
 }
 
 let currentPage = 'dashboard';
+try {
+  const savedPage = sessionStorage.getItem('techtrove_active_page');
+  if (savedPage && ['dashboard', 'customers', 'inventory', 'repairs', 'more'].includes(savedPage)) {
+    currentPage = savedPage;
+  }
+} catch(e) {}
 let pageStack = [];
 let filterState = { inventory: 'all' };
 let notifEnabled = true;
@@ -738,12 +744,12 @@ const Data = {
     });
   },
   async load() {
-    // 1. First ensure state is hydrated from localStorage
+    // 1. First ensure state is hydrated from localStorage (guarding against empty array corruption)
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && Array.isArray(parsed.customers)) {
+        if (parsed && Array.isArray(parsed.customers) && Array.isArray(parsed.items) && parsed.items.length > 0) {
           state.customers = parsed.customers || [];
           state.items = parsed.items || [];
           state.rentals = parsed.rentals || [];
@@ -753,6 +759,13 @@ const Data = {
       }
     } catch(e) {}
 
+    // Ensure fallback to default seed if items empty
+    if (!state.items || state.items.length === 0) {
+      state.customers = JSON.parse(JSON.stringify(DEFAULT_SEED_CUSTOMERS));
+      state.items = JSON.parse(JSON.stringify(DEFAULT_SEED_ITEMS));
+      state.rentals = JSON.parse(JSON.stringify(DEFAULT_SEED_RENTALS));
+    }
+
     // 2. Background fetch authoritative state from server if authenticated
     UI.showLoading(true);
     try {
@@ -760,11 +773,17 @@ const Data = {
       if (res.ok) {
         const d = await res.json();
         if (d && Array.isArray(d.customers) && Array.isArray(d.items)) {
-          state.customers = d.customers || [];
-          state.items = d.items || [];
-          state.rentals = d.rentals || [];
-          state.payments = d.payments || [];
-          if (d._deleted) state._deleted = d._deleted;
+          if (d.items.length > 0) {
+            state.customers = d.customers || [];
+            state.items = d.items || [];
+            state.rentals = d.rentals || [];
+            state.payments = d.payments || [];
+            if (d._deleted) state._deleted = d._deleted;
+          } else if (state.items.length === 0) {
+            state.customers = JSON.parse(JSON.stringify(DEFAULT_SEED_CUSTOMERS));
+            state.items = JSON.parse(JSON.stringify(DEFAULT_SEED_ITEMS));
+            state.rentals = JSON.parse(JSON.stringify(DEFAULT_SEED_RENTALS));
+          }
           try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
         }
       }
@@ -789,6 +808,8 @@ const Data = {
       if (res.ok) {
         const d = await res.json();
         if (d && Array.isArray(d.customers) && Array.isArray(d.items)) {
+          // Never wipe out local fleet if server returned empty unexpectedly
+          if (d.items.length === 0 && state.items.length > 0) return;
           const currentStr = JSON.stringify({ c: state.customers, i: state.items, r: state.rentals, p: state.payments });
           const serverStr = JSON.stringify({ c: d.customers, i: d.items, r: d.rentals, p: d.payments });
           if (currentStr !== serverStr) {
@@ -810,6 +831,43 @@ const Data = {
       if (e.message !== 'Unauthorized') console.warn('Background sync:', e.message);
     } finally {
       if (!silent) UI.showLoading(false);
+    }
+  },
+  async forceCloudSync(notify = true) {
+    if (!Auth.isLoggedIn()) return;
+    UI.showLoading(true);
+    try {
+      const res = await this._fetch('/api/data?t=' + Date.now());
+      if (res.ok) {
+        const d = await res.json();
+        if (d && Array.isArray(d.items) && d.items.length > 0) {
+          state.customers = d.customers || [];
+          state.items = d.items || [];
+          state.rentals = d.rentals || [];
+          state.payments = d.payments || [];
+          if (d._deleted) state._deleted = d._deleted;
+          sanitizeFleetState();
+          try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+          UI.renderAll();
+          UI.updateDueBanner();
+          if (notify) UI.showToast(`☁️ Cloud Sync: Loaded ${state.items.length} devices & ${state.customers.length} clients!`, 'success');
+          return;
+        }
+      }
+      // If server returned empty, ensure default seed items are active
+      if (!state.items || state.items.length === 0) {
+        state.customers = JSON.parse(JSON.stringify(DEFAULT_SEED_CUSTOMERS));
+        state.items = JSON.parse(JSON.stringify(DEFAULT_SEED_ITEMS));
+        state.rentals = JSON.parse(JSON.stringify(DEFAULT_SEED_RENTALS));
+        sanitizeFleetState();
+        try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+        UI.renderAll();
+      }
+      if (notify) UI.showToast(`Active fleet: ${state.items.length} devices ready`, 'info');
+    } catch(e) {
+      if (notify) UI.showToast(`Sync failed: ${e.message}`, 'error');
+    } finally {
+      UI.showLoading(false);
     }
   },
   exportJSON() {
@@ -926,6 +984,7 @@ const UI = {
 
   navigate(page, params = null) {
     currentPage = page;
+    try { sessionStorage.setItem('techtrove_active_page', page); } catch(e) {}
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     const target = document.getElementById('page-' + page);
     if (target) target.classList.add('active');
@@ -1084,7 +1143,14 @@ const UI = {
   },
 
   renderAll() {
-    this.navigate(currentPage, pageStack[pageStack.length - 1]?.params);
+    if (currentPage === 'dashboard') this.renderDashboard();
+    else if (currentPage === 'customers') this.renderCustomers();
+    else if (currentPage === 'customer-detail') this.renderCustomerDetail(pageStack[pageStack.length - 1]?.params);
+    else if (currentPage === 'inventory') this.renderInventory(filterState.inventory, filterState.brand);
+    else if (currentPage === 'repairs') this.renderRepairs();
+    else if (currentPage === 'search') this.renderSearch();
+    else if (currentPage === 'more') this.renderMore();
+    this.updateDueBanner();
   },
 
   /* REPAIRS FILTER SHORTCUT */
@@ -1901,7 +1967,7 @@ const UI = {
         <div class="search-icon-inside">${Icons.search}</div>
         <input type="text" id="inventorySearchInput" class="ops-search-input" placeholder="Search models, serials, specs..." value="${escHtml(query)}" oninput="UI.renderInventory(undefined, undefined, this.value)">
       </div>
-      <button class="btn btn-outline btn-sm" onclick="Data.sync(false)" title="Force sync with cloud database" style="display:flex;align-items:center;gap:6px;flex-shrink:0;height:42px;padding:0 12px">
+      <button class="btn btn-outline btn-sm" onclick="Data.forceCloudSync(true)" title="Force sync with cloud database" style="display:flex;align-items:center;gap:6px;flex-shrink:0;height:42px;padding:0 12px">
         ${Icons.refresh}
         <span style="font-size:0.78rem">Sync</span>
       </button>
@@ -2735,6 +2801,16 @@ const UI = {
           </div>
         </div>
         <div class="ops-setting-chevron" style="color:var(--brand-primary)">${Icons.chevronRight}</div>
+      </div>
+      <div class="ops-setting-row" onclick="Data.forceCloudSync(true)">
+        <div class="ops-setting-main">
+          <div class="ops-setting-icon" style="color:var(--status-ok)">${Icons.refresh}</div>
+          <div>
+            <div class="ops-setting-title" style="color:var(--status-ok);font-weight:700">Force Cloud Sync &amp; Reload Fleet</div>
+            <div class="ops-setting-sub">Pulls latest authoritative devices from Upstash cloud database</div>
+          </div>
+        </div>
+        <div class="ops-setting-chevron" style="color:var(--status-ok)">${Icons.chevronRight}</div>
       </div>
       <div class="ops-setting-row" id="exportBackupRow" onclick="UI.handleExportBackup(this)">
         <div class="ops-setting-main">
@@ -4716,22 +4792,20 @@ function setupApp() {
   if (fabAdd) fabAdd.addEventListener('click', () => UI.showAddItemModal());
 
   /* Initial Navigation */
-  pageStack = [{ page: 'dashboard', params: null }];
-  UI.navigate('dashboard');
+  let initialPage = 'dashboard';
+  try {
+    const savedPage = sessionStorage.getItem('techtrove_active_page');
+    if (savedPage && ['dashboard', 'customers', 'inventory', 'repairs', 'more'].includes(savedPage)) {
+      initialPage = savedPage;
+    }
+  } catch(e) {}
+  pageStack = [{ page: initialPage, params: null }];
+  UI.navigate(initialPage);
 
   /* Notifications */
   requestNotifPermission();
   checkAndNotifyDues();
   setInterval(checkAndNotifyDues, 300000);
-
-  /* Multi-User Real-Time Cloud Sync */
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') Data.sync(true);
-  });
-  window.addEventListener('focus', () => Data.sync(true));
-  setInterval(() => {
-    if (document.visibilityState === 'visible') Data.sync(true);
-  }, 20000);
 
   /* Desktop Global Keyboard Shortcuts */
   document.addEventListener('keydown', (e) => {
@@ -4757,7 +4831,7 @@ function setupApp() {
 }
 
 /* AUTOMATIC INSTANT UPDATE CHECKER & CONTINUOUS BACKGROUND DATA SYNC */
-const CURRENT_BUILD_VERSION = 'v5.7-dc-importer';
+const CURRENT_BUILD_VERSION = 'v5.8-fleet-sync';
 
 function initAutoUpdateChecker() {
   let checking = false;
@@ -4778,6 +4852,13 @@ function initAutoUpdateChecker() {
       if (res.ok) {
         const data = await res.json();
         if (data.version && data.version !== CURRENT_BUILD_VERSION) {
+          const lastReloadedVer = sessionStorage.getItem('tt_reloaded_version');
+          if (lastReloadedVer === data.version) {
+            // Already reloaded once for this version — do NOT loop!
+            return;
+          }
+          sessionStorage.setItem('tt_reloaded_version', data.version);
+          sessionStorage.setItem('techtrove_active_page', currentPage);
           console.log(`[AutoSync] New deployment detected (${data.version} vs ${CURRENT_BUILD_VERSION}). Auto-reloading...`);
           if ('caches' in window) {
             const keys = await caches.keys();
@@ -4813,6 +4894,6 @@ function initAutoUpdateChecker() {
     triggerLiveSync();
   });
 
-  // 3. Continuous background heartbeat sync every 12 seconds
-  setInterval(triggerLiveSync, 12000);
+  // 3. Continuous background heartbeat sync every 15 seconds
+  setInterval(triggerLiveSync, 15000);
 }

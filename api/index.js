@@ -5,8 +5,8 @@ const fs = require('fs');
 const app = express();
 const UPSTASH_KEY = 'techtrove:data';
 
-const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || 'https://ideal-hyena-156293.upstash.io';
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN || 'gQAAAAAAAmKFAAIgcDE2YmMyZWI3NDYxZjM0ZTg4OGE4OGY2ZGIwMTkxNTg0ZQ';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.APP_PASSWORD || 'rent123';
 const EMPLOYEE_PASSWORD = process.env.EMPLOYEE_PASSWORD || 'staff123';
 
@@ -43,6 +43,29 @@ function requireAuth(req, res, next) {
 app.use('/api', requireAuth);
 
 const DATA_FILE = path.join('/tmp', 'data.json');
+const ROOT_DATA_FILE = path.join(__dirname, '..', 'data.json');
+let seedModule = null;
+try { seedModule = require('./seed'); } catch(e) {}
+
+function getSeedData() {
+  if (seedModule && seedModule.DEFAULT_SEED_ITEMS) {
+    return {
+      customers: seedModule.DEFAULT_SEED_CUSTOMERS || [],
+      items: seedModule.DEFAULT_SEED_ITEMS || [],
+      rentals: seedModule.DEFAULT_SEED_RENTALS || [],
+      payments: [],
+      _deleted: {}
+    };
+  }
+  try {
+    if (fs.existsSync(ROOT_DATA_FILE)) {
+      const d = JSON.parse(fs.readFileSync(ROOT_DATA_FILE, 'utf8'));
+      if (d && Array.isArray(d.items) && d.items.length > 0) return d;
+    }
+  } catch(e) {}
+  return { customers: [], items: [], rentals: [], payments: [], _deleted: {} };
+}
+
 function loadDataLocal() {
   try { if (fs.existsSync(DATA_FILE)) return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8')); } catch(e) {}
   return null;
@@ -56,19 +79,21 @@ async function loadData() {
     try {
       const res = await fetch(`${UPSTASH_URL}/get/${UPSTASH_KEY}`, {
         headers: { Authorization: `Bearer ${UPSTASH_TOKEN}` },
-        signal: AbortSignal.timeout(1500)
+        signal: AbortSignal.timeout(3500)
       });
       if (res.ok) {
         const d = await res.json();
         if (d && d.result) {
           let parsed = typeof d.result === 'string' ? JSON.parse(d.result) : d.result;
           if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-          if (parsed && Array.isArray(parsed.customers)) return parsed;
+          if (parsed && Array.isArray(parsed.customers) && Array.isArray(parsed.items) && parsed.items.length > 0) return parsed;
         }
       }
     } catch(e) { console.error('Upstash read error:', e.message); }
   }
-  return loadDataLocal() || { customers: [], items: [], rentals: [], payments: [], _deleted: {} };
+  const local = loadDataLocal();
+  if (local && Array.isArray(local.items) && local.items.length > 0) return local;
+  return getSeedData();
 }
 
 async function saveData(data) {
@@ -79,14 +104,14 @@ async function saveData(data) {
         method: 'POST',
         headers: { Authorization: `Bearer ${UPSTASH_TOKEN}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(['SET', UPSTASH_KEY, payload]),
-        signal: AbortSignal.timeout(1500)
+        signal: AbortSignal.timeout(3500)
       });
       if (!res.ok && res.status !== 401 && res.status !== 403) {
         await fetch(`${UPSTASH_URL}/set/${UPSTASH_KEY}`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${UPSTASH_TOKEN}`, 'Content-Type': 'application/json' },
           body: payload,
-          signal: AbortSignal.timeout(1500)
+          signal: AbortSignal.timeout(3500)
         });
       }
     } catch(e) { console.error('Upstash write error:', e.message); }
@@ -166,7 +191,7 @@ app.post('/api/auth/login', handleLogin);
 
 app.get('/api/version', (req, res) => {
   setNoCache(res);
-  res.json({ version: 'v5.6-smart-sync', timestamp: Date.now() });
+  res.json({ version: 'v5.8-fleet-sync', timestamp: Date.now() });
 });
 
 app.get('/api/data', async (req, res) => {

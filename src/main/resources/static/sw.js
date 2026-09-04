@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v19-dc-importer';
+const CACHE = 'techtrove-v20-fleet-sync';
 const ASSETS = [
   '/',
   '/index.html',
