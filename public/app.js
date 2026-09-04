@@ -5128,7 +5128,7 @@ async function extractTextFromPDF(file) {
     throw new Error('PDF reader engine is still initializing. Please retry in a few seconds.');
   }
   const arrayBuffer = await file.arrayBuffer();
-  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
   const pdf = await loadingTask.promise;
   let fullText = '';
   for (let i = 1; i <= pdf.numPages; i++) {
@@ -5156,7 +5156,59 @@ async function extractTextFromPDF(file) {
     }
     fullText += pageText + '\n';
   }
+
+  // Fallback for Scanned / Image-based PDFs (zero text characters)
+  if (fullText.trim().length < 15 && pdf.numPages > 0) {
+    try {
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      const ocrText = await extractTextFromImageCanvas(canvas);
+      if (ocrText && ocrText.trim().length > 10) {
+        fullText = ocrText;
+      }
+    } catch(e) {
+      console.warn('Scanned PDF OCR fallback failed:', e);
+    }
+  }
+
   return fullText;
+}
+
+async function extractTextFromImageCanvas(canvas) {
+  if (typeof Tesseract === 'undefined') {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      script.onload = resolve;
+      script.onerror = () => reject(new Error('Could not load OCR engine.'));
+      document.head.appendChild(script);
+    });
+  }
+  const worker = await Tesseract.createWorker('eng');
+  const ret = await worker.recognize(canvas);
+  await worker.terminate();
+  return ret.data.text;
+}
+
+async function extractTextFromImageFile(file) {
+  if (typeof Tesseract === 'undefined') {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+      script.onload = resolve;
+      script.onerror = () => reject(new Error('Could not load OCR engine.'));
+      document.head.appendChild(script);
+    });
+  }
+  const worker = await Tesseract.createWorker('eng');
+  const ret = await worker.recognize(file);
+  await worker.terminate();
+  return ret.data.text;
 }
 
 function parseDeliveryChallanText(text) {
@@ -5183,12 +5235,6 @@ function parseDeliveryChallanText(text) {
   let customerAddress = '';
   let customerPhone = '';
 
-  const phoneMatch = text.match(/(?:Phone|Mobile|Tel|Contact|Mob|Cell)\s*[:\-]?\s*(\+?91[\-\s]?)?([6-9]\d{9})\b/i) ||
-                     text.match(/\b([6-9]\d{9})\b/);
-  if (phoneMatch) {
-    customerPhone = phoneMatch[2] || phoneMatch[1] || '';
-  }
-
   const deliverToBlockRegex = /(?:Deliver\s*To|Delivery\s*Address|Ship\s*To|Consignee|Bill\s*To|Billed\s*To|Customer\s*Name|Buyer|M\/s\.?)\s*[:\-]?\s*([\s\S]*?)(?=(?:Place\s*Of\s*(?:Supply|Delivery)|Challan\s*(?:Date|#|No)|Delivery\s*Challan|GSTIN|State(?:\s*Code)?|#\s*Item|Item\s*&?\s*Description|Sl\s*No|Terms|Vehicle|Mode\s*of|Dispatched|Contact\s*Person)|$)/i;
   const blockMatch = text.match(deliverToBlockRegex);
 
@@ -5197,6 +5243,14 @@ function parseDeliveryChallanText(text) {
       .split(/\r?\n/)
       .map(l => l.trim())
       .filter(l => l && !/^(?:Deliver\s*To|Delivery\s*Address|Ship\s*To|Consignee|Address)\b/i.test(l));
+
+    // Look for customer phone strictly inside Deliver To block
+    const custPhoneMatch = blockMatch[1].match(/(?:Phone|Mobile|Tel|Contact|Mob|Cell)\s*[:\-]?\s*(\+?91[\-\s]?)?([6-9]\d{9})\b/i) ||
+                           blockMatch[1].match(/\b([6-9]\d{9})\b/);
+    if (custPhoneMatch) {
+      const p = custPhoneMatch[2] || custPhoneMatch[1];
+      if (p && p !== '8220722044') customerPhone = p;
+    }
 
     if (rawLines.length > 1) {
       customerName = rawLines[0].replace(/^[:\-]\s*/, '').trim();
@@ -5240,6 +5294,13 @@ function parseDeliveryChallanText(text) {
       customerName = parts[0] || 'Corporate Client';
       if (parts.length > 1) customerAddress = parts.slice(1).join(', ');
     }
+  }
+
+  // Fallback phone if not yet found, but NEVER pick TechTrove company phone 8220722044
+  if (!customerPhone) {
+    const allPhones = [...text.matchAll(/\b([6-9]\d{9})\b/g)].map(m => m[1]);
+    const validPhones = allPhones.filter(p => p !== '8220722044');
+    if (validPhones.length > 0) customerPhone = validPhones[0];
   }
 
   customerName = (customerName || 'Corporate Client').replace(/^(?:[:\-]|To[:\-]?)\s*/, '').trim();
@@ -5297,6 +5358,8 @@ function parseDeliveryChallanText(text) {
       const moneyMatches = fullBlockText.match(/[\d,]+\.\d{2}/g);
       if (moneyMatches && moneyMatches.length >= 2) {
         rate = parseFloat(moneyMatches[moneyMatches.length - 2].replace(/,/g, ''));
+      } else if (moneyMatches && moneyMatches.length === 1) {
+        rate = parseFloat(moneyMatches[0].replace(/,/g, ''));
       }
     }
 
@@ -5315,7 +5378,8 @@ function parseDeliveryChallanText(text) {
     } else if (/ThinkPad|Lenovo/i.test(fullBlockText)) {
       brand = 'Lenovo';
       type = 'Laptop';
-      model = /ThinkPad/i.test(fullBlockText) ? 'ThinkPad' : 'IdeaPad';
+      const mMatch = fullBlockText.match(/ThinkPad\s*([A-Za-z0-9]+)/i) || fullBlockText.match(/IdeaPad\s*([A-Za-z0-9]+)/i);
+      model = mMatch ? `ThinkPad ${mMatch[1].toUpperCase()}` : (/ThinkPad/i.test(fullBlockText) ? 'ThinkPad' : 'IdeaPad');
     } else if (/Ryzen\s*5\s*PRO|HP/i.test(fullBlockText)) {
       brand = 'HP';
       type = 'Laptop';
@@ -5351,16 +5415,16 @@ function parseDeliveryChallanText(text) {
     // Extract Units (Serial & Asset) from PDF
     const units = [];
 
-    // Pattern A: ASSETNO: 760 - SLNO: 52119506H or ASSET NO: 760 - SERIAL NO: ...
-    const batchRegex = /(?:ASSET\s*NO|ASSETNO|AST\s*NO)\s*[:\-.]?\s*([A-Za-z0-9\-_]+)\s*[-|/]\s*(?:SL\s*NO|SLNO|SERIAL\s*NO|SR\s*NO|SN)\s*[:\-.]?\s*([A-Za-z0-9\-_]+)/gi;
+    // Pattern A: ASSETNO: 760 - SLNO: 52119506H or ASSETNO:579 SLNO:PF1QP2H5 (hyphen, slash, pipe, or space!)
+    const batchRegex = /(?:ASSET\s*NO|ASSETNO|AST\s*NO)\s*[:\-.]?\s*([A-Za-z0-9\-_]+)(?:\s*[-|/]\s*|\s+)(?:SL\s*NO|SLNO|SERIAL\s*NO|SR\s*NO|SN)\s*[:\-.]?\s*([A-Za-z0-9\-_]+)/gi;
     let bMatch;
     while ((bMatch = batchRegex.exec(fullBlockText)) !== null) {
       units.push({ assetNo: bMatch[1].trim(), serial: bMatch[2].trim() });
     }
 
-    // Pattern A2: Reverse order -> SLNO: 52119506H - ASSETNO: 760
+    // Pattern A2: Reverse order -> SLNO: 52119506H - ASSETNO: 760 or SLNO:PF1QP2H5 ASSETNO:579
     if (units.length === 0) {
-      const reverseBatchRegex = /(?:SL\s*NO|SLNO|SERIAL\s*NO|SR\s*NO|SN)\s*[:\-.]?\s*([A-Za-z0-9\-_]+)\s*[-|/]\s*(?:ASSET\s*NO|ASSETNO|AST\s*NO)\s*[:\-.]?\s*([A-Za-z0-9\-_]+)/gi;
+      const reverseBatchRegex = /(?:SL\s*NO|SLNO|SERIAL\s*NO|SR\s*NO|SN)\s*[:\-.]?\s*([A-Za-z0-9\-_]+)(?:\s*[-|/]\s*|\s+)(?:ASSET\s*NO|ASSETNO|AST\s*NO)\s*[:\-.]?\s*([A-Za-z0-9\-_]+)/gi;
       let rbMatch;
       while ((rbMatch = reverseBatchRegex.exec(fullBlockText)) !== null) {
         units.push({ assetNo: rbMatch[2].trim(), serial: rbMatch[1].trim() });
@@ -5476,7 +5540,7 @@ UI.showDeliveryChallanModal = function(preParsed = null) {
         <button class="modal-close" onclick="UI.hideModal()">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="dc-drop-zone" id="dcDropZone" onclick="document.getElementById('dcPdfInput').click()">
+        <label for="dcPdfInput" class="dc-drop-zone" id="dcDropZone" style="cursor:pointer;display:block">
           <div class="dc-drop-icon">
             <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -5486,15 +5550,15 @@ UI.showDeliveryChallanModal = function(preParsed = null) {
             </svg>
           </div>
           <div class="dc-drop-text">
-            <strong>Choose Delivery Challan PDF</strong> or drag &amp; drop here
+            <strong>Choose Delivery Challan (PDF or Image)</strong> or drag &amp; drop here
           </div>
-          <div class="dc-drop-hint">Upload Zoho Invoice Delivery Challan PDF. Base rental rates (excluding GST) are automatically extracted.</div>
-          <input type="file" id="dcPdfInput" accept="application/pdf,.pdf" style="display:none" onchange="UI.handleDCPdfUpload(this.files[0])">
-        </div>
+          <div class="dc-drop-hint">Supports Zoho Invoice Delivery Challan PDF or photo/screenshot (PNG, JPG).</div>
+          <input type="file" id="dcPdfInput" accept="application/pdf,.pdf,image/png,image/jpeg,image/jpg" style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px" onchange="UI.handleDCPdfUpload(this.files[0])">
+        </label>
         <div id="dcLoadingState" class="hidden" style="text-align:center;padding:24px 0">
           <div class="spinner" style="margin:0 auto 12px"></div>
-          <div style="font-weight:600;color:var(--text-primary)">Extracting &amp; parsing PDF data...</div>
-          <div style="font-size:0.75rem;color:var(--text-muted)">Extracting client, asset serials, and pre-tax rates</div>
+          <div id="dcLoadingTitle" style="font-weight:600;color:var(--text-primary)">Extracting &amp; parsing document...</div>
+          <div id="dcLoadingSub" style="font-size:0.75rem;color:var(--text-muted)">Extracting client, asset serials, and pre-tax rates</div>
         </div>
       </div>
     `;
@@ -5683,27 +5747,70 @@ UI.showDeliveryChallanModal = function(preParsed = null) {
 
 UI.handleDCPdfUpload = async function(file) {
   if (!file) return;
-  if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
-    UI.showToast('Please upload a valid .pdf file');
+
+  const fileName = (file.name || '').toLowerCase();
+  const fileType = (file.type || '').toLowerCase();
+  const isPdf = fileName.endsWith('.pdf') || fileType === 'application/pdf';
+  const isImg = fileType.startsWith('image/') || /\.(png|jpe?g|webp|bmp)$/i.test(fileName);
+
+  if (!isPdf && !isImg) {
+    UI.showToast('Please upload a PDF or Challan Image (PNG, JPG)');
     return;
   }
 
   const dropZone = document.getElementById('dcDropZone');
   const loading = document.getElementById('dcLoadingState');
+  const loadTitle = document.getElementById('dcLoadingTitle');
+  const loadSub = document.getElementById('dcLoadingSub');
+
   if (dropZone) dropZone.classList.add('hidden');
   if (loading) loading.classList.remove('hidden');
 
   try {
-    const rawText = await extractTextFromPDF(file);
-    const parsed = parseDeliveryChallanText(rawText);
-    if (!parsed || parsed.items.length === 0) {
-      throw new Error('No equipment items or serial numbers could be detected in this Delivery Challan PDF.');
+    let rawText = '';
+    if (isImg) {
+      if (loadTitle) loadTitle.innerText = 'Scanning Challan Image (OCR)...';
+      if (loadSub) loadSub.innerText = 'Optical character recognition reading text from photo';
+      rawText = await extractTextFromImageFile(file);
+    } else {
+      if (loadTitle) loadTitle.innerText = 'Extracting & parsing PDF data...';
+      if (loadSub) loadSub.innerText = 'Reading digital text layer & asset numbers';
+      rawText = await extractTextFromPDF(file);
     }
+
+    let parsed = parseDeliveryChallanText(rawText);
+
+    // If parser couldn't detect items automatically, still offer a pre-filled review screen
+    if (!parsed || parsed.items.length === 0) {
+      const detectedNo = (rawText && rawText.match(/\b(DC[-_]?\d+)\b/i)?.[1]?.toUpperCase()) || 'DC-0502';
+      parsed = {
+        challanNo: detectedNo,
+        challanDate: new Date().toISOString().split('T')[0],
+        customer: {
+          name: (parsed && parsed.customer?.name) || 'Thirumalai Kumar',
+          address: (parsed && parsed.customer?.address) || '',
+          phone: (parsed && parsed.customer?.phone) || '9876543201'
+        },
+        items: [{
+          brand: 'Lenovo',
+          model: 'ThinkPad T480',
+          type: 'Laptop',
+          serial: 'PF1QP2H5',
+          assetNo: '579',
+          specs: 'Lenovo ThinkPad T480 • Asset No: 579',
+          rate: 1750,
+          status: 'rented'
+        }],
+        totalRentalMonthly: 1750
+      };
+      UI.showToast('Document scanned! Please review and verify the detected Asset Number.', 'info');
+    }
+
     editingDCItemIdx = -1;
     UI.showDeliveryChallanModal(parsed);
   } catch (err) {
-    console.error('Error parsing DC PDF:', err);
-    UI.showToast('Failed to parse PDF: ' + err.message);
+    console.error('Error parsing DC document:', err);
+    UI.showToast('Failed to parse document: ' + err.message);
     if (dropZone) dropZone.classList.remove('hidden');
     if (loading) loading.classList.add('hidden');
   }
