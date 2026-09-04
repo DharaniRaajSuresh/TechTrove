@@ -251,7 +251,20 @@ const daysBetween = (a, b) => Math.round((parseDate(b) - parseDate(a)) / 8640000
 const isActiveRental = (r) => r.status === 'active';
 
 /* Phone Helpers */
-const cleanPhone = (p) => String(p || '').replace(/\D/g, '');
+const cleanPhone = (p) => {
+  if (!p) return '';
+  let digits = String(p).replace(/\D/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) {
+    digits = digits.slice(2);
+  } else if (digits.length > 10 && digits.startsWith('91') && /^[6-9]/.test(digits.slice(2))) {
+    digits = digits.slice(2);
+  } else if (digits.length === 11 && digits.startsWith('0')) {
+    digits = digits.slice(1);
+  } else if (digits.length > 10) {
+    digits = digits.slice(-10);
+  }
+  return digits.slice(0, 10);
+};
 const isValidPhone = (p) => /^[0-9]{10}$/.test(cleanPhone(p));
 const waPhone = (p) => {
   const c = cleanPhone(p);
@@ -1115,7 +1128,7 @@ const UI = {
       this.navigate('search');
       setTimeout(() => {
         const input = document.getElementById('globalSearchInput');
-        if (input) { input.value = q; this.performSearch(q); }
+        if (input) { input.value = q; this.doSearch(q); }
       }, 50);
     }
   },
@@ -2580,6 +2593,10 @@ const UI = {
     }, 150);
   },
 
+  performSearch(query) {
+    return this.doSearch(query);
+  },
+
   doSearch(query) {
     const el = document.getElementById('searchResults');
     if (!query || query.trim().length < 1) {
@@ -2951,6 +2968,34 @@ const UI = {
     await AppNotif.sendSystemNotification('TechTrove System Alert', 'Background notification active! You will receive due alerts even outside the app.', 8888);
   },
 
+  async pickContact(phoneInputId = 'custPhone', nameInputId = 'custName') {
+    if (!('contacts' in navigator && 'ContactsManager' in window)) {
+      UI.showToast('Device contact picker not supported on this browser/platform', 'info');
+      return;
+    }
+    try {
+      const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+      if (contacts && contacts.length > 0) {
+        const c = contacts[0];
+        const tel = (c.tel && c.tel.length > 0) ? c.tel[0] : '';
+        const name = (c.name && c.name.length > 0) ? c.name[0] : '';
+        if (phoneInputId) {
+          const pEl = document.getElementById(phoneInputId);
+          if (pEl && tel) pEl.value = cleanPhone(tel);
+        }
+        if (nameInputId) {
+          const nEl = document.getElementById(nameInputId);
+          if (nEl && name && !nEl.value.trim()) nEl.value = name;
+        }
+        UI.showToast(`Selected contact: ${name || tel}`, 'success');
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        console.warn('Contact picker error:', e);
+      }
+    }
+  },
+
   /* MODALS: CUSTOMER */
   showAddCustomerModal() {
     this.showModal(`
@@ -2961,8 +3006,13 @@ const UI = {
         <input type="text" id="custName" placeholder="e.g. Rahul Sharma">
       </div>
       <div class="form-group">
-        <label>Phone Number * (10 Digits Only)</label>
-        <input type="tel" id="custPhone" placeholder="10-digit mobile number, e.g. 9876543210" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label style="margin-bottom:0">Phone Number * (10 Digits Only)</label>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="UI.pickContact('custPhone','custName')" style="padding:2px 8px;font-size:0.75rem;display:inline-flex;align-items:center;gap:4px">
+            📇 Device Contacts
+          </button>
+        </div>
+        <input type="tel" id="custPhone" placeholder="10-digit mobile number, e.g. 9876543210" maxlength="20" inputmode="numeric" oninput="this.value=cleanPhone(this.value)" onpaste="setTimeout(()=>{ this.value=cleanPhone(this.value); },0)">
       </div>
       <div class="form-group">
         <label>Location / Address</label>
@@ -2986,8 +3036,13 @@ const UI = {
         <input type="text" id="custName" value="${escHtml(c.name)}">
       </div>
       <div class="form-group">
-        <label>Phone Number * (10 Digits Only)</label>
-        <input type="tel" id="custPhone" value="${escHtml(cleanPhone(c.phone))}" placeholder="10-digit mobile number" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label style="margin-bottom:0">Phone Number * (10 Digits Only)</label>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="UI.pickContact('custPhone','custName')" style="padding:2px 8px;font-size:0.75rem;display:inline-flex;align-items:center;gap:4px">
+            📇 Device Contacts
+          </button>
+        </div>
+        <input type="tel" id="custPhone" value="${escHtml(cleanPhone(c.phone))}" placeholder="10-digit mobile number" maxlength="20" inputmode="numeric" oninput="this.value=cleanPhone(this.value)" onpaste="setTimeout(()=>{ this.value=cleanPhone(this.value); },0)">
       </div>
       <div class="form-group">
         <label>Location / Address</label>
@@ -3390,7 +3445,7 @@ const UI = {
           </div>
           <div class="form-group">
             <label>Technician Phone Number (10 Digits)</label>
-            <input type="tel" id="repairServicePhone" placeholder="10-digit mobile number, e.g. 9876543210" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
+            <input type="tel" id="repairServicePhone" placeholder="10-digit mobile number, e.g. 9876543210" maxlength="20" inputmode="numeric" oninput="this.value=cleanPhone(this.value)" onpaste="setTimeout(()=>{ this.value=cleanPhone(this.value); },0)">
           </div>
         </div>
         <div class="form-row">
@@ -3556,7 +3611,7 @@ const UI = {
           </div>
           <div class="form-group">
             <label>Technician Phone Number (10 Digits)</label>
-            <input type="tel" id="repairServicePhone" value="${escHtml(cleanPhone(rep.servicePhone || ''))}" placeholder="10-digit mobile number" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10)">
+            <input type="tel" id="repairServicePhone" value="${escHtml(cleanPhone(rep.servicePhone || ''))}" placeholder="10-digit mobile number" maxlength="20" inputmode="numeric" oninput="this.value=cleanPhone(this.value)" onpaste="setTimeout(()=>{ this.value=cleanPhone(this.value); },0)">
           </div>
         </div>
         <div class="form-row">
@@ -4340,7 +4395,26 @@ async function extractTextFromPDF(file) {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const tokenContent = await page.getTextContent();
-    const pageText = tokenContent.items.map(item => item.str).join(' ');
+    let pageText = '';
+    let lastY = null;
+    for (const item of tokenContent.items) {
+      if (!item || !item.str) continue;
+      const currentY = item.transform ? item.transform[5] : null;
+      if (lastY !== null && currentY !== null && Math.abs(currentY - lastY) > 5) {
+        pageText += '\n';
+      } else if (item.hasEOL) {
+        if (!pageText.endsWith('\n')) pageText += '\n';
+      } else if (pageText.length > 0 && !pageText.endsWith('\n') && !pageText.endsWith(' ')) {
+        pageText += ' ';
+      }
+      pageText += item.str;
+      if (item.hasEOL && !pageText.endsWith('\n')) {
+        pageText += '\n';
+      }
+      if (currentY !== null) {
+        lastY = currentY;
+      }
+    }
     fullText += pageText + '\n';
   }
   return fullText;
@@ -4354,7 +4428,7 @@ function parseDeliveryChallanText(text) {
                        text.match(/Delivery\s*Challan\s*#?\s*([A-Za-z0-9\-_]+)/i);
   const challanNo = challanMatch ? challanMatch[1].toUpperCase() : 'DC-UNKNOWN';
 
-  // 2. Challan Date: match DD/MM/YYYY
+  // 2. Challan Date: match DD/MM/YYYY or YYYY-MM-DD
   const dateMatch = text.match(/Challan\s*Date\s*[:\-]?\s*(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/i) ||
                     text.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
   let challanDate = new Date().toISOString().split('T')[0];
@@ -4365,17 +4439,72 @@ function parseDeliveryChallanText(text) {
     challanDate = `${y}-${m}-${d}`;
   }
 
-  // 3. Customer Info (Deliver To)
-  let customerName = 'Corporate Client';
+  // 3. Customer Details & Phone Extraction
+  let customerName = '';
   let customerAddress = '';
-  const deliverToMatch = text.match(/Deliver\s*To\s*[\r\n]+([\s\S]*?)(?:Place\s*Of\s*Supply|Challan\s*Date|#\s*Item|Terms)/i);
-  if (deliverToMatch) {
-    const lines = deliverToMatch[1].split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    if (lines.length > 0) {
-      customerName = lines[0];
-      customerAddress = lines.slice(1).join(', ').replace(/\s+,/g, ',');
+  let customerPhone = '';
+
+  const phoneMatch = text.match(/(?:Phone|Mobile|Tel|Contact|Mob|Cell)\s*[:\-]?\s*(\+?91[\-\s]?)?([6-9]\d{9})\b/i) ||
+                     text.match(/\b([6-9]\d{9})\b/);
+  if (phoneMatch) {
+    customerPhone = phoneMatch[2] || phoneMatch[1] || '';
+  }
+
+  const deliverToBlockRegex = /(?:Deliver\s*To|Delivery\s*Address|Ship\s*To|Consignee|Bill\s*To|Billed\s*To|Customer\s*Name|Buyer|M\/s\.?)\s*[:\-]?\s*([\s\S]*?)(?=(?:Place\s*Of\s*(?:Supply|Delivery)|Challan\s*(?:Date|#|No)|Delivery\s*Challan|GSTIN|State(?:\s*Code)?|#\s*Item|Item\s*&?\s*Description|Sl\s*No|Terms|Vehicle|Mode\s*of|Dispatched|Contact\s*Person)|$)/i;
+  const blockMatch = text.match(deliverToBlockRegex);
+
+  if (blockMatch && blockMatch[1]) {
+    const rawLines = blockMatch[1]
+      .split(/\r?\n/)
+      .map(l => l.trim())
+      .filter(l => l && !/^(?:Deliver\s*To|Delivery\s*Address|Ship\s*To|Consignee|Address)\b/i.test(l));
+
+    if (rawLines.length > 1) {
+      customerName = rawLines[0].replace(/^[:\-]\s*/, '').trim();
+      const addrLines = rawLines.slice(1).filter(l => !/^(?:GSTIN|Place\s*of|State\s*Code|PAN|Phone|Mobile|Tel|Contact\b)/i.test(l));
+      if (addrLines.length > 0) {
+        customerAddress = addrLines.join(', ').replace(/\s+,/g, ',').replace(/,\s*,+/g, ',').trim();
+      }
+    } else if (rawLines.length === 1) {
+      let content = rawLines[0].replace(/^[:\-]\s*/, '').trim();
+      content = content.replace(/(?:Phone|Mobile|Tel)\s*[:\-]?\s*[\d\s+\-]+$/i, '').trim();
+
+      const corpSuffixRegex = /^(.+?\b(?:PVT\.?\s*LTD\.?|PRIVATE\s+LIMITED|LTD\.?|LIMITED|LLP|INC\.?|CORP\.?))\b[,\s]*(.*)$/i;
+      const corpMatch = content.match(corpSuffixRegex);
+      if (corpMatch) {
+        customerName = corpMatch[1].trim();
+        customerAddress = corpMatch[2].trim();
+      } else {
+        const altSuffixRegex = /^(.+?\b(?:MEDIA|TECHNOLOGIES|SOLUTIONS|SYSTEMS|ENTERPRISES))\b[,\s]*(.*)$/i;
+        const altMatch = content.match(altSuffixRegex);
+        if (altMatch && altMatch[2]) {
+          customerName = altMatch[1].trim();
+          customerAddress = altMatch[2].trim();
+        } else {
+          const commaIdx = content.indexOf(',');
+          if (commaIdx > 3) {
+            customerName = content.slice(0, commaIdx).trim();
+            customerAddress = content.slice(commaIdx + 1).trim();
+          } else {
+            customerName = content;
+          }
+        }
+      }
     }
   }
+
+  // Fallback: If still no name or address
+  if (!customerName || customerName.toLowerCase() === 'corporate client') {
+    const singleMatch = text.match(/(?:Deliver\s*To|Delivery\s*Address|Ship\s*To|Consignee)\s*[:\-]?\s*([A-Za-z0-9\s.,&\-\(\)]+?)(?=(?:\s+Place\s*Of|\s+Challan\s*Date|\s+GSTIN|\s+#|\s+Terms|\s+Delivery\s*Challan)|$)/i);
+    if (singleMatch && singleMatch[1]) {
+      const parts = singleMatch[1].trim().split(/,\s*/);
+      customerName = parts[0] || 'Corporate Client';
+      if (parts.length > 1) customerAddress = parts.slice(1).join(', ');
+    }
+  }
+
+  customerName = (customerName || 'Corporate Client').replace(/^(?:[:\-]|To[:\-]?)\s*/, '').trim();
+  customerAddress = (customerAddress || '').replace(/^(?:[:\-]|Address[:\-]?)\s*/, '').trim();
 
   // 4. Parse Items
   const items = [];
@@ -4462,16 +4591,19 @@ function parseDeliveryChallanText(text) {
       model = 'Latitude 3420';
     }
 
-    // Clean Specs: Strip row numbers, pricing, serials
+    // Clean Specs: Strip row numbers, pricing, serials, and table header text
     let descLines = block.lines.map(l => {
       return l.replace(/^\d+\s+(?:Rent|Rental)\s+(?:Laptop|Apple\s+)?/i, '')
               .replace(/(?:Rent|Rental)\s+(?:Laptop|Apple\s+)?/i, '')
+              .replace(/^(?:#\s*)?(?:Item\s*&?\s*Description\s*)?(?:Qty\s+Rate\s+Amount\s*\d*|\d+\s+Qty\s+Rate\s+Amount)/i, '')
+              .replace(/Qty\s+Rate\s+Amount/gi, '')
               .replace(/[\d,]+(?:\.\d+)?\s+[\d,]+(?:\.\d+)?\s+[\d,]+(?:\.\d+)?$/, '')
               .trim();
     }).filter(l => 
       l.length > 0 &&
       !/^(?:Serial\s*No|Asset\s*No|ASSETNO|Part\s*No)/i.test(l) &&
-      !/^(?:Sub\s*Total|Total|CGST|SGST|IGST)/i.test(l)
+      !/^(?:Sub\s*Total|Total|CGST|SGST|IGST)/i.test(l) &&
+      !/^(?:#|Item\s*&|Description|Qty|Rate|Amount)$/i.test(l)
     );
 
     let baseSpecs = descLines.join(' • ').replace(/\s+/g, ' ').trim();
@@ -4529,7 +4661,7 @@ function parseDeliveryChallanText(text) {
     customer: {
       name: customerName,
       address: customerAddress,
-      phone: '9876543201'
+      phone: customerPhone || '9876543201'
     },
     items,
     totalRentalMonthly: items.reduce((sum, it) => sum + (it.rate || 0), 0)
@@ -4610,11 +4742,6 @@ UI.showDeliveryChallanModal = function(preParsed = null) {
           <div class="dc-drop-hint">Upload Zoho Invoice Delivery Challan PDF. Base rental rates (excluding GST) are automatically extracted.</div>
           <input type="file" id="dcPdfInput" accept="application/pdf,.pdf" style="display:none" onchange="UI.handleDCPdfUpload(this.files[0])">
         </div>
-        <div style="margin-top:14px;text-align:center">
-          <button type="button" id="dcLoadSampleBtn" class="btn btn-secondary btn-sm" onclick="UI.loadSampleDC()" style="font-size:0.8rem;padding:6px 14px">
-            📄 Load Sample DC (SOEZY MEDIA Demo)
-          </button>
-        </div>
         <div id="dcLoadingState" class="hidden" style="text-align:center;padding:24px 0">
           <div class="spinner" style="margin:0 auto 12px"></div>
           <div style="font-weight:600;color:var(--text-primary)">Extracting &amp; parsing PDF data...</div>
@@ -4645,8 +4772,13 @@ UI.showDeliveryChallanModal = function(preParsed = null) {
             <input type="text" class="form-input" id="dcCustAddress" value="${escHtml(preParsed.customer.address)}">
           </div>
           <div class="form-group">
-            <label class="form-label">Contact Phone</label>
-            <input type="tel" class="form-input" id="dcCustPhone" value="${escHtml(preParsed.customer.phone || '9876543201')}" placeholder="10-digit Phone Number">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <label class="form-label" style="margin-bottom:0">Contact Phone</label>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="UI.pickContact('dcCustPhone','dcCustName')" style="padding:2px 8px;font-size:0.75rem;display:inline-flex;align-items:center;gap:4px">
+                📇 Device Contacts
+              </button>
+            </div>
+            <input type="tel" class="form-input" id="dcCustPhone" value="${escHtml(cleanPhone(preParsed.customer.phone || ''))}" placeholder="10-digit Phone Number" maxlength="20" inputmode="numeric" oninput="this.value=cleanPhone(this.value)" onpaste="setTimeout(()=>{ this.value=cleanPhone(this.value); },0)">
           </div>
         </div>
 
@@ -4761,10 +4893,10 @@ UI.showDeliveryChallanModal = function(preParsed = null) {
           </div>
         </div>
 
-        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
-          <button class="btn btn-secondary" onclick="UI.showDeliveryChallanModal(null)">Upload Another PDF</button>
-          <button class="btn btn-primary" onclick="UI.confirmDCImport()">
-            <span>Confirm &amp; Import ${preParsed.items.length} Units</span>
+        <div class="dc-modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="UI.showDeliveryChallanModal(null)">Upload Another PDF</button>
+          <button type="button" class="btn btn-primary" onclick="UI.confirmDCImport()">
+            Confirm &amp; Import ${preParsed.items.length} Units
           </button>
         </div>
       </div>
@@ -4914,7 +5046,7 @@ UI.confirmDCImport = function() {
 
   const custName = (document.getElementById('dcCustName')?.value || currentParsedDC.customer.name).trim();
   const custAddress = (document.getElementById('dcCustAddress')?.value || currentParsedDC.customer.address).trim();
-  const custPhone = (document.getElementById('dcCustPhone')?.value || currentParsedDC.customer.phone || '9876543201').trim();
+  const custPhone = cleanPhone(document.getElementById('dcCustPhone')?.value || currentParsedDC.customer.phone || '') || '9876543201';
 
   // 1. Find or create customer
   let cust = state.customers.find(c => c.name.toLowerCase() === custName.toLowerCase());

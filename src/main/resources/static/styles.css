@@ -2599,3 +2599,33 @@ header h1#headerTitle {
   font-size: 1.1rem;
   font-weight: 800;
 }
+
+.dc-modal-footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  width: 100%;
+}
+
+.dc-modal-footer .btn {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 600px) {
+  .dc-modal-footer {
+    flex-direction: column-reverse;
+    gap: 8px;
+    width: 100%;
+  }
+  .dc-modal-footer .btn {
+    width: 100%;
+    min-height: 46px;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+}
