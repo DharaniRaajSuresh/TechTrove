@@ -1223,6 +1223,23 @@ const UI = {
     const availablePct = totalUnits > 0 ? Math.round((availableUnits / totalUnits) * 100) : 0;
     const repairPct = totalUnits > 0 ? Math.round((repairUnits / totalUnits) * 100) : 0;
 
+    // Monthly Recurring Revenue (MRR) contracted across all active agreements
+    const totalMRR = activeRentals.reduce((sum, r) => sum + (r.rentAmount || 0), 0);
+
+    // Corporate Fleet Allocation Leaderboard
+    const clientFleetMap = {};
+    activeRentals.forEach(r => {
+      const cust = state.customers.find(c => c.id === r.customerId);
+      const custId = r.customerId || 'unknown';
+      const custName = cust ? cust.name : 'Unknown Client';
+      if (!clientFleetMap[custId]) {
+        clientFleetMap[custId] = { id: custId, name: custName, count: 0, mrr: 0 };
+      }
+      clientFleetMap[custId].count++;
+      clientFleetMap[custId].mrr += (r.rentAmount || 0);
+    });
+    const clientFleetLeaderboard = Object.values(clientFleetMap).sort((a, b) => b.count - a.count);
+
     // Combined "Needs attention" queue sorted by urgency
     const attentionList = [
       ...overdueList.map(x => ({ type: 'overdue', ...x })),
@@ -1314,6 +1331,59 @@ const UI = {
         ${Icons.plus}
         <span>+ New client</span>
       </button>
+    </div>
+
+    <!-- Fleet Analytics & Contracted MRR Card -->
+    <div class="fleet-analytics-card">
+      <div class="fleet-mrr-banner">
+        <div>
+          <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px">Contracted Monthly Revenue (MRR)</div>
+          <div class="fleet-mrr-val">${fmtCurrency(totalMRR)}<span style="font-size:0.85rem;color:var(--text-muted);font-weight:500"> / month</span></div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px">Fleet Utilization</div>
+          <div style="font-size:1.05rem;font-weight:800;color:var(--text-primary)"><span class="tnum">${deployedUnits}</span> of <span class="tnum">${totalUnits}</span> Units Active (<span class="tnum" style="color:var(--status-ok)">${deployedPct}%</span>)</div>
+        </div>
+      </div>
+
+      <!-- Tri-Color Utilization Meter Bar -->
+      <div class="tri-meter-bar" title="Fleet: ${deployedUnits} Deployed, ${availableUnits} Available, ${repairUnits} In Repair">
+        <div class="tri-meter-deployed" style="width: ${deployedPct}%"></div>
+        <div class="tri-meter-available" style="width: ${availablePct}%"></div>
+        <div class="tri-meter-repair" style="width: ${repairPct}%"></div>
+      </div>
+
+      <div class="fleet-meter-legend">
+        <span style="display:flex;align-items:center;gap:5px"><span class="status-dot ok"></span> <strong>${deployedUnits}</strong> Deployed (${deployedPct}%)</span>
+        <span style="display:flex;align-items:center;gap:5px"><span class="status-dot" style="background:var(--brand-primary)"></span> <strong>${availableUnits}</strong> Ready in Stock (${availablePct}%)</span>
+        <span style="display:flex;align-items:center;gap:5px"><span class="status-dot danger"></span> <strong>${repairUnits}</strong> In Repair (${repairPct}%)</span>
+      </div>
+
+      ${clientFleetLeaderboard.length > 0 ? `
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border-subtle)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <span style="font-size:0.78rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px">Top Corporate Fleet Allocations</span>
+            <span style="font-size:0.75rem;color:var(--accent);font-weight:600;cursor:pointer" onclick="UI.navigate('customers')">View All Clients &rarr;</span>
+          </div>
+          <div>
+            ${clientFleetLeaderboard.slice(0, 5).map((cl, idx) => `
+              <div class="leaderboard-row" onclick="UI.pushPage('customer-detail', '${cl.id}')">
+                <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                  <span style="width:20px;font-weight:800;font-size:0.85rem;color:var(--text-muted);font-family:var(--font-mono)">#${idx + 1}</span>
+                  <div style="min-width:0">
+                    <div style="font-weight:700;font-size:0.88rem;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(cl.name)}</div>
+                    <div style="font-size:0.75rem;color:var(--text-muted)">${cl.count} device${cl.count === 1 ? '' : 's'} assigned</div>
+                  </div>
+                </div>
+                <div style="text-align:right">
+                  <span class="tnum" style="font-weight:800;font-size:0.92rem;color:var(--status-ok)">${fmtCurrency(cl.mrr)}</span>
+                  <span style="font-size:0.72rem;color:var(--text-muted);display:block">/month</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
     </div>
 
     <!-- Needs Attention Queue -->
@@ -1551,6 +1621,7 @@ const UI = {
     const allPayments = customerPayments(customerId);
     const activeRentals = rentals.filter(isActiveRental);
     const totalOutstanding = activeRentals.reduce((s, r) => s + rentalStatus(r).outstanding, 0);
+    const totalDepositHeld = activeRentals.reduce((s, r) => s + (r.securityDeposit || 0), 0);
     const initials = getInitials(c.name);
 
     let html = `
@@ -1604,6 +1675,20 @@ const UI = {
         ` : ''}
       </div>
     </div>`;
+
+    /* Caution Deposit Held Card (Feature 5) */
+    if (totalDepositHeld > 0) {
+      html += `
+      <div class="deposit-card">
+        <div class="deposit-card-title">
+          <span style="display:flex;align-items:center;gap:6px">🔒 Caution Deposit Held</span>
+          <span class="tnum" style="font-size:0.95rem;font-weight:800;color:var(--status-warn)">${fmtCurrency(totalDepositHeld)}</span>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">
+          Refundable security deposit held against active hardware. Automatically reconciled and settled on device return.
+        </div>
+      </div>`;
+    }
 
     /* Active Rentals Section */
     html += `
@@ -1674,7 +1759,20 @@ const UI = {
               <span class="ops-param-label">Agreement started</span>
               <span class="ops-param-value tnum">${fmtDate(r.startDate)}</span>
             </div>
+            ${r.securityDeposit > 0 ? `
+              <div class="ops-param-item">
+                <span class="ops-param-label">Caution Deposit</span>
+                <span class="ops-param-value tnum" style="font-weight:700;color:var(--status-warn)">${fmtCurrency(r.securityDeposit)}</span>
+              </div>
+            ` : ''}
           </div>
+
+          ${r.swapHistory && r.swapHistory.length > 0 ? `
+            <div style="background:var(--surface-raised);border-radius:var(--radius-sm);padding:7px 10px;margin-bottom:12px;font-size:0.75rem;color:var(--text-muted);display:flex;align-items:center;gap:6px">
+              <span>🔄</span>
+              <span><strong>Swap Audit:</strong> Replaced on ${fmtDate(r.swapHistory[r.swapHistory.length - 1].swappedAt)} (Previous: ${escHtml(r.swapHistory[r.swapHistory.length - 1].previousItemTitle || 'Device')})</span>
+            </div>
+          ` : ''}
 
           <!-- Actions -->
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -1685,6 +1783,9 @@ const UI = {
             <button class="btn-micro btn-micro-wa" onclick="UI.sendRentalWaReminder('${r.id}')">
               ${Icons.whatsapp}
               <span>WA reminder</span>
+            </button>
+            <button class="btn btn-outline btn-micro" onclick="UI.showSwapDeviceModal('${r.id}')" title="Swap unit with an available laptop from fleet">
+              <span>🔄 Swap Device</span>
             </button>
             <button class="btn btn-outline btn-micro" onclick="UI.showRentalRepairModal('${r.id}')" title="Laptop issue? Send to repair or swap with replacement">
               ${Icons.repairs}
@@ -1712,9 +1813,10 @@ const UI = {
       <div class="ops-list" style="margin-bottom:16px">`;
       closedRentals.forEach(r => {
         const item = getItem(r.itemId);
+        const ds = r.depositSettlement;
         html += `
-        <div class="ops-row">
-          <div class="ops-row-status">
+        <div class="ops-row" style="align-items:flex-start">
+          <div class="ops-row-status" style="margin-top:2px">
             <span class="ops-status-badge muted">
               <span class="status-dot muted"></span>
               Closed
@@ -1723,6 +1825,17 @@ const UI = {
           <div class="ops-row-main">
             <div class="ops-row-title">${escHtml(getItemFullTitle(item))}</div>
             <div class="ops-row-sub">${fmtDate(r.startDate)} &mdash; ${fmtDate(r.endDate)}</div>
+            ${ds ? `
+              <div style="margin-top:6px;font-size:0.75rem;color:var(--text-muted);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span>Deposit: <strong class="tnum">${fmtCurrency(ds.depositHeld)}</strong></span>
+                <span>&middot; Deduction: <strong class="tnum" style="color:${ds.deduction > 0 ? 'var(--status-danger)' : 'inherit'}">${fmtCurrency(ds.deduction)}</strong></span>
+                <span>&middot; Net Refund: <strong class="tnum" style="color:var(--status-ok)">${fmtCurrency(ds.netRefund)}</strong></span>
+                <span class="status-pill muted" style="font-size:0.65rem;padding:1px 5px">${escHtml(ds.refundMode || 'UPI')}</span>
+                <button class="btn-micro btn-micro-wa" style="padding:2px 8px;font-size:0.7rem;margin-left:auto" onclick="event.stopPropagation();UI.sendDepositSettlementWa('${r.id}')">
+                  ${Icons.whatsapp} <span>Settlement Slip</span>
+                </button>
+              </div>
+            ` : ''}
           </div>
         </div>`;
       });
@@ -3966,6 +4079,7 @@ const UI = {
       customDays: cycle === 'custom' ? customDays : null,
       startDate: start,
       endDate: null,
+      securityDeposit: depositAmount,
       status: 'active',
       createdAt: today(),
       updatedAt: nowIso
@@ -4043,6 +4157,10 @@ const UI = {
         <label>Custom Days</label>
         <input type="number" id="rentalCustomDays" value="${r.customDays || ''}">
       </div>
+      <div class="form-group">
+        <label>Caution Deposit Held (₹)</label>
+        <input type="number" id="rentalSecurityDeposit" value="${r.securityDeposit || 0}" min="0" step="1" placeholder="0">
+      </div>
       <div class="form-actions">
         <button class="btn btn-outline" onclick="UI.hideModal()">Cancel</button>
         <button class="btn btn-primary" onclick="UI.updateRental('${rentalId}')">Save Changes</button>
@@ -4055,10 +4173,12 @@ const UI = {
     const amount = parseFloat(document.getElementById('rentalAmount').value);
     const cycle = document.getElementById('rentalCycle').value;
     const customDays = parseInt(document.getElementById('rentalCustomDays').value) || 0;
+    const deposit = parseFloat(document.getElementById('rentalSecurityDeposit')?.value) || 0;
     if (!amount || amount <= 0) { UI.showToast('Please enter a valid rent amount', 'error'); return; }
     r.rentAmount = amount;
     r.billingCycle = cycle;
     r.customDays = cycle === 'custom' ? customDays : null;
+    r.securityDeposit = deposit;
     r.updatedAt = new Date().toISOString();
     Data.save();
     UI.hideModal();
@@ -4066,33 +4186,297 @@ const UI = {
     UI.renderAll();
   },
 
+  /* 1-CLICK DEVICE SWAP / REPLACEMENT (OPTION 1) */
+  showSwapDeviceModal(rentalId) {
+    const r = getRental(rentalId);
+    if (!r) return;
+    const c = getCustomer(r.customerId);
+    const oldItem = getItem(r.itemId);
+    const oldTitle = getItemFullTitle(oldItem);
+    const availableItems = state.items.filter(i => i.status === 'available');
+
+    if (availableItems.length === 0) {
+      this.showModal(`
+        <button class="modal-close" onclick="UI.hideModal()">&times;</button>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <div style="width:40px;height:40px;border-radius:10px;background:rgba(239,68,68,0.12);color:var(--status-danger);display:flex;align-items:center;justify-content:center;font-size:1.2rem">🔄</div>
+          <div>
+            <h2 style="font-size:1.15rem;font-weight:700;margin:0">Device Swap / Replacement</h2>
+            <div style="font-size:0.75rem;color:var(--text-muted)">Exchange assigned hardware seamlessly</div>
+          </div>
+        </div>
+        <div style="background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;margin-bottom:16px">
+          <div style="font-weight:700;color:var(--status-warn);margin-bottom:6px">⚠️ No Available Laptops in Fleet</div>
+          <div style="font-size:0.82rem;color:var(--text-muted)">
+            All fleet laptops are currently either rented or under repair. You cannot perform a swap until another unit is marked Available in Inventory.
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-outline" onclick="UI.hideModal()">Close</button>
+          <button class="btn btn-primary" onclick="UI.hideModal();UI.navigate('inventory')">View Inventory</button>
+        </div>
+      `);
+      return;
+    }
+
+    const swapOptions = availableItems.map(i => {
+      const title = getItemFullTitle(i);
+      return `<option value="${i.id}">${escHtml(title)} [SN: ${escHtml(i.serial)}]${i.specs ? ' — ' + escHtml(i.specs) : ''}</option>`;
+    }).join('');
+
+    this.showModal(`
+      <button class="modal-close" onclick="UI.hideModal()">&times;</button>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="width:40px;height:40px;border-radius:10px;background:var(--accent-muted);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:1.2rem">🔄</div>
+        <div>
+          <h2 style="font-size:1.15rem;font-weight:700;margin:0">1-Click Device Swap</h2>
+          <div style="font-size:0.75rem;color:var(--text-muted)">Replace equipment while keeping the agreement &amp; billing active</div>
+        </div>
+      </div>
+
+      <!-- Current Assigned Hardware -->
+      <div style="background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-muted)">Client</div>
+            <div style="font-weight:700;color:var(--text-primary);font-size:0.95rem">${escHtml(c ? c.name : 'Unknown Client')}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--text-muted)">Current Laptop</div>
+            <div style="font-weight:700;color:var(--text-primary);font-size:0.95rem">${escHtml(oldTitle)}</div>
+            <div style="font-size:0.72rem;color:var(--text-muted)">SN: ${escHtml(oldItem ? oldItem.serial : 'N/A')}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Replacement Device Selection -->
+      <div class="form-group">
+        <label>Select Replacement Laptop from Stock *</label>
+        <select id="swapReplacementId">
+          ${swapOptions}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Status for Old Laptop (SN: ${escHtml(oldItem ? oldItem.serial : '')}) *</label>
+        <select id="swapOldItemAction" onchange="document.getElementById('swapRepairIssueWrap').style.display = this.value === 'repair' ? 'block' : 'none'">
+          <option value="repair" selected>🔴 Move to Repairs (Hardware fault / defect)</option>
+          <option value="available">🟢 Return to Available Fleet (Upgrade / standard exchange)</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="swapRepairIssueWrap">
+        <label>Reported Issue / Reason for Swap *</label>
+        <input type="text" id="swapReasonInput" placeholder="e.g. Keyboard keys sticking, flickering screen, battery issue">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Swap Date *</label>
+          <input type="date" id="swapDateInput" value="${today()}">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:500">
+          <input type="checkbox" id="swapSendWaNotice" checked style="width:16px;height:16px">
+          <span>📱 Send Replacement Notice to Customer on WhatsApp</span>
+        </label>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-outline" onclick="UI.hideModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="UI.confirmSwapDevice('${rentalId}')">🔄 Confirm &amp; Swap Unit</button>
+      </div>
+    `);
+  },
+
+  confirmSwapDevice(rentalId) {
+    const r = getRental(rentalId);
+    if (!r) return;
+    const c = getCustomer(r.customerId);
+    const oldItem = getItem(r.itemId);
+    if (!oldItem) return;
+
+    const replacementId = document.getElementById('swapReplacementId')?.value;
+    const newItem = getItem(replacementId);
+    if (!newItem) {
+      UI.showToast('Please select a replacement device', 'error');
+      return;
+    }
+
+    const oldAction = document.getElementById('swapOldItemAction')?.value || 'repair';
+    const swapReason = (document.getElementById('swapReasonInput')?.value || '').trim();
+    const swapDate = document.getElementById('swapDateInput')?.value || today();
+    const sendWa = document.getElementById('swapSendWaNotice')?.checked;
+
+    if (oldAction === 'repair' && !swapReason) {
+      UI.showToast('Please enter the reason / issue for the swap', 'error');
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+
+    // 1. Assign new item to rental
+    newItem.status = 'rented';
+    newItem.updatedAt = nowIso;
+    r.itemId = newItem.id;
+    r.updatedAt = nowIso;
+
+    // 2. Track swap history
+    if (!r.swapHistory) r.swapHistory = [];
+    r.swapHistory.push({
+      previousItemId: oldItem.id,
+      previousItemTitle: getItemFullTitle(oldItem),
+      previousItemSerial: oldItem.serial,
+      newItemId: newItem.id,
+      newItemTitle: getItemFullTitle(newItem),
+      newItemSerial: newItem.serial,
+      swappedAt: swapDate,
+      reason: swapReason || (oldAction === 'available' ? 'Standard upgrade / exchange' : 'Hardware issue')
+    });
+
+    // 3. Handle old item state
+    if (oldAction === 'repair') {
+      oldItem.status = 'repair';
+      oldItem.updatedAt = nowIso;
+      oldItem.repairInfo = {
+        serviceCenter: 'Internal Inspection / Pending Service',
+        servicePerson: 'In-House Technician',
+        servicePhone: '',
+        givenToServiceDate: swapDate,
+        expectedReturnDate: '',
+        repairCost: 0,
+        repairIssue: swapReason || 'Replaced during customer device swap',
+        customerName: c ? c.name : ''
+      };
+    } else {
+      oldItem.status = 'available';
+      oldItem.updatedAt = nowIso;
+    }
+
+    Data.save();
+    UI.hideModal();
+    UI.showToast(`Device swapped: ${newItem.brand} ${newItem.model} assigned!`, 'success');
+    UI.renderAll();
+
+    if (sendWa && c && c.phone) {
+      const msg = `*TechTrove Systems - Equipment Replacement Notice*\n\n` +
+        `Hello ${c.name},\n` +
+        `Your active rental equipment has been updated with a replacement unit:\n\n` +
+        `• *Previous Unit*: ${getItemFullTitle(oldItem)} (SN: ${oldItem.serial})\n` +
+        `• *New Assigned Unit*: ${getItemFullTitle(newItem)} (SN: ${newItem.serial})\n` +
+        (newItem.specs ? `• *Specs*: ${newItem.specs}\n` : '') +
+        `• *Swap Date*: ${fmtDate(swapDate)}\n` +
+        (swapReason ? `• *Reason*: ${swapReason}\n` : '') +
+        `• *Rental Rate*: ${fmtCurrency(r.rentAmount)} / ${r.billingCycle}\n\n` +
+        `Your billing cycle and agreement terms continue without interruption.\n\n` +
+        `Thank you for choosing TechTrove Systems!`;
+      setTimeout(() => openWhatsAppReminder(c.phone, msg), 300);
+    }
+  },
+
+  /* SECURITY DEPOSIT & DAMAGE DEDUCTION TRACKER (OPTION 5) */
+  calcNetDepositRefund(deposit) {
+    const dedInput = document.getElementById('closeDeductionAmount');
+    const deduction = Math.max(0, parseFloat(dedInput ? dedInput.value : 0) || 0);
+    const net = Math.max(0, deposit - deduction);
+    const display = document.getElementById('closeNetRefundDisplay');
+    if (display) display.textContent = fmtCurrency(net);
+  },
+
   showCloseRentalModal(rentalId) {
     const r = getRental(rentalId);
     if (!r) return;
     const item = getItem(r.itemId);
+    const c = getCustomer(r.customerId);
+    const deposit = r.securityDeposit || 0;
+
     this.showModal(`
       <button class="modal-close" onclick="UI.hideModal()">&times;</button>
-      <h2>Close Rental</h2>
-      <p style="margin-bottom:12px;color:var(--text-muted)">Closing this rental will mark <strong>${escHtml(getItemFullTitle(item))}</strong> as Available in inventory.</p>
+      <h2>Close Rental Agreement</h2>
+      <p style="margin-bottom:12px;color:var(--text-muted)">Closing this rental will mark <strong>${escHtml(getItemFullTitle(item))}</strong> (SN: ${escHtml(item?.serial || 'N/A')}) as Available in inventory.</p>
+      
       <div class="form-group">
         <label>Return / End Date *</label>
         <input type="date" id="closeEndDate" value="${today()}">
       </div>
+
+      <!-- Security Deposit & Deduction Settlement Section -->
+      <div style="background:var(--surface-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;margin-bottom:14px">
+        <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--status-warn);letter-spacing:0.5px;margin-bottom:8px">
+          🔒 Caution Deposit &amp; Damage Settlement
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-size:0.85rem;color:var(--text-muted)">Caution Deposit Held:</span>
+          <span class="tnum" style="font-size:1.05rem;font-weight:800;color:var(--text-primary)">${fmtCurrency(deposit)}</span>
+        </div>
+
+        <div class="form-group" style="margin-bottom:10px">
+          <label style="font-size:0.8rem">Damage / Maintenance Deductions (₹)</label>
+          <input type="number" id="closeDeductionAmount" value="0" min="0" max="${deposit}" placeholder="0" oninput="UI.calcNetDepositRefund(${deposit})">
+        </div>
+
+        <div class="form-group" style="margin-bottom:10px">
+          <label style="font-size:0.8rem">Deduction Reason (if applicable)</label>
+          <input type="text" id="closeDeductionReason" placeholder="e.g. Scratched casing, charger replacement, missing bag">
+        </div>
+
+        <div class="form-group" style="margin-bottom:10px">
+          <label style="font-size:0.8rem">Refund Settlement Mode</label>
+          <select id="closeRefundMode">
+            <option value="UPI / GPay">UPI / GPay / PhonePe</option>
+            <option value="Bank Transfer (NEFT/IMPS)">Bank Transfer (NEFT / IMPS)</option>
+            <option value="Cash">Cash</option>
+            <option value="Carried Forward to Next Rental">Carried Forward to Next Rental</option>
+          </select>
+        </div>
+
+        <div style="background:rgba(16, 185, 129, 0.1);border:1px solid rgba(16, 185, 129, 0.25);border-radius:var(--radius-sm);padding:10px 12px;display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+          <span style="font-weight:700;font-size:0.85rem;color:var(--status-ok)">Net Caution Deposit Refund:</span>
+          <span id="closeNetRefundDisplay" class="tnum" style="font-weight:800;font-size:1.1rem;color:var(--status-ok)">${fmtCurrency(deposit)}</span>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;font-weight:500">
+          <input type="checkbox" id="closeSendWaNotice" checked style="width:16px;height:16px">
+          <span>📱 Send Return &amp; Deposit Settlement Slip on WhatsApp</span>
+        </label>
+      </div>
+
       <div class="form-actions">
         <button class="btn btn-outline" onclick="UI.hideModal()">Cancel</button>
-        <button class="btn btn-danger" onclick="UI.closeRental('${rentalId}')">Confirm Return</button>
+        <button class="btn btn-danger" onclick="UI.closeRental('${rentalId}')">Confirm Return &amp; Settle</button>
       </div>`);
   },
 
   closeRental(rentalId) {
     const r = getRental(rentalId);
     if (!r) return;
-    const endDate = document.getElementById('closeEndDate').value;
+    const endDate = document.getElementById('closeEndDate')?.value;
     if (!endDate) { UI.showToast('Please select return date', 'error'); return; }
+
+    const depositHeld = r.securityDeposit || 0;
+    const deduction = Math.max(0, parseFloat(document.getElementById('closeDeductionAmount')?.value) || 0);
+    const deductionReason = (document.getElementById('closeDeductionReason')?.value || '').trim();
+    const refundMode = document.getElementById('closeRefundMode')?.value || 'UPI / GPay';
+    const sendWa = document.getElementById('closeSendWaNotice')?.checked;
+    const netRefund = Math.max(0, depositHeld - deduction);
+
     const nowIso = new Date().toISOString();
     r.status = 'closed';
     r.endDate = endDate;
     r.updatedAt = nowIso;
+    r.depositSettlement = {
+      depositHeld,
+      deduction,
+      deductionReason,
+      netRefund,
+      refundMode,
+      settledAt: endDate
+    };
+
     const item = getItem(r.itemId);
     if (item) {
       item.status = 'available';
@@ -4100,8 +4484,45 @@ const UI = {
     }
     Data.save();
     UI.hideModal();
-    UI.showToast('Rental closed — device returned to inventory', 'success');
+    UI.showToast('Rental closed & deposit settled', 'success');
     UI.renderAll();
+
+    if (sendWa) {
+      setTimeout(() => UI.sendDepositSettlementWa(rentalId), 300);
+    }
+  },
+
+  sendDepositSettlementWa(rentalId) {
+    const r = getRental(rentalId);
+    if (!r) return;
+    const c = getCustomer(r.customerId);
+    if (!c) return;
+    const item = getItem(r.itemId);
+    const itemTitle = getItemFullTitle(item);
+    const ds = r.depositSettlement || {
+      depositHeld: r.securityDeposit || 0,
+      deduction: 0,
+      deductionReason: '',
+      netRefund: r.securityDeposit || 0,
+      refundMode: 'UPI / Cash',
+      settledAt: r.endDate || today()
+    };
+
+    let msg = `*TechTrove Systems - Rental Return & Deposit Settlement*\n\n` +
+      `Hello ${c.name},\n` +
+      `Your rental agreement has been concluded and settled:\n\n` +
+      `• *Equipment Returned*: ${itemTitle} (SN: ${item ? item.serial : 'N/A'})\n` +
+      `• *Return Date*: ${fmtDate(ds.settledAt)}\n\n` +
+      `*Deposit & Settlement Statement:*\n` +
+      `• Caution Deposit Held: ${fmtCurrency(ds.depositHeld)}\n` +
+      (ds.deduction > 0 ? `• Damage/Maintenance Deduction: -${fmtCurrency(ds.deduction)}${ds.deductionReason ? ` (${ds.deductionReason})` : ''}\n` : `• Deductions: ₹0 (No damage)\n`) +
+      `--------------------------------\n` +
+      `*Net Caution Deposit Refund: ${fmtCurrency(ds.netRefund)}*\n` +
+      `• Settlement Mode: ${ds.refundMode}\n` +
+      `• Agreement Status: Closed & Fully Settled\n\n` +
+      `Thank you for partnering with TechTrove Systems!`;
+
+    openWhatsAppReminder(c.phone, msg);
   },
 
   /* MODALS: PAYMENTS */
