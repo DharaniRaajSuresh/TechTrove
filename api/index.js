@@ -201,23 +201,27 @@ function mergeState(serverState = {}, incomingState = {}) {
   let payments = mergeRecords(serverState.payments || [], incomingState.payments || [], deletedMap);
   let items = mergeRecords(serverState.items || [], incomingState.items || [], deletedMap);
 
-  // Deduplicate items by Asset Number (the physical primary key)
-  const seenAssets = new Map();
+  // Deduplicate items by Composite Primary Key (Asset Number + Serial Number)
+  const seenCompositeKeys = new Map();
   const dedupedItems = [];
   for (const it of items) {
     const assetKey = (it.assetNo || '').trim().toLowerCase();
-    if (assetKey) {
-      if (seenAssets.has(assetKey)) {
-        const existing = seenAssets.get(assetKey);
-        const existingTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
-        const itTime = new Date(it.updatedAt || it.createdAt || 0).getTime();
-        if (itTime >= existingTime) {
-          Object.assign(existing, it);
-        }
-        continue;
+    const serialKey = (it.serial || '').trim().toLowerCase();
+    // Primary composite key: assetNo + ":::" + serial
+    const compositeKey = (assetKey && serialKey)
+      ? `${assetKey}:::${serialKey}`
+      : (assetKey ? `asset:::${assetKey}` : (serialKey ? `serial:::${serialKey}` : `id:::${it.id}`));
+
+    if (seenCompositeKeys.has(compositeKey)) {
+      const existing = seenCompositeKeys.get(compositeKey);
+      const existingTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+      const itTime = new Date(it.updatedAt || it.createdAt || 0).getTime();
+      if (itTime >= existingTime) {
+        Object.assign(existing, it);
       }
-      seenAssets.set(assetKey, it);
+      continue;
     }
+    seenCompositeKeys.set(compositeKey, it);
     dedupedItems.push(it);
   }
   items = dedupedItems;

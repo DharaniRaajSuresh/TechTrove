@@ -4071,8 +4071,18 @@ const UI = {
     const finalAsset = assetNo || serial;
     const finalSerial = serial || assetNo;
 
-    // Check duplicate Asset Number in other inventory units
-    if (assetNo) {
+    // Check duplicate Composite Primary Key (Asset Number + Serial Number)
+    if (assetNo && serial) {
+      const dup = state.items.find(it => 
+        it.id !== id && 
+        it.assetNo && it.assetNo.trim().toLowerCase() === assetNo.toLowerCase() &&
+        it.serial && it.serial.trim().toLowerCase() === serial.toLowerCase()
+      );
+      if (dup) {
+        UI.showToast(`Device with Asset #${assetNo} & Serial #${serial} already exists (${dup.brand} ${dup.model})!`, 'error');
+        return;
+      }
+    } else if (assetNo) {
       const dup = state.items.find(it => it.id !== id && it.assetNo && it.assetNo.trim().toLowerCase() === assetNo.toLowerCase());
       if (dup) {
         UI.showToast(`Asset Number "${assetNo}" already exists on ${dup.brand} ${dup.model}!`, 'error');
@@ -5394,20 +5404,34 @@ function parseDeliveryChallanText(text) {
       model = 'Latitude 3420';
     }
 
-    // Clean Specs: Strip row numbers, pricing, serials, and table header text
-    let descLines = block.lines.map(l => {
-      return l.replace(/^\d+\s+(?:Rent|Rental)\s+(?:Laptop|Apple\s+)?/i, '')
-              .replace(/(?:Rent|Rental)\s+(?:Laptop|Apple\s+)?/i, '')
-              .replace(/^(?:#\s*)?(?:Item\s*&?\s*Description\s*)?(?:Qty\s+Rate\s+Amount\s*\d*|\d+\s+Qty\s+Rate\s+Amount)/i, '')
-              .replace(/Qty\s+Rate\s+Amount/gi, '')
-              .replace(/[\d,]+(?:\.\d+)?\s+[\d,]+(?:\.\d+)?\s+[\d,]+(?:\.\d+)?$/, '')
-              .trim();
-    }).filter(l => 
-      l.length > 0 &&
-      !/^(?:Serial\s*No|Asset\s*No|ASSETNO|Part\s*No)/i.test(l) &&
-      !/^(?:Sub\s*Total|Total|CGST|SGST|IGST)/i.test(l) &&
-      !/^(?:#|Item\s*&|Description|Qty|Rate|Amount)$/i.test(l)
-    );
+    // Clean Specs: Only use Column 1 & 2 (# and Item & Description). Strip Qty, Rate, Amount, and table numbers
+    let descLines = block.lines.map(line => {
+      let l = line.trim();
+      // Strip trailing Qty Rate Amount (e.g. "1.00 20,000.00 20,000.00" or "1.00 1,750.00 1,750.00")
+      l = l.replace(/\s+[\d,]+(?:\.\d+)?\s+[\d,]+(?:\.\d+)?\s+[\d,]+(?:\.\d+)?\s*$/, '');
+      l = l.replace(/\s+[\d,]+(?:\.\d+)?\s+[\d,]+(?:\.\d+)?\s*$/, '');
+      l = l.replace(/\s+[\d,]+\.\d{2}\s*$/, '');
+
+      // Strip row numbers, "Rent / Rental", and table headers
+      l = l.replace(/^\d+\s+(?:Rent|Rental)\s+(?:Laptop|Apple\s+)?/i, '')
+           .replace(/^(?:Rent|Rental)\s+(?:Laptop|Apple\s+)?/i, '')
+           .replace(/^(?:#\s*)?(?:Item\s*&?\s*Description\s*)?/i, '')
+           .trim();
+
+      return l;
+    }).filter(l => {
+      if (!l) return false;
+      // Discard any line that is purely numbers, amounts, or currency (e.g. "1.00", "20,000.00", "1,750.00")
+      if (/^[\s\d,.\-₹$/%]+$/.test(l)) return false;
+      // Discard table headers or financial summary lines
+      if (/^(?:#|Item\s*&|Description|Qty|Rate|Amount|Sub\s*Total|Total|CGST|SGST|IGST|Terms)/i.test(l)) return false;
+      // Discard serial, asset, or part numbers from specs (stored in dedicated fields)
+      if (/^(?:Serial\s*No|Asset\s*No|ASSETNO|AST\s*NO|SLNO|SL\s*NO|SR\s*NO|SN\b|Part\s*No)/i.test(l)) return false;
+      // Discard redundant brand/model names if already captured
+      if (l.toLowerCase() === `${brand} ${model}`.toLowerCase()) return false;
+      if (l.toLowerCase() === model.toLowerCase()) return false;
+      return true;
+    });
 
     let baseSpecs = descLines.join(' • ').replace(/\s+/g, ' ').trim();
     if (baseSpecs.length > 150) baseSpecs = baseSpecs.substring(0, 150) + '...';
@@ -5461,8 +5485,8 @@ function parseDeliveryChallanText(text) {
         type,
         serial: u.serial,
         assetNo: u.assetNo,
-        specs: u.assetNo ? `${baseSpecs} | Asset No: ${u.assetNo}` : baseSpecs,
-        rate: rate, // STRICT PRE-TAX BASE RATE
+        specs: baseSpecs, // STRICTLY CLEAN SPECS - NO RATES, NO AMOUNTS, NO EXTRA ASSET TAG IN SPECS
+        rate: rate, // STRICT PRE-TAX BASE RATE IN DEDICATED RATE FIELD
         status: 'rented'
       });
     });
@@ -5931,7 +5955,7 @@ UI.confirmDCImport = function() {
     cust.updatedAt = new Date().toISOString();
   }
 
-  // 2. Create or update items & rentals (Differentiated by Asset Number)
+  // 2. Create or update items & rentals (Composite Primary Key: Asset Number + Serial Number)
   let importedCount = 0;
   let updatedExistingCount = 0;
   let newlyAddedCount = 0;
@@ -5946,20 +5970,32 @@ UI.confirmDCImport = function() {
       if (item.serial) delete state._deleted[item.serial];
     }
 
-    // PRIMARY DIFFERENTIATOR: Match by Asset Number first!
+    // COMPOSITE PRIMARY KEY: Asset Number AND Serial Number act together as the single unique identifier
     let existing = null;
-    if (cleanAsset) {
-      existing = state.items.find(it => 
-        (it.assetNo && it.assetNo.trim().toLowerCase() === cleanAsset) ||
-        (it.serial && it.serial.trim().toLowerCase() === cleanAsset)
-      );
+    if (cleanAsset && cleanSerial) {
+      // 1. Both Asset Number and Serial Number match together
+      existing = state.items.find(it => {
+        const itAsset = (it.assetNo || '').trim().toLowerCase();
+        const itSerial = (it.serial || '').trim().toLowerCase();
+        return itAsset === cleanAsset && itSerial === cleanSerial;
+      });
     }
-    // Secondary match: Serial Number (if asset didn't match or was not in DC)
+
+    // 2. Fallback: If not matched by both together, check if an existing item has matching Asset or Serial
+    // where the other half was missing/generic, uniting them into the full composite key
+    if (!existing && cleanAsset) {
+      existing = state.items.find(it => {
+        const itAsset = (it.assetNo || '').trim().toLowerCase();
+        const itSerial = (it.serial || '').trim().toLowerCase();
+        return itAsset === cleanAsset && (!itSerial || itSerial.startsWith('dc-') || itSerial.startsWith('sn-') || itSerial === cleanAsset);
+      });
+    }
     if (!existing && cleanSerial) {
-      existing = state.items.find(it => 
-        (it.serial && it.serial.trim().toLowerCase() === cleanSerial) ||
-        (it.assetNo && it.assetNo.trim().toLowerCase() === cleanSerial)
-      );
+      existing = state.items.find(it => {
+        const itAsset = (it.assetNo || '').trim().toLowerCase();
+        const itSerial = (it.serial || '').trim().toLowerCase();
+        return itSerial === cleanSerial && (!itAsset || itAsset === cleanSerial);
+      });
     }
 
     let itemId;
@@ -5970,14 +6006,12 @@ UI.confirmDCImport = function() {
       existing.model = item.model || existing.model;
       existing.specs = item.specs || existing.specs;
       if (item.assetNo) existing.assetNo = item.assetNo;
-      if (item.serial && (!existing.serial || existing.serial.startsWith('DC-') || existing.serial.startsWith('SN-'))) {
-        existing.serial = item.serial;
-      }
+      if (item.serial) existing.serial = item.serial;
       existing.status = 'rented';
       existing.updatedAt = new Date().toISOString();
       updatedExistingCount++;
     } else {
-      // NEW FLEET PRODUCT: ADD TO INVENTORY
+      // NEW FLEET PRODUCT: ADD TO INVENTORY WITH COMPOSITE KEY
       itemId = 'item-' + Date.now().toString(36) + '-' + (i + 1);
       const newItem = {
         id: itemId,
@@ -6027,9 +6061,9 @@ UI.confirmDCImport = function() {
   Data.save();
   UI.hideModal();
   const summaryMsg = newlyAddedCount > 0 && updatedExistingCount > 0
-    ? `✓ ${currentParsedDC.challanNo}: ${newlyAddedCount} new unit(s) added, ${updatedExistingCount} existing recognized by Asset #!`
+    ? `✓ ${currentParsedDC.challanNo}: ${newlyAddedCount} new unit(s) added, ${updatedExistingCount} existing recognized by (Asset + Serial)!`
     : updatedExistingCount > 0
-    ? `✓ ${currentParsedDC.challanNo}: All ${updatedExistingCount} units recognized by Asset # & updated (no duplicates)!`
+    ? `✓ ${currentParsedDC.challanNo}: All ${updatedExistingCount} units recognized by (Asset + Serial) composite key & updated (0 duplicates)!`
     : `✓ ${currentParsedDC.challanNo}: ${newlyAddedCount} unit(s) imported!`;
   UI.showToast(summaryMsg, 'success');
 
