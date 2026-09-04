@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="manifest" href="manifest.json">
 <title>TechTrove Systems Rental Tracker</title>
-<link rel="stylesheet" href="styles.css?v=6.0-clean-slate">
+<link rel="stylesheet" href="styles.css?v=6.1-sync-dc-edit">
 </head>
 <body>
   <div id="splash" class="splash"><div class="spinner"></div></div>
@@ -186,7 +186,7 @@
 </div>
 
 <script src="vendor/pdf.min.js"></script>
-<script src="app.js?v=6.0-clean-slate"></script>
+<script src="app.js?v=6.1-sync-dc-edit"></script>
 <script>
 if ('serviceWorker' in navigator) {
   let refreshing = false;
@@ -196,7 +196,7 @@ if ('serviceWorker' in navigator) {
       window.location.reload();
     }
   });
-  navigator.serviceWorker.register('sw.js?v=6.0-clean-slate').then(function(reg) {
+  navigator.serviceWorker.register('sw.js?v=6.1-sync-dc-edit').then(function(reg) {
     reg.update();
   }).catch(function(){});
 }
