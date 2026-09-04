@@ -2,6 +2,17 @@
 const LOCAL_STORAGE_KEY = 'techtrove_state_v1';
 const PAYMENT_COLLECTORS = ['Suresh', 'Pragathi', 'Varusha', 'Dharani'];
 
+// Intelligent backend resolver: routes Android Capacitor native app directly to cloud server
+const API_BASE = (function() {
+  if (typeof window === 'undefined') return '';
+  const proto = window.location.protocol;
+  const host = window.location.hostname;
+  if (window.Capacitor || proto === 'capacitor:' || proto === 'file:' || host === 'localhost' || host === '127.0.0.1') {
+    return 'https://ttstts.vercel.app';
+  }
+  return '';
+})();
+
 const DEFAULT_SEED_ITEMS = [];
 const DEFAULT_SEED_CUSTOMERS = [];
 const DEFAULT_SEED_RENTALS = [];
@@ -583,7 +594,7 @@ const Auth = {
     const pw = (password || '').trim();
     if (!pw) return false;
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(API_BASE + '/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: pw })
@@ -600,7 +611,7 @@ const Auth = {
         this._role = role;
         return true;
       }
-      const res2 = await fetch('/api/login', {
+      const res2 = await fetch(API_BASE + '/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: pw })
@@ -676,9 +687,10 @@ const Data = {
   _saving: false,
   _dirty: false,
   async _fetch(url, opts = {}) {
+    const fullUrl = (url.startsWith('/api') && API_BASE) ? (API_BASE + url) : url;
     const defaultHeaders = Auth.header();
     const finalHeaders = { ...defaultHeaders, ...(opts.headers || {}) };
-    const res = await fetch(url, { ...opts, headers: finalHeaders, cache: 'no-store' });
+    const res = await fetch(fullUrl, { ...opts, headers: finalHeaders, cache: 'no-store' });
     if (res.status === 401) {
       console.warn('Unauthorized request to', url);
       if (!localStorage.getItem('tt_pass') && !localStorage.getItem('tt_token')) {
@@ -702,7 +714,8 @@ const Data = {
     if (this._saving) return;
     this._saving = true;
     this._dirty = false;
-    fetch('/api/data?t=' + Date.now(), {
+    const saveUrl = (API_BASE ? API_BASE : '') + '/api/data?t=' + Date.now();
+    fetch(saveUrl, {
       method: 'POST',
       headers: Auth.header(),
       cache: 'no-store',
@@ -5057,7 +5070,7 @@ function setupApp() {
 }
 
 /* AUTOMATIC INSTANT UPDATE CHECKER & CONTINUOUS BACKGROUND DATA SYNC */
-const CURRENT_BUILD_VERSION = 'v6.2-playwright-audit';
+const CURRENT_BUILD_VERSION = 'v6.3-tombstone-cascade';
 
 function initAutoUpdateChecker() {
   let checking = false;
@@ -5071,7 +5084,8 @@ function initAutoUpdateChecker() {
         if (reg) reg.update();
       }
 
-      const res = await fetch('/api/version?t=' + Date.now(), {
+      const versionUrl = (API_BASE ? API_BASE : '') + '/api/version?t=' + Date.now();
+      const res = await fetch(versionUrl, {
         headers: Auth.header(),
         cache: 'no-store'
       });

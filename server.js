@@ -28,6 +28,17 @@ const EMPLOYEE_PASSWORD = process.env.EMPLOYEE_PASSWORD || 'staff123';
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-password, Accept, Origin, X-Requested-With');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
+
 function setNoCache(res) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
@@ -37,6 +48,7 @@ function setNoCache(res) {
 
 /* Auth middleware for API routes */
 function requireAuth(req, res, next) {
+  if (req.method === 'OPTIONS') return next();
   const p = req.path || '';
   const orig = req.originalUrl || '';
   if (p === '/login' || p === '/auth/login' || p === '/health' || p === '/version' ||
