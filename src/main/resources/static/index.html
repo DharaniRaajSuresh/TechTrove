@@ -193,7 +193,8 @@
 </div>
 
 <script src="vendor/pdf.min.js"></script>
-<script src="app.js?v=6.1-sync-dc-edit"></script>
+<script src="vendor/xlsx.full.min.js"></script>
+<script src="app.js?v=6.4-excel-export-restore"></script>
 <script>
 if ('serviceWorker' in navigator) {
   let refreshing = false;
@@ -203,7 +204,7 @@ if ('serviceWorker' in navigator) {
       window.location.reload();
     }
   });
-  navigator.serviceWorker.register('sw.js?v=6.1-sync-dc-edit').then(function(reg) {
+  navigator.serviceWorker.register('sw.js?v=6.4-excel-export-restore').then(function(reg) {
     reg.update();
   }).catch(function(){});
 }

@@ -1065,23 +1065,112 @@ const Data = {
     }
   },
   exportJSON() {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `techtrove_backup_${today()}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    try {
+      const jsonStr = JSON.stringify(state, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const filename = `techtrove_backup_${today()}.json`;
+      const a = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 60000);
+      UI.showToast('Backup download initiated', 'success');
+      return true;
+    } catch(err) {
+      UI.showToast('Export failed: ' + err.message, 'error');
+      return false;
+    }
+  },
+  async shareJSON() {
+    try {
+      const jsonStr = JSON.stringify(state, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const filename = `techtrove_backup_${today()}.json`;
+      const file = new File([blob], filename, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'TechTrove Backup',
+          text: `TechTrove database snapshot (${today()})`
+        });
+        UI.showToast('✓ Backup shared successfully!', 'success');
+        return true;
+      } else {
+        return this.exportJSON();
+      }
+    } catch(err) {
+      if (err.name !== 'AbortError') {
+        UI.showToast('Share failed: ' + err.message, 'error');
+      }
+      return false;
+    }
+  },
+  async copyJSON() {
+    try {
+      const jsonStr = JSON.stringify(state, null, 2);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(jsonStr);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = jsonStr;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      UI.showToast('✓ Backup JSON copied to clipboard!', 'success');
+      return true;
+    } catch(err) {
+      UI.showToast('Copy failed: ' + err.message, 'error');
+      return false;
+    }
+  },
+  async restoreJSON(data) {
+    if (!data || !Array.isArray(data.customers) || !Array.isArray(data.items) || !Array.isArray(data.rentals) || !Array.isArray(data.payments)) {
+      throw new Error('Invalid snapshot structure: Missing required collections (customers, items, rentals, payments).');
+    }
+    UI.showLoading(true);
+    try {
+      const restoreUrl = (API_BASE ? API_BASE : '') + '/api/restore?t=' + Date.now();
+      const res = await this._fetch(restoreUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...Auth.header() },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        const resJson = await res.json();
+        state = resJson.state || data;
+      } else {
+        state = data;
+      }
+      state._deleted = data._deleted || {};
+      sanitizeFleetState();
+      try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+      UI.showToast('✓ Database restored successfully! Reloading...', 'success');
+      UI.renderAll();
+      UI.updateDueBanner();
+      setTimeout(() => {
+        window.location.reload();
+      }, 750);
+      return true;
+    } catch(err) {
+      UI.showToast('Restore failed: ' + err.message, 'error');
+      throw err;
+    } finally {
+      UI.showLoading(false);
+    }
   },
   importJSON(file) {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
         const d = JSON.parse(e.target.result);
-        if (!d.customers || !d.items || !d.rentals || !d.payments) throw new Error('Invalid format');
-        state = d;
-        Data.save();
-        UI.showToast('Data imported successfully', 'success');
-        UI.renderAll();
+        await this.restoreJSON(d);
       } catch(err) {
         UI.showToast('Invalid backup file: ' + err.message, 'error');
       }
@@ -1090,6 +1179,247 @@ const Data = {
   }
 };
 window.Data = Data;
+
+/* EXCEL EXPORT ENGINE */
+const ExcelEngine = {
+  buildWorkbook(targetState = state, sheetFilter = 'all') {
+    if (typeof XLSX === 'undefined') {
+      throw new Error('SheetJS XLSX library is not loaded');
+    }
+    const wb = XLSX.utils.book_new();
+    const customerMap = new Map((targetState.customers || []).map(c => [String(c.id), c]));
+    const itemMap = new Map((targetState.items || []).map(i => [String(i.id), i]));
+    const rentalByItem = new Map();
+    (targetState.rentals || []).forEach(r => {
+      const s = String(r.status || '').toLowerCase();
+      if (s === 'active' || s === 'overdue') rentalByItem.set(String(r.itemId), r);
+    });
+
+    const setAutoWidth = (sheet, rows) => {
+      if (!rows || !rows.length) return;
+      const colKeys = Object.keys(rows[0]);
+      sheet['!cols'] = colKeys.map(k => {
+        let maxLen = String(k).length;
+        for (const r of rows) {
+          const val = r[k] != null ? String(r[k]) : '';
+          if (val.length > maxLen) maxLen = Math.min(val.length, 50);
+        }
+        return { wch: Math.max(maxLen + 3, 12) };
+      });
+    };
+
+    // 1. Inventory Fleet
+    if (sheetFilter === 'all' || sheetFilter === 'inventory') {
+      const invRows = (targetState.items || []).map((it, idx) => {
+        const r = rentalByItem.get(String(it.id));
+        const cust = r ? customerMap.get(String(r.customerId)) : null;
+        const daily = Number(it.dailyRate) || 0;
+        const monthly = Math.round(daily * 26);
+        return {
+          'S.No': idx + 1,
+          'Asset No': it.assetNo || '-',
+          'Serial No': it.serial || '-',
+          'Device Title': it.title || '-',
+          'Category': (it.category || 'laptop').toUpperCase(),
+          'Specifications': it.specs || '-',
+          'Daily Rate (₹)': daily,
+          'Monthly Rate (₹)': monthly,
+          'Status': it.status === 'rented' ? 'RENTED' : (it.status === 'repair' ? 'IN REPAIR' : 'AVAILABLE'),
+          'Current Customer': cust ? cust.name : '-',
+          'Customer Phone': cust ? cust.phone : '-',
+          'Challan #': r ? (r.challanNo || '-') : '-',
+          'Return Date': r ? (r.expectedReturnDate || '-') : '-'
+        };
+      });
+      const invSheet = XLSX.utils.json_to_sheet(invRows.length ? invRows : [{ 'Notice': 'No inventory items recorded' }]);
+      setAutoWidth(invSheet, invRows);
+      XLSX.utils.book_append_sheet(wb, invSheet, 'Fleet Inventory');
+    }
+
+    // 2. Rentals & Challans
+    if (sheetFilter === 'all' || sheetFilter === 'rentals') {
+      const rentRows = (targetState.rentals || []).map((r, idx) => {
+        const cust = customerMap.get(String(r.customerId));
+        const it = itemMap.get(String(r.itemId));
+        const total = Number(r.totalAmount) || 0;
+        const paid = Number(r.paidAmount) || 0;
+        const bal = Math.max(0, total - paid);
+        return {
+          'S.No': idx + 1,
+          'Challan #': r.challanNo || `RNT-${String(r.id).slice(0,6)}`,
+          'Customer Name': cust ? cust.name : '-',
+          'Phone': cust ? cust.phone : '-',
+          'Company': cust?.company || '-',
+          'Device Name': it ? it.title : (r.itemTitle || '-'),
+          'Asset No': it?.assetNo || r.assetNo || '-',
+          'Serial No': it?.serial || r.serial || '-',
+          'Start Date': r.startDate || '-',
+          'Return Due Date': r.expectedReturnDate || '-',
+          'Daily Rate (₹)': Number(r.dailyRate) || 0,
+          'Total Amount (₹)': total,
+          'Paid Amount (₹)': paid,
+          'Balance Due (₹)': bal,
+          'Status': (r.status || 'active').toUpperCase(),
+          'Notes': r.notes || '-'
+        };
+      });
+      const rentSheet = XLSX.utils.json_to_sheet(rentRows.length ? rentRows : [{ 'Notice': 'No rentals recorded' }]);
+      setAutoWidth(rentSheet, rentRows);
+      XLSX.utils.book_append_sheet(wb, rentSheet, 'Rentals & Challans');
+    }
+
+    // 3. Customers
+    if (sheetFilter === 'all' || sheetFilter === 'customers') {
+      const custRows = (targetState.customers || []).map((c, idx) => {
+        const cRentals = (targetState.rentals || []).filter(r => String(r.customerId) === String(c.id));
+        const activeCount = cRentals.filter(r => {
+          const s = String(r.status || '').toLowerCase();
+          return s === 'active' || s === 'overdue';
+        }).length;
+        const totalVal = cRentals.reduce((sum, r) => sum + (Number(r.totalAmount) || 0), 0);
+        const totalPaid = cRentals.reduce((sum, r) => sum + (Number(r.paidAmount) || 0), 0);
+        return {
+          'S.No': idx + 1,
+          'Customer Name': c.name || '-',
+          'Phone': c.phone || '-',
+          'Email': c.email || '-',
+          'Company': c.company || '-',
+          'Address': c.address || '-',
+          'Active Rentals': activeCount,
+          'Lifetime Rentals': cRentals.length,
+          'Total Rent Value (₹)': totalVal,
+          'Total Paid (₹)': totalPaid,
+          'Outstanding Balance (₹)': Math.max(0, totalVal - totalPaid)
+        };
+      });
+      const custSheet = XLSX.utils.json_to_sheet(custRows.length ? custRows : [{ 'Notice': 'No customers recorded' }]);
+      setAutoWidth(custSheet, custRows);
+      XLSX.utils.book_append_sheet(wb, custSheet, 'Customers');
+    }
+
+    // 4. Payments
+    if (sheetFilter === 'all' || sheetFilter === 'payments') {
+      const payRows = (targetState.payments || []).map((p, idx) => {
+        const cust = customerMap.get(String(p.customerId));
+        const r = (targetState.rentals || []).find(rnt => String(rnt.id) === String(p.rentalId));
+        return {
+          'S.No': idx + 1,
+          'Payment Date': p.date || '-',
+          'Customer Name': cust ? cust.name : '-',
+          'Challan #': r?.challanNo || '-',
+          'Amount Paid (₹)': Number(p.amount) || 0,
+          'Method': (p.method || 'Cash').toUpperCase(),
+          'Notes / Reference': p.notes || '-'
+        };
+      });
+      const paySheet = XLSX.utils.json_to_sheet(payRows.length ? payRows : [{ 'Notice': 'No payments recorded' }]);
+      setAutoWidth(paySheet, payRows);
+      XLSX.utils.book_append_sheet(wb, paySheet, 'Payments Ledger');
+    }
+
+    // 5. Summary
+    if (sheetFilter === 'all') {
+      const totalFleet = (targetState.items || []).length;
+      const totalRented = (targetState.items || []).filter(i => i.status === 'rented').length;
+      const totalRepair = (targetState.items || []).filter(i => i.status === 'repair').length;
+      const totalAvailable = totalFleet - totalRented - totalRepair;
+      const totalCollections = (targetState.payments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const totalOutstanding = (targetState.rentals || []).reduce((sum, r) => {
+        const s = String(r.status || '').toLowerCase();
+        if (s === 'active' || s === 'overdue') {
+          return sum + Math.max(0, (Number(r.totalAmount) || 0) - (Number(r.paidAmount) || 0));
+        }
+        return sum;
+      }, 0);
+
+      const summaryRows = [
+        { 'Metric / KPI': 'Total Fleet Units', 'Value': totalFleet },
+        { 'Metric / KPI': 'Available Units in Stock', 'Value': totalAvailable },
+        { 'Metric / KPI': 'Currently on Rent', 'Value': totalRented },
+        { 'Metric / KPI': 'Under Repair / Maintenance', 'Value': totalRepair },
+        { 'Metric / KPI': 'Registered Clients', 'Value': (targetState.customers || []).length },
+        { 'Metric / KPI': 'Total Rentals / Challans', 'Value': (targetState.rentals || []).length },
+        { 'Metric / KPI': 'Total Payments Collected (₹)', 'Value': totalCollections },
+        { 'Metric / KPI': 'Current Outstanding Dues (₹)', 'Value': totalOutstanding },
+        { 'Metric / KPI': 'Report Generated At', 'Value': new Date().toLocaleString() }
+      ];
+      const sumSheet = XLSX.utils.json_to_sheet(summaryRows);
+      setAutoWidth(sumSheet, summaryRows);
+      XLSX.utils.book_append_sheet(wb, sumSheet, 'Executive Summary');
+    }
+
+    return wb;
+  },
+
+  downloadXLSX(sheetFilter = 'all') {
+    try {
+      const wb = this.buildWorkbook(state, sheetFilter);
+      const prefix = sheetFilter === 'all' ? 'Master_Report' : sheetFilter.toUpperCase();
+      const filename = `TechTrove_${prefix}_${today()}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      UI.showToast(`✓ Excel downloaded: ${filename}`, 'success');
+      return true;
+    } catch(err) {
+      UI.showToast('Excel export failed: ' + err.message, 'error');
+      return false;
+    }
+  },
+
+  async shareXLSX(sheetFilter = 'all') {
+    try {
+      const wb = this.buildWorkbook(state, sheetFilter);
+      const prefix = sheetFilter === 'all' ? 'Master_Report' : sheetFilter.toUpperCase();
+      const filename = `TechTrove_${prefix}_${today()}.xlsx`;
+      const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+      const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const file = new File([blob], filename, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `TechTrove ${prefix}`,
+          text: `TechTrove Rental Tracker Excel Report (${today()})`
+        });
+        UI.showToast('✓ Excel report shared!', 'success');
+        return true;
+      } else {
+        return this.downloadXLSX(sheetFilter);
+      }
+    } catch(err) {
+      if (err.name !== 'AbortError') {
+        UI.showToast('Share failed: ' + err.message, 'error');
+      }
+      return false;
+    }
+  },
+
+  downloadCSV(sheetFilter = 'inventory') {
+    try {
+      const wb = this.buildWorkbook(state, sheetFilter);
+      const sheetName = wb.SheetNames[0];
+      const sheet = wb.Sheets[sheetName];
+      const csv = XLSX.utils.sheet_to_csv(sheet);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const filename = `TechTrove_${sheetFilter}_${today()}.csv`;
+      const a = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 60000);
+      UI.showToast(`✓ CSV downloaded: ${filename}`, 'success');
+      return true;
+    } catch(err) {
+      UI.showToast('CSV export failed: ' + err.message, 'error');
+      return false;
+    }
+  }
+};
+window.ExcelEngine = ExcelEngine;
 
 /* UI LAYER */
 const UI = {
@@ -1722,10 +2052,16 @@ const UI = {
     <div class="desktop-split-pane">
       <!-- Left Pane: Search, Filter Rail, & List -->
       <div class="desktop-pane-list">
-        <!-- Top Live Search Bar -->
-        <div class="search-input-wrap">
-          <div class="search-icon-inside">${Icons.search}</div>
-          <input type="search" id="customerSearch" class="ops-search-input" placeholder="Search customers, phone, address..." value="${escHtml(q)}" oninput="UI.renderCustomers(this.value, '${filter}')">
+        <!-- Top Live Search Bar & Excel Export -->
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px">
+          <div class="search-input-wrap" style="flex:1;margin-bottom:0">
+            <div class="search-icon-inside">${Icons.search}</div>
+            <input type="search" id="customerSearch" class="ops-search-input" placeholder="Search customers, phone, address..." value="${escHtml(q)}" oninput="UI.renderCustomers(this.value, '${filter}')">
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="UI.showExcelExportModal('customers')" title="Extract Customers to Excel" style="display:flex;align-items:center;gap:6px;flex-shrink:0;height:42px;padding:0 12px;color:#107c41;border-color:#107c41">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+            <span style="font-size:0.78rem;font-weight:600">Excel</span>
+          </button>
         </div>
 
         <!-- Client Status Filter Pills -->
@@ -2279,6 +2615,10 @@ const UI = {
         <div class="search-icon-inside">${Icons.search}</div>
         <input type="text" id="inventorySearchInput" class="ops-search-input" placeholder="Search models, serials, specs..." value="${escHtml(query)}" oninput="UI.renderInventory(undefined, undefined, this.value)">
       </div>
+      <button class="btn btn-outline btn-sm" onclick="UI.showExcelExportModal('inventory')" title="Extract Inventory to Excel" style="display:flex;align-items:center;gap:6px;flex-shrink:0;height:42px;padding:0 12px;color:#107c41;border-color:#107c41">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+        <span style="font-size:0.78rem;font-weight:600">Excel</span>
+      </button>
       <button class="btn btn-outline btn-sm" onclick="Data.forceCloudSync(true)" title="Force sync with cloud database" style="display:flex;align-items:center;gap:6px;flex-shrink:0;height:42px;padding:0 12px">
         ${Icons.refresh}
         <span style="font-size:0.78rem">Sync</span>
@@ -3128,27 +3468,37 @@ const UI = {
         </div>
         <div class="ops-setting-chevron" style="color:var(--status-ok)">${Icons.chevronRight}</div>
       </div>
-      <div class="ops-setting-row" id="exportBackupRow" onclick="UI.handleExportBackup(this)">
+      <div class="ops-setting-row" onclick="UI.showExcelExportModal()">
         <div class="ops-setting-main">
-          <div class="ops-setting-icon">${Icons.download}</div>
-
-          <div>
-            <div class="ops-setting-title">Export database snapshot</div>
-            <div class="ops-setting-sub">Download complete JSON archive of clients, inventory &amp; payments</div>
+          <div class="ops-setting-icon" style="color:#107c41">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
           </div>
-        </div>
-        <div class="ops-setting-chevron" id="exportBackupStatus">${Icons.chevronRight}</div>
-      </div>
-      <div class="ops-setting-row" onclick="document.getElementById('moreImportFile').click()">
-        <div class="ops-setting-main">
-          <div class="ops-setting-icon">${Icons.upload}</div>
           <div>
-            <div class="ops-setting-title">Restore database from backup</div>
-            <div class="ops-setting-sub">Upload a previously saved TechTrove JSON snapshot file</div>
+            <div class="ops-setting-title" style="font-weight:700">Extract to Excel spreadsheet (.xlsx)</div>
+            <div class="ops-setting-sub">Export multi-sheet report of fleet inventory, rentals, clients, payments &amp; financial summary</div>
           </div>
         </div>
         <div class="ops-setting-chevron">${Icons.chevronRight}</div>
-        <input type="file" id="moreImportFile" accept=".json" style="display:none" onchange="UI.handleImport(this)">
+      </div>
+      <div class="ops-setting-row" id="exportBackupRow" onclick="UI.showExportBackupModal()">
+        <div class="ops-setting-main">
+          <div class="ops-setting-icon">${Icons.download}</div>
+          <div>
+            <div class="ops-setting-title">Export database snapshot</div>
+            <div class="ops-setting-sub">Download complete JSON archive, share to WhatsApp/Drive, or copy to clipboard</div>
+          </div>
+        </div>
+        <div class="ops-setting-chevron">${Icons.chevronRight}</div>
+      </div>
+      <div class="ops-setting-row" onclick="UI.showRestoreModal()">
+        <div class="ops-setting-main">
+          <div class="ops-setting-icon" style="color:var(--status-danger)">${Icons.upload}</div>
+          <div>
+            <div class="ops-setting-title" style="color:var(--status-danger);font-weight:700">Restore database from backup</div>
+            <div class="ops-setting-sub">Upload snapshot file or paste JSON to authoritatively restore system</div>
+          </div>
+        </div>
+        <div class="ops-setting-chevron" style="color:var(--status-danger)">${Icons.chevronRight}</div>
       </div>
     </div>
 
@@ -3175,7 +3525,7 @@ const UI = {
         <div class="ops-setting-main">
           <div class="ops-setting-icon" style="color:var(--status-ok)">${Icons.download}</div>
           <div>
-            <div class="ops-setting-title">Download latest APK file (v1.8)</div>
+            <div class="ops-setting-title">Download latest APK file (v1.9)</div>
             <div class="ops-setting-sub">1-tap direct download for manual install or sharing with other devices</div>
           </div>
         </div>
@@ -3195,26 +3545,329 @@ const UI = {
     </div>
 
     <div style="text-align:center;padding:12px 0 20px;font-size:0.74rem;color:var(--text-dim)">
-      TechTrove Systems &middot; Terminal v1.8 (Cloud Auto-Sync)
+      TechTrove Systems &middot; Terminal v1.9 (Cloud Auto-Sync)
     </div>`;
 
     document.getElementById('page-more').innerHTML = html;
   },
 
-  handleExportBackup(rowEl) {
-    const statusEl = document.getElementById('exportBackupStatus');
-    if (statusEl) {
-      statusEl.innerHTML = `<span style="color:var(--accent);font-size:0.75rem">Exporting...</span>`;
+  /* MODAL: EXCEL EXTRACTION */
+  showExcelExportModal(initialSelection = 'all') {
+    const totalFleet = (state.items || []).length;
+    const totalRentals = (state.rentals || []).length;
+    const totalCust = (state.customers || []).length;
+
+    const html = `
+      <div class="modal-header">
+        <div>
+          <h2>Extract to Excel (.xlsx)</h2>
+          <p class="modal-sub">Generate formatted spreadsheets with auto-sized columns &amp; KPI analytics</p>
+        </div>
+        <button class="modal-close" onclick="UI.hideModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding:16px 20px">
+        <label class="form-label" style="margin-bottom:8px;font-weight:700">Select Dataset to Extract:</label>
+        <div style="display:grid;grid-template-columns:1fr;gap:8px;margin-bottom:16px">
+          <label class="ops-radio-card ${initialSelection === 'all' ? 'active' : ''}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--card-bg)">
+            <input type="radio" name="excelTarget" value="all" ${initialSelection === 'all' ? 'checked' : ''} onchange="UI._updateExcelSelection(this)" style="accent-color:var(--accent)">
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:0.9rem">📗 Full Master Workbook (5 Sheets)</div>
+              <div style="font-size:0.75rem;color:var(--text-dim)">Includes Fleet Inventory, Rentals, Clients, Payments &amp; Summary</div>
+            </div>
+            <span class="badge badge-success" style="font-size:0.72rem">All Data</span>
+          </label>
+
+          <label class="ops-radio-card ${initialSelection === 'inventory' ? 'active' : ''}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--card-bg)">
+            <input type="radio" name="excelTarget" value="inventory" ${initialSelection === 'inventory' ? 'checked' : ''} onchange="UI._updateExcelSelection(this)" style="accent-color:var(--accent)">
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:0.9rem">💻 Equipment Fleet Inventory Only</div>
+              <div style="font-size:0.75rem;color:var(--text-dim)">Asset #, Serial #, Brand/Model, Specs, Rates &amp; Current Location</div>
+            </div>
+            <span class="badge" style="font-size:0.72rem">${totalFleet} Units</span>
+          </label>
+
+          <label class="ops-radio-card ${initialSelection === 'rentals' ? 'active' : ''}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--card-bg)">
+            <input type="radio" name="excelTarget" value="rentals" ${initialSelection === 'rentals' ? 'checked' : ''} onchange="UI._updateExcelSelection(this)" style="accent-color:var(--accent)">
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:0.9rem">📄 Rentals &amp; Challans Only</div>
+              <div style="font-size:0.75rem;color:var(--text-dim)">Challan #, Customer Name, Dates, Rates, Balances &amp; Status</div>
+            </div>
+            <span class="badge" style="font-size:0.72rem">${totalRentals} Rentals</span>
+          </label>
+
+          <label class="ops-radio-card ${initialSelection === 'customers' ? 'active' : ''}" style="display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--card-bg)">
+            <input type="radio" name="excelTarget" value="customers" ${initialSelection === 'customers' ? 'checked' : ''} onchange="UI._updateExcelSelection(this)" style="accent-color:var(--accent)">
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:0.9rem">👥 Customers Directory Only</div>
+              <div style="font-size:0.75rem;color:var(--text-dim)">Contact details, company, rental volume &amp; total revenue</div>
+            </div>
+            <span class="badge" style="font-size:0.72rem">${totalCust} Clients</span>
+          </label>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-primary btn-block" style="padding:12px;font-size:0.92rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px" onclick="UI.executeExcelExport('download')">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+            <span>Download Excel Workbook (.xlsx)</span>
+          </button>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button class="btn btn-outline" style="padding:10px;font-size:0.84rem;display:flex;align-items:center;justify-content:center;gap:6px" onclick="UI.executeExcelExport('share')">
+              ${Icons.share || Icons.whatsapp}
+              <span>Share File (Drive / WA)</span>
+            </button>
+            <button class="btn btn-outline" style="padding:10px;font-size:0.84rem;display:flex;align-items:center;justify-content:center;gap:6px" onclick="UI.executeExcelExport('csv')">
+              ${Icons.fileText}
+              <span>Export as CSV</span>
+            </button>
+          </div>
+          <button class="btn btn-micro" style="margin-top:4px;padding:6px;font-size:0.76rem;color:var(--text-dim);background:none;border:none" onclick="UI.executeExcelExport('cloud')">
+            ☁️ Cloud direct download fallback
+          </button>
+        </div>
+      </div>`;
+    this.showModal(html);
+  },
+
+  _updateExcelSelection(radioEl) {
+    document.querySelectorAll('.ops-radio-card').forEach(card => card.classList.remove('active'));
+    radioEl.closest('.ops-radio-card')?.classList.add('active');
+  },
+
+  executeExcelExport(action = 'download') {
+    const target = document.querySelector('input[name="excelTarget"]:checked')?.value || 'all';
+    if (action === 'cloud') {
+      const token = localStorage.getItem('tt_token') || 'admin-token';
+      const url = (API_BASE ? API_BASE : '') + `/api/export-excel?token=${encodeURIComponent(token)}`;
+      window.open(url, '_blank');
+      this.hideModal();
+      return;
     }
-    setTimeout(() => {
-      Data.exportJSON();
-      if (statusEl) {
-        statusEl.innerHTML = `<span style="color:var(--status-ok)">${Icons.check}</span>`;
-        setTimeout(() => {
-          statusEl.innerHTML = Icons.chevronRight;
-        }, 1200);
+    if (action === 'csv') {
+      ExcelEngine.downloadCSV(target === 'all' ? 'inventory' : target);
+      this.hideModal();
+      return;
+    }
+    if (action === 'share') {
+      ExcelEngine.shareXLSX(target);
+      this.hideModal();
+      return;
+    }
+    ExcelEngine.downloadXLSX(target);
+    this.hideModal();
+  },
+
+  /* MODAL: EXPORT DATABASE SNAPSHOT */
+  showExportBackupModal() {
+    const totalFleet = (state.items || []).length;
+    const totalRentals = (state.rentals || []).length;
+    const totalCust = (state.customers || []).length;
+    const totalPay = (state.payments || []).length;
+
+    const html = `
+      <div class="modal-header">
+        <div>
+          <h2>Export Database Snapshot</h2>
+          <p class="modal-sub">Create a complete JSON archive of your system data</p>
+        </div>
+        <button class="modal-close" onclick="UI.hideModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding:16px 20px">
+        <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px">
+          <div style="font-size:0.8rem;font-weight:700;color:var(--text-dim);margin-bottom:8px">CURRENT DATABASE CONTENTS:</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div style="font-size:0.86rem;font-weight:600">📦 Devices: <span style="color:var(--accent)">${totalFleet}</span></div>
+            <div style="font-size:0.86rem;font-weight:600">👥 Clients: <span style="color:var(--accent)">${totalCust}</span></div>
+            <div style="font-size:0.86rem;font-weight:600">📄 Rentals: <span style="color:var(--accent)">${totalRentals}</span></div>
+            <div style="font-size:0.86rem;font-weight:600">💳 Payments: <span style="color:var(--accent)">${totalPay}</span></div>
+          </div>
+          <div style="margin-top:10px;font-size:0.75rem;color:var(--text-dim)">
+            Snapshot date: ${today()} &middot; Complete disaster recovery archive
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-primary btn-block" style="padding:12px;font-size:0.92rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px" onclick="Data.exportJSON();UI.hideModal()">
+            ${Icons.download}
+            <span>Download Backup File (.json)</span>
+          </button>
+          <button class="btn btn-outline btn-block" style="padding:10px;font-size:0.88rem;display:flex;align-items:center;justify-content:center;gap:8px" onclick="Data.shareJSON();UI.hideModal()">
+            ${Icons.share || Icons.whatsapp}
+            <span>Share Snapshot (WhatsApp / Drive / Files)</span>
+          </button>
+          <button class="btn btn-outline btn-block" style="padding:10px;font-size:0.88rem;display:flex;align-items:center;justify-content:center;gap:8px" onclick="Data.copyJSON()">
+            ${Icons.copy || Icons.fileText}
+            <span>Copy Raw JSON to Clipboard</span>
+          </button>
+          <button class="btn btn-micro" style="margin-top:4px;padding:6px;font-size:0.76rem;color:var(--text-dim);background:none;border:none" onclick="window.open((API_BASE?API_BASE:'') + '/api/backup?token=' + (localStorage.getItem('tt_token') || 'admin-token'), '_blank');UI.hideModal()">
+            ☁️ Direct download from cloud server
+          </button>
+        </div>
+      </div>`;
+    this.showModal(html);
+  },
+
+  /* MODAL: RESTORE DATABASE FROM BACKUP */
+  showRestoreModal() {
+    const html = `
+      <div class="modal-header">
+        <div>
+          <h2 style="color:var(--status-danger)">Restore Database from Backup</h2>
+          <p class="modal-sub">Authoritatively replace system data from a previously saved JSON snapshot</p>
+        </div>
+        <button class="modal-close" onclick="UI.hideModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="padding:16px 20px">
+        <div style="background:rgba(239, 68, 68, 0.1);border:1px solid rgba(239, 68, 68, 0.3);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:0.82rem;color:var(--status-danger);line-height:1.4">
+          ⚠️ <strong>Authoritative Restore:</strong> This will replace all current inventory, customers, rentals, and payments with the uploaded snapshot.
+        </div>
+
+        <!-- Restore Input Tabs -->
+        <div style="display:flex;border-bottom:1px solid var(--border);margin-bottom:12px">
+          <button type="button" id="tabRestoreFileBtn" class="ops-tab-btn active" style="flex:1;padding:8px;font-size:0.84rem;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--accent);color:var(--text-bright)" onclick="UI.switchRestoreTab('file')">
+            📁 Upload JSON File
+          </button>
+          <button type="button" id="tabRestoreTextBtn" class="ops-tab-btn" style="flex:1;padding:8px;font-size:0.84rem;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-dim)" onclick="UI.switchRestoreTab('text')">
+            📋 Paste Backup JSON
+          </button>
+        </div>
+
+        <!-- Tab 1: File Upload -->
+        <div id="restoreFileContainer">
+          <label for="restoreFileInput" style="display:block;border:2px dashed var(--border);border-radius:10px;padding:24px 16px;text-align:center;cursor:pointer;background:var(--card-bg)">
+            <div style="font-size:2rem;margin-bottom:6px">📁</div>
+            <div style="font-weight:700;font-size:0.88rem">Choose or drop JSON backup file</div>
+            <div style="font-size:0.75rem;color:var(--text-dim);margin-top:4px">Accepts .json snapshot archives</div>
+            <input type="file" id="restoreFileInput" accept=".json,application/json,text/plain,*/*" style="display:none" onchange="UI.handleRestoreFile(this)">
+          </label>
+        </div>
+
+        <!-- Tab 2: Paste JSON -->
+        <div id="restoreTextContainer" style="display:none">
+          <textarea id="restoreJsonText" placeholder="Paste your backup JSON code here..." style="width:100%;height:140px;background:var(--input-bg);border:1px solid var(--border);border-radius:8px;padding:10px;font-family:monospace;font-size:0.75rem;color:var(--text-bright);resize:vertical" oninput="UI.handleRestoreTextInput(this)"></textarea>
+        </div>
+
+        <!-- Preview & Verification Panel -->
+        <div id="restorePreviewPanel" style="display:none;margin-top:14px;background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+          <div style="display:flex;align-items:center;gap:6px;font-size:0.82rem;font-weight:700;color:var(--status-ok)">
+            ${Icons.check} Valid snapshot recognized
+          </div>
+          <div id="restorePreviewStats" style="margin-top:8px;font-size:0.82rem;line-height:1.5"></div>
+        </div>
+
+        <div style="margin-top:16px;display:flex;gap:8px">
+          <button class="btn btn-outline" style="flex:1" onclick="UI.hideModal()">Cancel</button>
+          <button class="btn btn-danger" id="restoreExecuteBtn" style="flex:2;padding:12px;font-weight:700" disabled onclick="UI.executeRestore()">
+            ⚠️ Restore &amp; Overwrite Database
+          </button>
+        </div>
+      </div>`;
+    this.showModal(html);
+    this._pendingRestoreData = null;
+  },
+
+  switchRestoreTab(tab) {
+    const fileContainer = document.getElementById('restoreFileContainer');
+    const textContainer = document.getElementById('restoreTextContainer');
+    const fileBtn = document.getElementById('tabRestoreFileBtn');
+    const textBtn = document.getElementById('tabRestoreTextBtn');
+
+    if (tab === 'file') {
+      if (fileContainer) fileContainer.style.display = 'block';
+      if (textContainer) textContainer.style.display = 'none';
+      if (fileBtn) { fileBtn.style.borderBottom = '2px solid var(--accent)'; fileBtn.style.color = 'var(--text-bright)'; }
+      if (textBtn) { textBtn.style.borderBottom = '2px solid transparent'; textBtn.style.color = 'var(--text-dim)'; }
+    } else {
+      if (fileContainer) fileContainer.style.display = 'none';
+      if (textContainer) textContainer.style.display = 'block';
+      if (textBtn) { textBtn.style.borderBottom = '2px solid var(--accent)'; textBtn.style.color = 'var(--text-bright)'; }
+      if (fileBtn) { fileBtn.style.borderBottom = '2px solid transparent'; fileBtn.style.color = 'var(--text-dim)'; }
+    }
+  },
+
+  handleRestoreFile(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      this._parseAndVerifyRestore(e.target.result, file.name);
+    };
+    reader.readAsText(file);
+  },
+
+  handleRestoreTextInput(textarea) {
+    const text = (textarea.value || '').trim();
+    if (!text) {
+      this._clearRestorePreview();
+      return;
+    }
+    this._parseAndVerifyRestore(text, 'Pasted JSON');
+  },
+
+  _parseAndVerifyRestore(jsonString, sourceName = 'File') {
+    const previewPanel = document.getElementById('restorePreviewPanel');
+    const statsEl = document.getElementById('restorePreviewStats');
+    const executeBtn = document.getElementById('restoreExecuteBtn');
+
+    try {
+      const data = JSON.parse(jsonString);
+      if (!Array.isArray(data.customers) || !Array.isArray(data.items) || !Array.isArray(data.rentals) || !Array.isArray(data.payments)) {
+        throw new Error('Missing required data collections (customers, items, rentals, payments)');
       }
-    }, 200);
+      this._pendingRestoreData = data;
+      if (previewPanel && statsEl) {
+        previewPanel.style.display = 'block';
+        previewPanel.style.borderColor = 'var(--status-ok)';
+        statsEl.innerHTML = `
+          <div><strong>Source:</strong> ${escHtml(sourceName)}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px">
+            <div>📦 <strong>${data.items.length}</strong> Devices</div>
+            <div>👥 <strong>${data.customers.length}</strong> Clients</div>
+            <div>📄 <strong>${data.rentals.length}</strong> Rentals</div>
+            <div>💳 <strong>${data.payments.length}</strong> Payments</div>
+          </div>
+        `;
+      }
+      if (executeBtn) {
+        executeBtn.disabled = false;
+        executeBtn.classList.remove('btn-disabled');
+      }
+    } catch(err) {
+      this._pendingRestoreData = null;
+      if (previewPanel && statsEl) {
+        previewPanel.style.display = 'block';
+        previewPanel.style.borderColor = 'var(--status-danger)';
+        statsEl.innerHTML = `<span style="color:var(--status-danger)">❌ Invalid snapshot: ${escHtml(err.message)}</span>`;
+      }
+      if (executeBtn) {
+        executeBtn.disabled = true;
+      }
+    }
+  },
+
+  _clearRestorePreview() {
+    this._pendingRestoreData = null;
+    const previewPanel = document.getElementById('restorePreviewPanel');
+    const executeBtn = document.getElementById('restoreExecuteBtn');
+    if (previewPanel) previewPanel.style.display = 'none';
+    if (executeBtn) executeBtn.disabled = true;
+  },
+
+  async executeRestore() {
+    if (!this._pendingRestoreData) return;
+    const data = this._pendingRestoreData;
+    this.showConfirm(
+      `Are you ABSOLUTELY sure you want to restore <strong>${data.items.length} devices</strong>, <strong>${data.customers.length} clients</strong> and <strong>${data.rentals.length} rentals</strong>? Current data will be replaced.`,
+      async () => {
+        try {
+          await Data.restoreJSON(data);
+          UI.hideModal();
+        } catch(e) {}
+      }
+    );
+  },
+
+  handleExportBackup(rowEl) {
+    this.showExportBackupModal();
   },
 
   showLogoutConfirm() {
@@ -5059,12 +5712,12 @@ const UI = {
   },
 
   handleImport(input) {
-    if (input.files && input.files[0]) {
-      UI.showConfirm('Restoring will replace all current data with the backup file. Proceed?', () => {
-        Data.importJSON(input.files[0]);
-        input.value = '';
-        UI.hideModal();
-      });
+    if (input && input.files && input.files[0]) {
+      this.showRestoreModal();
+      this.handleRestoreFile(input);
+      input.value = '';
+    } else {
+      this.showRestoreModal();
     }
   }
 };

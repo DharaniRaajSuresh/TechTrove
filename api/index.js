@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const XLSX = require('xlsx');
 
 const app = express();
 const UPSTASH_KEY = 'techtrove:data';
@@ -40,10 +41,11 @@ function requireAuth(req, res, next) {
   }
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : '';
-  const pw = String(req.headers['x-password'] || req.body?.password || token || '').trim();
+  const queryToken = req.query?.token || req.query?.key || '';
+  const pw = String(req.headers['x-password'] || req.body?.password || token || queryToken || '').trim();
 
-  const isAdmin = pw === 'rent123' || pw === 'admin123' || pw === ADMIN_PASSWORD || token === 'admin-token';
-  const isEmployee = pw === 'staff123' || pw === 'emp123' || pw === 'team123' || pw === EMPLOYEE_PASSWORD || token === 'employee-token';
+  const isAdmin = pw === 'rent123' || pw === 'admin123' || pw === ADMIN_PASSWORD || token === 'admin-token' || queryToken === 'admin-token';
+  const isEmployee = pw === 'staff123' || pw === 'emp123' || pw === 'team123' || pw === EMPLOYEE_PASSWORD || token === 'employee-token' || queryToken === 'employee-token';
 
   if (isAdmin) {
     req.userRole = 'admin';
@@ -276,13 +278,14 @@ app.post('/api/auth/login', handleLogin);
 app.get('/api/version', (req, res) => {
   setNoCache(res);
   res.json({
-    version: '1.8',
-    versionCode: 9,
-    releaseDate: '2026-09-04',
+    version: '1.9',
+    versionCode: 10,
+    releaseDate: '2026-09-05',
     features: [
-      'Asset Number Primary Key Deduplication',
-      'Native Device Contacts Autocomplete',
-      'Live Cloud Auto-Sync Active'
+      'Excel Multi-Sheet Workbook Extraction (.xlsx & .csv)',
+      'Reliable Database Snapshot Export & Sharing',
+      'Authoritative Database Restore Engine',
+      'Asset Number + Serial Number Primary Key'
     ],
     apkDownloadUrl: 'https://ttstts.vercel.app/TechTrove-Rental-Tracker.apk',
     timestamp: Date.now()
@@ -308,6 +311,229 @@ app.post('/api/data', async (req, res) => {
 
   // Return authoritative merged state back to caller
   res.json({ success: true, state: mergedState, rev: mergedState.rev });
+});
+
+/* Comprehensive Multi-Sheet Excel Generator */
+function buildExcelWorkbook(state) {
+  const wb = XLSX.utils.book_new();
+
+  const customerMap = new Map((state.customers || []).map(c => [String(c.id), c]));
+  const itemMap = new Map((state.items || []).map(i => [String(i.id), i]));
+  const rentalByItem = new Map();
+  (state.rentals || []).forEach(r => {
+    const s = String(r.status || '').toLowerCase();
+    if (s === 'active' || s === 'overdue') rentalByItem.set(String(r.itemId), r);
+  });
+
+  const setAutoWidth = (sheet, rows) => {
+    if (!rows || !rows.length) return;
+    const colKeys = Object.keys(rows[0]);
+    sheet['!cols'] = colKeys.map(k => {
+      let maxLen = String(k).length;
+      for (const r of rows) {
+        const val = r[k] != null ? String(r[k]) : '';
+        if (val.length > maxLen) maxLen = Math.min(val.length, 50);
+      }
+      return { wch: Math.max(maxLen + 3, 12) };
+    });
+  };
+
+  // 1. Inventory Fleet
+  const invRows = (state.items || []).map((it, idx) => {
+    const r = rentalByItem.get(String(it.id));
+    const cust = r ? customerMap.get(String(r.customerId)) : null;
+    const daily = Number(it.dailyRate) || 0;
+    const monthly = Math.round(daily * 26);
+    return {
+      'S.No': idx + 1,
+      'Asset No': it.assetNo || '-',
+      'Serial No': it.serial || '-',
+      'Device Title': it.title || '-',
+      'Category': (it.category || 'laptop').toUpperCase(),
+      'Specifications': it.specs || '-',
+      'Daily Rate (₹)': daily,
+      'Monthly Rate (₹)': monthly,
+      'Status': it.status === 'rented' ? 'RENTED' : (it.status === 'repair' ? 'IN REPAIR' : 'AVAILABLE'),
+      'Current Customer': cust ? cust.name : '-',
+      'Customer Phone': cust ? cust.phone : '-',
+      'Challan #': r ? (r.challanNo || '-') : '-',
+      'Return Date': r ? (r.expectedReturnDate || '-') : '-'
+    };
+  });
+  const invSheet = XLSX.utils.json_to_sheet(invRows.length ? invRows : [{ 'Notice': 'No inventory items recorded' }]);
+  setAutoWidth(invSheet, invRows);
+  XLSX.utils.book_append_sheet(wb, invSheet, 'Fleet Inventory');
+
+  // 2. Rentals & Challans
+  const rentRows = (state.rentals || []).map((r, idx) => {
+    const cust = customerMap.get(String(r.customerId));
+    const it = itemMap.get(String(r.itemId));
+    const total = Number(r.totalAmount) || 0;
+    const paid = Number(r.paidAmount) || 0;
+    const bal = Math.max(0, total - paid);
+    return {
+      'S.No': idx + 1,
+      'Challan #': r.challanNo || `RNT-${r.id.slice(0,6)}`,
+      'Customer Name': cust ? cust.name : '-',
+      'Phone': cust ? cust.phone : '-',
+      'Company': cust?.company || '-',
+      'Device Name': it ? it.title : (r.itemTitle || '-'),
+      'Asset No': it?.assetNo || r.assetNo || '-',
+      'Serial No': it?.serial || r.serial || '-',
+      'Start Date': r.startDate || '-',
+      'Return Due Date': r.expectedReturnDate || '-',
+      'Daily Rate (₹)': Number(r.dailyRate) || 0,
+      'Total Amount (₹)': total,
+      'Paid Amount (₹)': paid,
+      'Balance Due (₹)': bal,
+      'Status': (r.status || 'active').toUpperCase(),
+      'Notes': r.notes || '-'
+    };
+  });
+  const rentSheet = XLSX.utils.json_to_sheet(rentRows.length ? rentRows : [{ 'Notice': 'No rentals recorded' }]);
+  setAutoWidth(rentSheet, rentRows);
+  XLSX.utils.book_append_sheet(wb, rentSheet, 'Rentals & Challans');
+
+  // 3. Customers
+  const custRows = (state.customers || []).map((c, idx) => {
+    const cRentals = (state.rentals || []).filter(r => String(r.customerId) === String(c.id));
+    const activeCount = cRentals.filter(r => {
+      const s = String(r.status || '').toLowerCase();
+      return s === 'active' || s === 'overdue';
+    }).length;
+    const totalVal = cRentals.reduce((sum, r) => sum + (Number(r.totalAmount) || 0), 0);
+    const totalPaid = cRentals.reduce((sum, r) => sum + (Number(r.paidAmount) || 0), 0);
+    return {
+      'S.No': idx + 1,
+      'Customer Name': c.name || '-',
+      'Phone': c.phone || '-',
+      'Email': c.email || '-',
+      'Company': c.company || '-',
+      'Address': c.address || '-',
+      'Active Rentals': activeCount,
+      'Lifetime Rentals': cRentals.length,
+      'Total Rent Value (₹)': totalVal,
+      'Total Paid (₹)': totalPaid,
+      'Outstanding Balance (₹)': Math.max(0, totalVal - totalPaid)
+    };
+  });
+  const custSheet = XLSX.utils.json_to_sheet(custRows.length ? custRows : [{ 'Notice': 'No customers recorded' }]);
+  setAutoWidth(custSheet, custRows);
+  XLSX.utils.book_append_sheet(wb, custSheet, 'Customers');
+
+  // 4. Payments
+  const payRows = (state.payments || []).map((p, idx) => {
+    const cust = customerMap.get(String(p.customerId));
+    const r = (state.rentals || []).find(rnt => String(rnt.id) === String(p.rentalId));
+    return {
+      'S.No': idx + 1,
+      'Payment Date': p.date || '-',
+      'Customer Name': cust ? cust.name : '-',
+      'Challan #': r?.challanNo || '-',
+      'Amount Paid (₹)': Number(p.amount) || 0,
+      'Method': (p.method || 'Cash').toUpperCase(),
+      'Notes / Reference': p.notes || '-'
+    };
+  });
+  const paySheet = XLSX.utils.json_to_sheet(payRows.length ? payRows : [{ 'Notice': 'No payments recorded' }]);
+  setAutoWidth(paySheet, payRows);
+  XLSX.utils.book_append_sheet(wb, paySheet, 'Payments Ledger');
+
+  // 5. Summary
+  const totalFleet = (state.items || []).length;
+  const totalRented = (state.items || []).filter(i => i.status === 'rented').length;
+  const totalRepair = (state.items || []).filter(i => i.status === 'repair').length;
+  const totalAvailable = totalFleet - totalRented - totalRepair;
+  const totalCollections = (state.payments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const totalOutstanding = (state.rentals || []).reduce((sum, r) => {
+    const s = String(r.status || '').toLowerCase();
+    if (s === 'active' || s === 'overdue') {
+      return sum + Math.max(0, (Number(r.totalAmount) || 0) - (Number(r.paidAmount) || 0));
+    }
+    return sum;
+  }, 0);
+
+  const summaryRows = [
+    { 'Metric / KPI': 'Total Fleet Units', 'Value': totalFleet },
+    { 'Metric / KPI': 'Available Units in Stock', 'Value': totalAvailable },
+    { 'Metric / KPI': 'Currently on Rent', 'Value': totalRented },
+    { 'Metric / KPI': 'Under Repair / Maintenance', 'Value': totalRepair },
+    { 'Metric / KPI': 'Registered Clients', 'Value': (state.customers || []).length },
+    { 'Metric / KPI': 'Total Rentals / Challans', 'Value': (state.rentals || []).length },
+    { 'Metric / KPI': 'Total Payments Collected (₹)', 'Value': totalCollections },
+    { 'Metric / KPI': 'Current Outstanding Dues (₹)', 'Value': totalOutstanding },
+    { 'Metric / KPI': 'Report Generated At', 'Value': new Date().toLocaleString() }
+  ];
+  const sumSheet = XLSX.utils.json_to_sheet(summaryRows);
+  setAutoWidth(sumSheet, summaryRows);
+  XLSX.utils.book_append_sheet(wb, sumSheet, 'Executive Summary');
+
+  return wb;
+}
+
+/* 1. Direct Excel Export Endpoint */
+app.get('/api/export-excel', async (req, res) => {
+  try {
+    const data = await loadData();
+    const wb = buildExcelWorkbook(data);
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    const todayStr = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="TechTrove_Master_Report_${todayStr}.xlsx"`);
+    setNoCache(res);
+    res.send(buf);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate Excel report: ' + err.message });
+  }
+});
+
+/* 2. Direct JSON Snapshot Backup Endpoint */
+app.get('/api/backup', async (req, res) => {
+  try {
+    const data = await loadData();
+    const todayStr = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="techtrove_backup_${todayStr}.json"`);
+    setNoCache(res);
+    res.send(JSON.stringify(data, null, 2));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to export backup: ' + err.message });
+  }
+});
+app.get('/api/export-json', async (req, res) => {
+  res.redirect('/api/backup');
+});
+
+/* 3. Authoritative Database Restore Endpoint */
+app.post('/api/restore', async (req, res) => {
+  try {
+    const { customers, items, rentals, payments, _deleted } = req.body || {};
+    if (!Array.isArray(customers) || !Array.isArray(items) || !Array.isArray(rentals) || !Array.isArray(payments)) {
+      return res.status(400).json({ error: 'Invalid backup file format: missing required data collections (customers, items, rentals, payments).' });
+    }
+
+    // Authoritative replacement: Cleanly overwrite cloud database
+    const restoredState = {
+      customers,
+      items,
+      rentals,
+      payments,
+      _deleted: _deleted && typeof _deleted === 'object' ? _deleted : {},
+      rev: Date.now(),
+      restoredAt: new Date().toISOString()
+    };
+
+    await saveData(restoredState);
+    setNoCache(res);
+    res.json({
+      success: true,
+      message: 'Database successfully restored from backup snapshot.',
+      state: restoredState,
+      rev: restoredState.rev
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to restore database: ' + err.message });
+  }
 });
 
 module.exports = app;
