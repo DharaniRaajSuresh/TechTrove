@@ -551,6 +551,137 @@ const AppNotif = {
   }
 };
 
+/* DEVICE & PHONE CONTACTS SERVICE (NATIVE AUTOCOMPLETE) */
+const ContactService = {
+  cachedContacts: null,
+  isFetching: false,
+
+  get plugin() {
+    try {
+      if (window.Capacitor) {
+        if (window.Capacitor.Plugins && window.Capacitor.Plugins.Contacts) {
+          return window.Capacitor.Plugins.Contacts;
+        }
+        if (typeof window.Capacitor.registerPlugin === 'function') {
+          return window.Capacitor.registerPlugin('Contacts');
+        }
+      }
+    } catch(e) {}
+    return null;
+  },
+
+  async loadContacts(force = false) {
+    if (this.cachedContacts && !force) return this.cachedContacts;
+    if (this.isFetching) return this.cachedContacts || [];
+    this.isFetching = true;
+
+    let deviceList = [];
+    const p = this.plugin;
+    if (p) {
+      try {
+        const perm = await p.checkPermissions?.();
+        if (!perm || perm.contacts !== 'granted') {
+          await p.requestPermissions?.();
+        }
+        const res = await p.getContacts({
+          projection: { name: true, phones: true }
+        });
+        if (res && Array.isArray(res.contacts)) {
+          deviceList = res.contacts.map(c => {
+            const name = (c.name?.display || [c.name?.given, c.name?.family].filter(Boolean).join(' ') || '').trim();
+            const rawPhone = (c.phones && c.phones.length > 0) ? (c.phones[0].number || '') : '';
+            return {
+              name,
+              phone: cleanPhone(rawPhone),
+              displayPhone: rawPhone.trim(),
+              source: 'device'
+            };
+          }).filter(c => c.name && c.phone);
+        }
+      } catch (err) {
+        console.warn('Native device contacts load error:', err);
+      }
+    }
+
+    this.cachedContacts = deviceList;
+    this.isFetching = false;
+    return this.cachedContacts;
+  },
+
+  async pickDirectly() {
+    const p = this.plugin;
+    if (p && typeof p.pickContact === 'function') {
+      try {
+        const res = await p.pickContact({ projection: { name: true, phones: true } });
+        if (res && res.contact) {
+          const c = res.contact;
+          const name = (c.name?.display || [c.name?.given, c.name?.family].filter(Boolean).join(' ') || '').trim();
+          const phone = (c.phones && c.phones.length > 0) ? (c.phones[0].number || '') : '';
+          return { name, phone: cleanPhone(phone) };
+        }
+      } catch (err) {
+        console.warn('Direct pick error:', err);
+      }
+    }
+    if ('contacts' in navigator && 'ContactsManager' in window) {
+      try {
+        const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
+        if (contacts && contacts[0]) {
+          const c = contacts[0];
+          const name = (c.name && c.name[0]) || '';
+          const phone = (c.tel && c.tel[0]) || '';
+          return { name: name.trim(), phone: cleanPhone(phone) };
+        }
+      } catch (err) {}
+    }
+    return null;
+  },
+
+  async search(query) {
+    const q = (query || '').trim().toLowerCase();
+    const qDigits = cleanPhone(query);
+
+    let deviceContacts = this.cachedContacts;
+    if (!deviceContacts) {
+      deviceContacts = await this.loadContacts();
+    }
+
+    const appCustomers = (state.customers || []).map(c => ({
+      name: c.name,
+      phone: cleanPhone(c.phone),
+      displayPhone: c.phone,
+      address: c.address || '',
+      source: 'app'
+    }));
+
+    const combined = [...(deviceContacts || []), ...appCustomers];
+    const seen = new Set();
+    const matches = [];
+
+    for (const item of combined) {
+      if (!item.name) continue;
+      const key = `${item.name.toLowerCase()}:::${cleanPhone(item.phone)}`;
+      if (seen.has(key)) continue;
+
+      let matched = false;
+      if (!q) {
+        matched = true;
+      } else {
+        if (item.name.toLowerCase().includes(q)) matched = true;
+        else if (qDigits && cleanPhone(item.phone).includes(qDigits)) matched = true;
+      }
+
+      if (matched) {
+        seen.add(key);
+        matches.push(item);
+        if (matches.length >= 8) break;
+      }
+    }
+
+    return matches;
+  }
+};
+
 function requestNotifPermission() {
   AppNotif.requestPermission();
 }
@@ -3104,50 +3235,134 @@ const UI = {
     await AppNotif.sendSystemNotification('TechTrove System Alert', 'Background notification active! You will receive due alerts even outside the app.', 8888);
   },
 
-  async pickContact(phoneInputId = 'custPhone', nameInputId = 'custName') {
-    if (!('contacts' in navigator && 'ContactsManager' in window)) {
-      UI.showToast('Device contact picker not supported on this browser/platform', 'info');
+  /* DEVICE CONTACTS & AUTOCOMPLETE */
+  async onCustomerNameInput(query, nameInputId = 'custName', phoneInputId = 'custPhone') {
+    const wrap = document.getElementById(nameInputId)?.closest('.contact-autocomplete-wrap');
+    if (!wrap) return;
+    const suggestBox = wrap.querySelector('.contact-suggest-box');
+    if (!suggestBox) return;
+
+    if (!query || !query.trim()) {
+      suggestBox.style.display = 'none';
+      suggestBox.innerHTML = '';
       return;
     }
-    try {
-      const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: false });
-      if (contacts && contacts.length > 0) {
-        const c = contacts[0];
-        const tel = (c.tel && c.tel.length > 0) ? c.tel[0] : '';
-        const name = (c.name && c.name.length > 0) ? c.name[0] : '';
-        if (phoneInputId) {
-          const pEl = document.getElementById(phoneInputId);
-          if (pEl && tel) pEl.value = cleanPhone(tel);
-        }
-        if (nameInputId) {
-          const nEl = document.getElementById(nameInputId);
-          if (nEl && name && !nEl.value.trim()) nEl.value = name;
-        }
-        UI.showToast(`Selected contact: ${name || tel}`, 'success');
+
+    const matches = await ContactService.search(query.trim());
+    if (!matches || matches.length === 0) {
+      suggestBox.style.display = 'none';
+      suggestBox.innerHTML = '';
+      return;
+    }
+
+    let html = `<div class="contact-suggest-header">
+      <span>Matching Contacts (${matches.length})</span>
+      <span style="font-size:0.62rem">Tap to auto-fill</span>
+    </div>`;
+
+    matches.forEach(item => {
+      const initials = getInitials(item.name || 'C');
+      const safeName = (item.name || '').replace(/'/g, "\\'");
+      const safePhone = (item.phone || '').replace(/'/g, "\\'");
+
+      // Highlight matching query
+      const qLower = query.toLowerCase();
+      const nLower = (item.name || '').toLowerCase();
+      let displayName = escHtml(item.name);
+      const matchIdx = nLower.indexOf(qLower);
+      if (matchIdx >= 0) {
+        const before = escHtml(item.name.substring(0, matchIdx));
+        const matched = escHtml(item.name.substring(matchIdx, matchIdx + query.length));
+        const after = escHtml(item.name.substring(matchIdx + query.length));
+        displayName = `${before}<span class="text-accent" style="font-weight:700;color:var(--accent,#6366f1)">${matched}</span>${after}`;
       }
-    } catch (e) {
-      if (e.name !== 'AbortError') {
-        console.warn('Contact picker error:', e);
+
+      html += `
+      <div class="contact-suggest-item" onmousedown="UI.selectContactSuggestion('${safeName}', '${safePhone}', '${nameInputId}', '${phoneInputId}')">
+        <div class="contact-suggest-avatar">${initials}</div>
+        <div class="contact-suggest-info">
+          <div class="contact-suggest-name">${displayName}</div>
+          <div class="contact-suggest-phone">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+            </svg>
+            <span>${escHtml(fmtPhone(item.phone))}</span>
+          </div>
+        </div>
+        <span class="contact-suggest-badge ${item.source === 'device' ? 'phone' : ''}">
+          ${item.source === 'device' ? '📱 Phone' : '👥 Client'}
+        </span>
+      </div>`;
+    });
+
+    suggestBox.innerHTML = html;
+    suggestBox.style.display = 'block';
+  },
+
+  selectContactSuggestion(name, phone, nameInputId = 'custName', phoneInputId = 'custPhone') {
+    const nameEl = document.getElementById(nameInputId);
+    const phoneEl = document.getElementById(phoneInputId);
+
+    if (nameEl) nameEl.value = name;
+    if (phoneEl) phoneEl.value = cleanPhone(phone);
+
+    const wrap = nameEl?.closest('.contact-autocomplete-wrap');
+    if (wrap) {
+      const suggestBox = wrap.querySelector('.contact-suggest-box');
+      if (suggestBox) suggestBox.style.display = 'none';
+    }
+
+    UI.showToast(`Auto-filled: ${name} (${fmtPhone(phone)})`, 'success');
+  },
+
+  async openDeviceContactPicker(nameInputId = 'custName', phoneInputId = 'custPhone') {
+    const contact = await ContactService.pickDirectly();
+    if (contact && contact.name) {
+      UI.selectContactSuggestion(contact.name, contact.phone, nameInputId, phoneInputId);
+    } else {
+      const nameEl = document.getElementById(nameInputId);
+      if (nameEl) {
+        nameEl.focus();
+        await ContactService.loadContacts(true);
+        UI.onCustomerNameInput(nameEl.value || '', nameInputId, phoneInputId);
       }
     }
   },
 
+  async pickContact(phoneInputId = 'custPhone', nameInputId = 'custName') {
+    await this.openDeviceContactPicker(nameInputId, phoneInputId);
+  },
+
   /* MODALS: CUSTOMER */
   showAddCustomerModal() {
+    ContactService.loadContacts();
+
     this.showModal(`
       <button class="modal-close" onclick="UI.hideModal()">&times;</button>
       <h2>Add New Customer</h2>
-      <div class="form-group">
+      <div class="form-group" style="position:relative">
         <label>Full Name *</label>
-        <input type="text" id="custName" placeholder="e.g. Rahul Sharma">
+        <div class="contact-autocomplete-wrap">
+          <input type="text" id="custName" placeholder="Type customer name (e.g. Rahul Sharma)" autocomplete="off"
+                 oninput="UI.onCustomerNameInput(this.value, 'custName', 'custPhone')"
+                 onfocus="UI.onCustomerNameInput(this.value, 'custName', 'custPhone')"
+                 onblur="setTimeout(()=>{ const b = document.getElementById('custNameSuggestions'); if (b) b.style.display = 'none'; }, 250)">
+          <button type="button" class="contact-input-icon-btn" title="Pick from Phonebook" onclick="UI.openDeviceContactPicker('custName', 'custPhone')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+          </button>
+          <div id="custNameSuggestions" class="contact-suggest-box" style="display:none"></div>
+        </div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;display:flex;align-items:center;gap:4px">
+          <span>💡 Phone contacts suggest automatically as you type to auto-fill number</span>
+        </div>
       </div>
       <div class="form-group">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <label style="margin-bottom:0">Phone Number * (10 Digits Only)</label>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="UI.pickContact('custPhone','custName')" style="padding:2px 8px;font-size:0.75rem;display:inline-flex;align-items:center;gap:4px">
-            📇 Device Contacts
-          </button>
-        </div>
+        <label>Phone Number * (10 Digits Only)</label>
         <input type="tel" id="custPhone" placeholder="10-digit mobile number, e.g. 9876543210" maxlength="20" inputmode="numeric" oninput="this.value=cleanPhone(this.value)" onpaste="setTimeout(()=>{ this.value=cleanPhone(this.value); },0)">
       </div>
       <div class="form-group">
@@ -3172,12 +3387,7 @@ const UI = {
         <input type="text" id="custName" value="${escHtml(c.name)}">
       </div>
       <div class="form-group">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-          <label style="margin-bottom:0">Phone Number * (10 Digits Only)</label>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="UI.pickContact('custPhone','custName')" style="padding:2px 8px;font-size:0.75rem;display:inline-flex;align-items:center;gap:4px">
-            📇 Device Contacts
-          </button>
-        </div>
+        <label>Phone Number * (10 Digits Only)</label>
         <input type="tel" id="custPhone" value="${escHtml(cleanPhone(c.phone))}" placeholder="10-digit mobile number" maxlength="20" inputmode="numeric" oninput="this.value=cleanPhone(this.value)" onpaste="setTimeout(()=>{ this.value=cleanPhone(this.value); },0)">
       </div>
       <div class="form-group">
@@ -5212,21 +5422,30 @@ UI.showDeliveryChallanModal = function(preParsed = null) {
         <!-- Client Details -->
         <div class="dc-section-card">
           <div class="dc-section-title">Corporate Client Details</div>
-          <div class="form-group" style="margin-bottom:8px">
+          <div class="form-group" style="margin-bottom:8px;position:relative">
             <label class="form-label">Client Name</label>
-            <input type="text" class="form-input" id="dcCustName" value="${escHtml(preParsed.customer.name)}">
+            <div class="contact-autocomplete-wrap">
+              <input type="text" class="form-input" id="dcCustName" value="${escHtml(preParsed.customer.name)}" autocomplete="off"
+                     oninput="UI.onCustomerNameInput(this.value, 'dcCustName', 'dcCustPhone')"
+                     onfocus="UI.onCustomerNameInput(this.value, 'dcCustName', 'dcCustPhone')"
+                     onblur="setTimeout(()=>{ const b = document.getElementById('dcCustNameSuggestions'); if (b) b.style.display = 'none'; }, 250)">
+              <button type="button" class="contact-input-icon-btn" title="Pick from Phonebook" onclick="UI.openDeviceContactPicker('dcCustName', 'dcCustPhone')">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+              </button>
+              <div id="dcCustNameSuggestions" class="contact-suggest-box" style="display:none"></div>
+            </div>
           </div>
           <div class="form-group" style="margin-bottom:8px">
             <label class="form-label">Delivery Address</label>
             <input type="text" class="form-input" id="dcCustAddress" value="${escHtml(preParsed.customer.address)}">
           </div>
           <div class="form-group">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-              <label class="form-label" style="margin-bottom:0">Contact Phone</label>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="UI.pickContact('dcCustPhone','dcCustName')" style="padding:2px 8px;font-size:0.75rem;display:inline-flex;align-items:center;gap:4px">
-                📇 Device Contacts
-              </button>
-            </div>
+            <label class="form-label">Contact Phone (10 Digits)</label>
             <input type="tel" class="form-input" id="dcCustPhone" value="${escHtml(cleanPhone(preParsed.customer.phone || ''))}" placeholder="10-digit Phone Number" maxlength="20" inputmode="numeric" oninput="this.value=cleanPhone(this.value)" onpaste="setTimeout(()=>{ this.value=cleanPhone(this.value); },0)">
           </div>
         </div>
