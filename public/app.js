@@ -722,14 +722,23 @@ const Data = {
       } else {
         console.warn('Server save returned status:', r.status);
       }
-    }).catch(e => console.warn('Server sync failed, data saved locally in browser:', e.message)).finally(() => {
+    }).catch(e => {
+      console.warn('Server sync failed, data saved locally in browser:', e.message);
+      this._dirty = true;
+    }).finally(() => {
       this._saving = false;
-      if (this._dirty) {
+      if (this._dirty && navigator.onLine) {
         this.save();
       } else {
         sanitizeFleetState();
         checkAndNotifyDues();
         UI.updateDueBanner();
+        const isModalOpen = !document.getElementById('modalOverlay')?.classList.contains('hidden');
+        const activeEl = document.activeElement;
+        const isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');
+        if (!(isModalOpen && isTyping)) {
+          UI.renderAll();
+        }
       }
     });
   },
@@ -790,9 +799,21 @@ const Data = {
       if (res.ok) {
         const d = await res.json();
         if (d && Array.isArray(d.customers) && Array.isArray(d.items)) {
-          // GUARD: If local client has newly added items/customers that server does not have,
-          // push local changes to server instead of wiping local state!
-          const localHasMore = (state.items.length > d.items.length) || (state.customers.length > d.customers.length);
+          // 1. Reconcile tombstones first
+          const deletedMap = { ...(state._deleted || {}), ...(d._deleted || {}) };
+          state._deleted = deletedMap;
+
+          // 2. Filter out tombstoned records locally
+          const isTombstoned = (id, serial) => !!(deletedMap[id] || (serial && deletedMap[serial]));
+          state.items = (state.items || []).filter(it => !isTombstoned(it.id, it.serial));
+          state.customers = (state.customers || []).filter(c => !deletedMap[c.id]);
+          state.rentals = (state.rentals || []).filter(r => !deletedMap[r.id]);
+          state.payments = (state.payments || []).filter(p => !deletedMap[p.id]);
+
+          // 3. GUARD: Check if local client has genuinely unsynced new items or customers
+          const localUnsyncedItems = (state.items || []).some(it => !d.items.some(di => di.id === it.id));
+          const localUnsyncedCustomers = (state.customers || []).some(c => !d.customers.some(dc => dc.id === c.id));
+          const localHasMore = (state.items.length > d.items.length) || (state.customers.length > d.customers.length) || localUnsyncedItems || localUnsyncedCustomers;
           if (localHasMore) {
             this.save();
             return;
@@ -3628,8 +3649,13 @@ const UI = {
     UI.showConfirm('Permanently remove this item from inventory?', () => {
       const isRented = state.rentals.some(r => r.itemId === itemId && isActiveRental(r));
       if (isRented) { UI.showToast('Cannot delete — item is currently rented', 'error'); return; }
+      const itemToDelete = state.items.find(i => i.id === itemId);
       state._deleted = state._deleted || {};
-      state._deleted[itemId] = new Date().toISOString();
+      const nowIso = new Date().toISOString();
+      state._deleted[itemId] = nowIso;
+      if (itemToDelete && itemToDelete.serial) {
+        state._deleted[itemToDelete.serial] = nowIso;
+      }
       state.items = state.items.filter(i => i.id !== itemId);
       Data.save();
       UI.hideModal();
@@ -4484,6 +4510,41 @@ function parseDeliveryChallanText(text) {
 let currentParsedDC = null;
 let editingDCItemIdx = -1;
 
+UI.loadSampleDC = function() {
+  const sample = {
+    challanNo: 'DC-2026-0042',
+    challanDate: new Date().toISOString().split('T')[0],
+    customer: {
+      name: 'SOEZY MEDIA',
+      address: 'Plot 42, Cyber City, Phase 2, Gurugram',
+      phone: '9876543201'
+    },
+    items: [
+      {
+        brand: 'Lenovo',
+        model: 'ThinkPad T14',
+        type: 'laptop',
+        serial: 'PF-2K8X9Y',
+        assetNo: 'TT-LP-108',
+        specs: 'Intel Core i5 11th Gen • 16GB RAM • 512GB SSD',
+        rate: 1700
+      },
+      {
+        brand: 'Lenovo',
+        model: 'ThinkPad L15',
+        type: 'laptop',
+        serial: 'PF-3M1N2P',
+        assetNo: 'TT-LP-109',
+        specs: 'Intel Core i5 11th Gen • 16GB RAM • 512GB SSD',
+        rate: 1800
+      }
+    ],
+    totalRentalMonthly: 3500
+  };
+  editingDCItemIdx = -1;
+  UI.showDeliveryChallanModal(sample);
+};
+
 UI.showDeliveryChallanModal = function(preParsed = null) {
   if (preParsed && currentParsedDC && preParsed === currentParsedDC) {
     // Preserve customer fields currently in DOM if user was editing
@@ -4519,6 +4580,11 @@ UI.showDeliveryChallanModal = function(preParsed = null) {
           </div>
           <div class="dc-drop-hint">Upload Zoho Invoice Delivery Challan PDF. Base rental rates (excluding GST) are automatically extracted.</div>
           <input type="file" id="dcPdfInput" accept="application/pdf,.pdf" style="display:none" onchange="UI.handleDCPdfUpload(this.files[0])">
+        </div>
+        <div style="margin-top:14px;text-align:center">
+          <button type="button" id="dcLoadSampleBtn" class="btn btn-secondary btn-sm" onclick="UI.loadSampleDC()" style="font-size:0.8rem;padding:6px 14px">
+            📄 Load Sample DC (SOEZY MEDIA Demo)
+          </button>
         </div>
         <div id="dcLoadingState" class="hidden" style="text-align:center;padding:24px 0">
           <div class="spinner" style="margin:0 auto 12px"></div>
@@ -4975,7 +5041,7 @@ function setupApp() {
 }
 
 /* AUTOMATIC INSTANT UPDATE CHECKER & CONTINUOUS BACKGROUND DATA SYNC */
-const CURRENT_BUILD_VERSION = 'v6.1-sync-dc-edit';
+const CURRENT_BUILD_VERSION = 'v6.2-playwright-audit';
 
 function initAutoUpdateChecker() {
   let checking = false;
@@ -5033,6 +5099,7 @@ function initAutoUpdateChecker() {
       Data.sync(true);
     }
   }
+  window.triggerLiveSync = triggerLiveSync;
 
   // 1. Immediate trigger when phone is unlocked or browser tab is focused
   window.addEventListener('focus', triggerLiveSync);

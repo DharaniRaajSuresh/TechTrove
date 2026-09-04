@@ -132,7 +132,7 @@ function mergeRecords(serverArr = [], incomingArr = [], deletedMap = {}) {
   const map = new Map();
   for (const item of serverArr) {
     if (!item || !item.id) continue;
-    const delTime = deletedMap[item.id];
+    const delTime = deletedMap[item.id] || (item.serial ? deletedMap[item.serial] : null);
     const itemTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
     if (delTime && new Date(delTime).getTime() >= itemTime) continue;
     map.set(String(item.id), item);
@@ -141,7 +141,7 @@ function mergeRecords(serverArr = [], incomingArr = [], deletedMap = {}) {
   for (const item of incomingArr) {
     if (!item || !item.id) continue;
     const id = String(item.id);
-    const delTime = deletedMap[id];
+    const delTime = deletedMap[id] || (item.serial ? deletedMap[item.serial] : null);
     const incomingTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
     if (delTime && new Date(delTime).getTime() >= incomingTime) {
       map.delete(id);
@@ -201,7 +201,7 @@ app.post('/api/auth/login', handleLogin);
 
 app.get('/api/version', (req, res) => {
   setNoCache(res);
-  res.json({ version: 'v6.1-sync-dc-edit', authRev: 'tt_auth_v6_force_logout', timestamp: Date.now() });
+  res.json({ version: 'v6.2-playwright-audit', authRev: 'tt_auth_v6_force_logout', timestamp: Date.now() });
 });
 
 /* Data endpoints */

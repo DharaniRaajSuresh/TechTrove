@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v23-sync-dc-edit';
+const CACHE = 'techtrove-v24-playwright-audit';
 const ASSETS = [
   '/',
   '/index.html',
