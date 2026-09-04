@@ -711,12 +711,15 @@ const Data = {
       if (r.ok) {
         const res = await r.json();
         if (res && res.state && Array.isArray(res.state.customers)) {
-          // Incorporate merged authoritative state returned by server
-          state.customers = res.state.customers || [];
-          state.items = res.state.items || [];
-          state.rentals = res.state.rentals || [];
-          state.payments = res.state.payments || [];
-          if (res.state._deleted) state._deleted = res.state._deleted;
+          // Incorporate merged authoritative state returned by server with cascading tombstone filters
+          const delMap = { ...(state._deleted || {}), ...(res.state._deleted || {}) };
+          state._deleted = delMap;
+          const isTombstoned = (id, serial) => !!(delMap[id] || (serial && delMap[serial]));
+          state.customers = (res.state.customers || []).filter(c => !delMap[c.id]);
+          state.rentals = (res.state.rentals || []).filter(r => !delMap[r.id] && !delMap[r.customerId]);
+          state.payments = (res.state.payments || []).filter(p => !delMap[p.id] && !delMap[p.rentalId] && !delMap[p.customerId]);
+          state.items = (res.state.items || []).filter(it => !isTombstoned(it.id, it.serial));
+          sanitizeFleetState();
           try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
         }
       } else {
@@ -770,11 +773,13 @@ const Data = {
       if (res.ok) {
         const d = await res.json();
         if (d && Array.isArray(d.customers) && Array.isArray(d.items)) {
-          state.customers = d.customers || [];
-          state.items = d.items || [];
-          state.rentals = d.rentals || [];
-          state.payments = d.payments || [];
-          if (d._deleted) state._deleted = d._deleted;
+          const delMap = { ...(state._deleted || {}), ...(d._deleted || {}) };
+          state._deleted = delMap;
+          const isTombstoned = (id, serial) => !!(delMap[id] || (serial && delMap[serial]));
+          state.customers = (d.customers || []).filter(c => !delMap[c.id]);
+          state.rentals = (d.rentals || []).filter(r => !delMap[r.id] && !delMap[r.customerId]);
+          state.payments = (d.payments || []).filter(p => !delMap[p.id] && !delMap[p.rentalId] && !delMap[p.customerId]);
+          state.items = (d.items || []).filter(it => !isTombstoned(it.id, it.serial));
           try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
         }
       }
@@ -803,30 +808,34 @@ const Data = {
           const deletedMap = { ...(state._deleted || {}), ...(d._deleted || {}) };
           state._deleted = deletedMap;
 
-          // 2. Filter out tombstoned records locally
+          // 2. Filter out tombstoned records locally and from incoming server data
           const isTombstoned = (id, serial) => !!(deletedMap[id] || (serial && deletedMap[serial]));
           state.items = (state.items || []).filter(it => !isTombstoned(it.id, it.serial));
           state.customers = (state.customers || []).filter(c => !deletedMap[c.id]);
-          state.rentals = (state.rentals || []).filter(r => !deletedMap[r.id]);
-          state.payments = (state.payments || []).filter(p => !deletedMap[p.id]);
+          state.rentals = (state.rentals || []).filter(r => !deletedMap[r.id] && !deletedMap[r.customerId]);
+          state.payments = (state.payments || []).filter(p => !deletedMap[p.id] && !deletedMap[p.rentalId] && !deletedMap[p.customerId]);
+
+          const cleanCustomers = (d.customers || []).filter(c => !deletedMap[c.id]);
+          const cleanRentals = (d.rentals || []).filter(r => !deletedMap[r.id] && !deletedMap[r.customerId]);
+          const cleanPayments = (d.payments || []).filter(p => !deletedMap[p.id] && !deletedMap[p.rentalId] && !deletedMap[p.customerId]);
+          const cleanItems = (d.items || []).filter(it => !isTombstoned(it.id, it.serial));
 
           // 3. GUARD: Check if local client has genuinely unsynced new items or customers
-          const localUnsyncedItems = (state.items || []).some(it => !d.items.some(di => di.id === it.id));
-          const localUnsyncedCustomers = (state.customers || []).some(c => !d.customers.some(dc => dc.id === c.id));
-          const localHasMore = (state.items.length > d.items.length) || (state.customers.length > d.customers.length) || localUnsyncedItems || localUnsyncedCustomers;
+          const localUnsyncedItems = (state.items || []).some(it => !cleanItems.some(di => di.id === it.id));
+          const localUnsyncedCustomers = (state.customers || []).some(c => !cleanCustomers.some(dc => dc.id === c.id));
+          const localHasMore = (state.items.length > cleanItems.length) || (state.customers.length > cleanCustomers.length) || localUnsyncedItems || localUnsyncedCustomers;
           if (localHasMore) {
             this.save();
             return;
           }
 
           const currentStr = JSON.stringify({ c: state.customers, i: state.items, r: state.rentals, p: state.payments });
-          const serverStr = JSON.stringify({ c: d.customers, i: d.items, r: d.rentals, p: d.payments });
+          const serverStr = JSON.stringify({ c: cleanCustomers, i: cleanItems, r: cleanRentals, p: cleanPayments });
           if (currentStr !== serverStr) {
-            state.customers = d.customers || [];
-            state.items = d.items || [];
-            state.rentals = d.rentals || [];
-            state.payments = d.payments || [];
-            if (d._deleted) state._deleted = d._deleted;
+            state.customers = cleanCustomers;
+            state.items = cleanItems;
+            state.rentals = cleanRentals;
+            state.payments = cleanPayments;
             sanitizeFleetState();
             try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
             if (!(isModalOpen && isTyping)) {
@@ -850,11 +859,13 @@ const Data = {
       if (res.ok) {
         const d = await res.json();
         if (d && Array.isArray(d.customers) && Array.isArray(d.items)) {
-          state.customers = d.customers || [];
-          state.items = d.items || [];
-          state.rentals = d.rentals || [];
-          state.payments = d.payments || [];
-          if (d._deleted) state._deleted = d._deleted;
+          const delMap = { ...(state._deleted || {}), ...(d._deleted || {}) };
+          state._deleted = delMap;
+          const isTombstoned = (id, serial) => !!(delMap[id] || (serial && delMap[serial]));
+          state.customers = (d.customers || []).filter(c => !delMap[c.id]);
+          state.rentals = (d.rentals || []).filter(r => !delMap[r.id] && !delMap[r.customerId]);
+          state.payments = (d.payments || []).filter(p => !delMap[p.id] && !delMap[p.rentalId] && !delMap[p.customerId]);
+          state.items = (d.items || []).filter(it => !isTombstoned(it.id, it.serial));
           sanitizeFleetState();
           try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
           UI.renderAll();
@@ -3052,6 +3063,10 @@ const UI = {
       rentalIds.forEach(rid => {
         state._deleted[rid] = nowIso;
       });
+      const paymentsToDelete = state.payments.filter(p => rentalIds.includes(p.rentalId) || p.customerId === customerId);
+      paymentsToDelete.forEach(p => {
+        state._deleted[p.id] = nowIso;
+      });
       rentals.forEach(r => {
         const item = getItem(r.itemId);
         if (item) {
@@ -3059,9 +3074,10 @@ const UI = {
           item.updatedAt = nowIso;
         }
       });
-      state.payments = state.payments.filter(p => !rentalIds.includes(p.rentalId));
+      state.payments = state.payments.filter(p => !rentalIds.includes(p.rentalId) && p.customerId !== customerId);
       state.rentals = state.rentals.filter(r => r.customerId !== customerId);
       state.customers = state.customers.filter(c => c.id !== customerId);
+      sanitizeFleetState();
       Data.save();
       UI.goBack();
       UI.showToast('Customer deleted', 'info');

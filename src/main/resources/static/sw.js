@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v24-playwright-audit';
+const CACHE = 'techtrove-v25-tombstone-cascade';
 const ASSETS = [
   '/',
   '/index.html',

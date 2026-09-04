@@ -130,31 +130,33 @@ async function saveData(data) {
 /* SMART RECORD-LEVEL MERGE ENGINE */
 function mergeRecords(serverArr = [], incomingArr = [], deletedMap = {}) {
   const map = new Map();
+  // 1. Load server records
   for (const item of serverArr) {
     if (!item || !item.id) continue;
-    const delTime = deletedMap[item.id] || (item.serial ? deletedMap[item.serial] : null);
-    const itemTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
-    if (delTime && new Date(delTime).getTime() >= itemTime) continue;
-    map.set(String(item.id), item);
+    const id = String(item.id);
+    const isDeleted = !!(deletedMap[id] || (item.serial && deletedMap[item.serial]));
+    if (isDeleted) continue; // Unconditionally purged
+    map.set(id, item);
   }
 
+  // 2. Reconcile with incoming records
   for (const item of incomingArr) {
     if (!item || !item.id) continue;
     const id = String(item.id);
-    const delTime = deletedMap[id] || (item.serial ? deletedMap[item.serial] : null);
-    const incomingTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
-    if (delTime && new Date(delTime).getTime() >= incomingTime) {
-      map.delete(id);
+    const isDeleted = !!(deletedMap[id] || (item.serial && deletedMap[item.serial]));
+    if (isDeleted) {
+      map.delete(id); // Tombstone confirmed
       continue;
     }
 
     if (!map.has(id)) {
-      map.set(id, item);
+      map.set(id, item); // Fresh entity from client
     } else {
       const serverItem = map.get(id);
+      const incomingTime = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
       const serverTime = serverItem.updatedAt ? new Date(serverItem.updatedAt).getTime() : 0;
       if (incomingTime >= serverTime) {
-        map.set(id, item);
+        map.set(id, item); // Incoming update wins
       }
     }
   }
@@ -164,6 +166,7 @@ function mergeRecords(serverArr = [], incomingArr = [], deletedMap = {}) {
 
 function mergeState(serverState = {}, incomingState = {}) {
   const deletedMap = { ...(serverState._deleted || {}), ...(incomingState._deleted || {}) };
+  // Prune tombstones older than 30 days
   const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
   for (const [id, ts] of Object.entries(deletedMap)) {
     if (new Date(ts).getTime() < thirtyDaysAgo) {
@@ -171,11 +174,36 @@ function mergeState(serverState = {}, incomingState = {}) {
     }
   }
 
+  let customers = mergeRecords(serverState.customers || [], incomingState.customers || [], deletedMap);
+  let rentals = mergeRecords(serverState.rentals || [], incomingState.rentals || [], deletedMap);
+  let payments = mergeRecords(serverState.payments || [], incomingState.payments || [], deletedMap);
+  let items = mergeRecords(serverState.items || [], incomingState.items || [], deletedMap);
+
+  // Cascading tombstone enforcement:
+  // 1. Purge rentals if customer is deleted
+  rentals = rentals.filter(r => !deletedMap[r.id] && !deletedMap[r.customerId]);
+  // 2. Purge payments if rental or customer is deleted
+  payments = payments.filter(p => !deletedMap[p.id] && !deletedMap[p.rentalId] && !deletedMap[p.customerId]);
+  // 3. Reconcile item rental status based on surviving active rentals
+  const activeRentalItemIds = new Set(
+    rentals.filter(r => {
+      const s = String(r.status || 'active').toLowerCase().trim();
+      return s === 'active' || s === 'overdue';
+    }).map(r => String(r.itemId))
+  );
+
+  items = items.map(it => {
+    const s = String(it.status || '').toLowerCase().trim();
+    if (s === 'repair') return it;
+    const isRented = activeRentalItemIds.has(String(it.id));
+    return { ...it, status: isRented ? 'rented' : 'available' };
+  });
+
   return {
-    customers: mergeRecords(serverState.customers || [], incomingState.customers || [], deletedMap),
-    items: mergeRecords(serverState.items || [], incomingState.items || [], deletedMap),
-    rentals: mergeRecords(serverState.rentals || [], incomingState.rentals || [], deletedMap),
-    payments: mergeRecords(serverState.payments || [], incomingState.payments || [], deletedMap),
+    customers,
+    items,
+    rentals,
+    payments,
     _deleted: deletedMap,
     rev: Date.now()
   };
@@ -201,7 +229,7 @@ app.post('/api/auth/login', handleLogin);
 
 app.get('/api/version', (req, res) => {
   setNoCache(res);
-  res.json({ version: 'v6.2-playwright-audit', authRev: 'tt_auth_v6_force_logout', timestamp: Date.now() });
+  res.json({ version: 'v6.3-tombstone-cascade', authRev: 'tt_auth_v6_force_logout', timestamp: Date.now() });
 });
 
 /* Data endpoints */
