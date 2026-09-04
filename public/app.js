@@ -2,72 +2,38 @@
 const LOCAL_STORAGE_KEY = 'techtrove_state_v1';
 const PAYMENT_COLLECTORS = ['Suresh', 'Pragathi', 'Varusha', 'Dharani'];
 
-const DEFAULT_SEED_ITEMS = [
-  { id: 'item-dell-lat-01', brand: 'Dell', model: 'Latitude 3420', type: 'Laptop', serial: 'DELL-3420-SN01', specs: 'Intel Core i5 11th Gen • 16GB DDR4 • 512GB NVMe SSD • 14.0" FHD', status: 'rented' },
-  { id: 'item-dell-lat-02', brand: 'Dell', model: 'Latitude 3420', type: 'Laptop', serial: 'DELL-3420-SN02', specs: 'Intel Core i5 11th Gen • 16GB DDR4 • 512GB NVMe SSD • 14.0" FHD', status: 'repair', repairInfo: { serviceCenter: 'Dell Authorized Service Care, SP Road', servicePerson: 'Suresh Kumar', servicePhone: '9876500001', givenToServiceDate: '2026-09-03', expectedReturnDate: '2026-09-03', repairCost: 1800, repairIssue: 'Keyboard replacement & fan thermal service' } },
-  { id: 'item-dell-lat-03', brand: 'Dell', model: 'Latitude 3420', type: 'Laptop', serial: 'DELL-3420-SN03', specs: 'Intel Core i5 11th Gen • 16GB DDR4 • 512GB NVMe SSD • 14.0" FHD', status: 'available' },
-  { id: 'item-len-t14-01', brand: 'Lenovo', model: 'ThinkPad T14 Gen 2', type: 'Laptop', serial: 'LEN-T14-SN01', specs: 'Intel Core i5 11th Gen • 16GB DDR4 • 512GB NVMe SSD • 14.0" FHD IPS', status: 'rented' },
-  { id: 'item-apl-m1-01', brand: 'Apple', model: 'MacBook Air M1 (2020)', type: 'MacBook', serial: 'APL-MBA-SN01', specs: 'Apple M1 (8-Core CPU) • 8GB Unified RAM • 256GB SSD • 13.3" Retina Display', status: 'available' },
-  // DC-0501 (SOEZY INDIA)
-  { id: 'item-apl-mbp16-780', brand: 'Apple', model: 'MacBook Pro 16-inch', type: 'MacBook', serial: 'SMHP1V7079J', assetNo: '780', specs: 'M3 Pro | 18-Core CPU | 20-Core GPU | 48GB Unified Memory | 1TB SSD | Space Black | Part No: MGEC4HN/A | Asset No: 780', status: 'rented', createdAt: '2026-09-03' },
-  { id: 'item-apl-mbp14-781', brand: 'Apple', model: 'MacBook Pro 14-inch', type: 'MacBook', serial: '5LJP2TV9L2J', assetNo: '781', specs: 'M3 Pro | 15-Core CPU | 16-Core GPU | 24GB Unified Memory | 1TB SSD | Silver | Part No: MGDN4HN/A | Asset No: 781', status: 'rented', createdAt: '2026-09-03' },
-  // DC-0496 (LUXARA HOLIDAYS)
-  { id: 'item-len-tp-606', brand: 'Lenovo', model: 'ThinkPad', type: 'Laptop', serial: 'PF1C5NUR', assetNo: '606', specs: 'i5-8th GEN / 8 GB RAM / 256 GB SSD with Adaptor | Asset No: 606', status: 'rented', createdAt: '2026-08-28' },
-  { id: 'item-hp-ryz-757', brand: 'HP', model: 'AMD Ryzen 5 PRO 4650U', type: 'Laptop', serial: '5CG1074VDO', assetNo: '757', specs: 'AMD Ryzen 5 PRO 4650U with Radeon Graphics • 8GB RAM / 256 GB SSD with Adaptor | Asset No: 757', status: 'rented', createdAt: '2026-08-28' },
-  { id: 'item-tsh-db-760', brand: 'Toshiba', model: 'DynaBook', type: 'Laptop', serial: '52119506H', assetNo: '760', specs: 'i7-11th GEN / 16GB RAM / 256 GB SSD with Adaptor | Asset No: 760', status: 'rented', createdAt: '2026-08-28' },
-  { id: 'item-tsh-db-761', brand: 'Toshiba', model: 'DynaBook', type: 'Laptop', serial: '32094378H', assetNo: '761', specs: 'i7-11th GEN / 16GB RAM / 256 GB SSD with Adaptor | Asset No: 761', status: 'rented', createdAt: '2026-08-28' },
-  { id: 'item-tsh-db-762', brand: 'Toshiba', model: 'DynaBook', type: 'Laptop', serial: '52119486H', assetNo: '762', specs: 'i7-11th GEN / 16GB RAM / 256 GB SSD with Adaptor | Asset No: 762', status: 'rented', createdAt: '2026-08-28' },
-  { id: 'item-tsh-db-763', brand: 'Toshiba', model: 'DynaBook', type: 'Laptop', serial: 'V1183901H', assetNo: '763', specs: 'i7-11th GEN / 16GB RAM / 256 GB SSD with Adaptor | Asset No: 763', status: 'rented', createdAt: '2026-08-28' },
-  { id: 'item-tsh-db-764', brand: 'Toshiba', model: 'DynaBook', type: 'Laptop', serial: 'Z1104249H', assetNo: '764', specs: 'i7-11th GEN / 16GB RAM / 256 GB SSD with Adaptor | Asset No: 764', status: 'rented', createdAt: '2026-08-28' },
-  { id: 'item-tsh-db-765', brand: 'Toshiba', model: 'DynaBook', type: 'Laptop', serial: '91027929H', assetNo: '765', specs: 'i7-11th GEN / 16GB RAM / 256 GB SSD with Adaptor | Asset No: 765', status: 'rented', createdAt: '2026-08-28' }
-];
+const DEFAULT_SEED_ITEMS = [];
+const DEFAULT_SEED_CUSTOMERS = [];
+const DEFAULT_SEED_RENTALS = [];
 
-const DEFAULT_SEED_CUSTOMERS = [
-  { id: 'cust-rajesh', name: 'Rajesh Kumar', phone: '9876543210', address: 'Indiranagar, Bangalore' },
-  { id: 'cust-priya', name: 'Priya Sharma', phone: '9845012345', address: 'Koramangala, Bangalore' },
-  { id: 'cust-amit', name: 'Amit Patel', phone: '9731234567', address: 'HSR Layout, Bangalore' },
-  { id: 'cust-soezy-india', name: 'SOEZY INDIA PRIVATE LIMITED', phone: '9876543201', address: '385, Paneer Nagar, Mogappair, Chennai 600037 Tamil Nadu India', createdAt: '2026-09-03' },
-  { id: 'cust-luxara-holidays', name: 'LUXARA HOLIDAYS AND RESORTS', phone: '9876543202', address: 'GROUND FLOOR NO/14 PATTULAS ROAD THOUSAND LIGHTS, Chennai 600002 Tamil Nadu India', createdAt: '2026-08-28' }
-];
-
-const DEFAULT_SEED_RENTALS = [
-  { id: 'rental-rajesh-dell', customerId: 'cust-rajesh', itemId: 'item-dell-lat-01', rentAmount: 2500, billingCycle: 'monthly', startDate: '2026-09-03', advancePayment: 2500, securityDeposit: 5000, status: 'active' },
-  { id: 'rental-priya-lenovo', customerId: 'cust-priya', itemId: 'item-len-t14-01', rentAmount: 3000, billingCycle: 'monthly', startDate: '2026-09-03', advancePayment: 3000, securityDeposit: 6000, status: 'active' },
-  // DC-0501 (SOEZY)
-  { id: 'rental-soezy-mbp16', customerId: 'cust-soezy-india', itemId: 'item-apl-mbp16-780', rentAmount: 20000, billingCycle: 'monthly', startDate: '2026-09-03', advancePayment: 20000, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0501' },
-  { id: 'rental-soezy-mbp14', customerId: 'cust-soezy-india', itemId: 'item-apl-mbp14-781', rentAmount: 13900, billingCycle: 'monthly', startDate: '2026-09-03', advancePayment: 13900, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0501' },
-  // DC-0496 (LUXARA)
-  { id: 'rental-luxara-tp-606', customerId: 'cust-luxara-holidays', itemId: 'item-len-tp-606', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' },
-  { id: 'rental-luxara-hp-757', customerId: 'cust-luxara-holidays', itemId: 'item-hp-ryz-757', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' },
-  { id: 'rental-luxara-db-760', customerId: 'cust-luxara-holidays', itemId: 'item-tsh-db-760', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' },
-  { id: 'rental-luxara-db-761', customerId: 'cust-luxara-holidays', itemId: 'item-tsh-db-761', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' },
-  { id: 'rental-luxara-db-762', customerId: 'cust-luxara-holidays', itemId: 'item-tsh-db-762', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' },
-  { id: 'rental-luxara-db-763', customerId: 'cust-luxara-holidays', itemId: 'item-tsh-db-763', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' },
-  { id: 'rental-luxara-db-764', customerId: 'cust-luxara-holidays', itemId: 'item-tsh-db-764', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' },
-  { id: 'rental-luxara-db-765', customerId: 'cust-luxara-holidays', itemId: 'item-tsh-db-765', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' }
-];
-
+const GLOBAL_DATA_RESET_REV = 'tt_wipe_all_2026_09_04_v1';
 
 let state = {
-  customers: JSON.parse(JSON.stringify(DEFAULT_SEED_CUSTOMERS)),
-  items: JSON.parse(JSON.stringify(DEFAULT_SEED_ITEMS)),
-  rentals: JSON.parse(JSON.stringify(DEFAULT_SEED_RENTALS)),
+  customers: [],
+  items: [],
+  rentals: [],
   payments: [],
   _deleted: {}
 };
 
 try {
-  const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-  if (saved) {
-    const parsed = JSON.parse(saved);
-    if (parsed && Array.isArray(parsed.customers) && Array.isArray(parsed.items) && parsed.items.length > 0) {
-      state = {
-        customers: parsed.customers || [],
-        items: parsed.items || [],
-        rentals: parsed.rentals || [],
-        payments: parsed.payments || [],
-        _deleted: parsed._deleted || {}
-      };
+  if (localStorage.getItem('tt_data_reset_rev') !== GLOBAL_DATA_RESET_REV) {
+    // Purge all devices, customers, rentals, payments across all phones and web browsers
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem('tt_data_reset_rev', GLOBAL_DATA_RESET_REV);
+  } else {
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed) {
+        state = {
+          customers: parsed.customers || [],
+          items: parsed.items || [],
+          rentals: parsed.rentals || [],
+          payments: parsed.payments || [],
+          _deleted: parsed._deleted || {}
+        };
+      }
     }
   }
 } catch(e) {
@@ -761,46 +727,38 @@ const Data = {
     });
   },
   async load() {
-    // 1. First ensure state is hydrated from localStorage (guarding against empty array corruption)
     try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed && Array.isArray(parsed.customers) && Array.isArray(parsed.items) && parsed.items.length > 0) {
-          state.customers = parsed.customers || [];
-          state.items = parsed.items || [];
-          state.rentals = parsed.rentals || [];
-          state.payments = parsed.payments || [];
-          state._deleted = parsed._deleted || {};
+      if (localStorage.getItem('tt_data_reset_rev') !== GLOBAL_DATA_RESET_REV) {
+        state = { customers: [], items: [], rentals: [], payments: [], _deleted: {} };
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+        localStorage.setItem('tt_data_reset_rev', GLOBAL_DATA_RESET_REV);
+      } else {
+        const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed) {
+            state.customers = parsed.customers || [];
+            state.items = parsed.items || [];
+            state.rentals = parsed.rentals || [];
+            state.payments = parsed.payments || [];
+            state._deleted = parsed._deleted || {};
+          }
         }
       }
     } catch(e) {}
 
-    // Ensure fallback to default seed if items empty
-    if (!state.items || state.items.length === 0) {
-      state.customers = JSON.parse(JSON.stringify(DEFAULT_SEED_CUSTOMERS));
-      state.items = JSON.parse(JSON.stringify(DEFAULT_SEED_ITEMS));
-      state.rentals = JSON.parse(JSON.stringify(DEFAULT_SEED_RENTALS));
-    }
-
-    // 2. Background fetch authoritative state from server if authenticated
+    // Background fetch authoritative state from server if authenticated
     UI.showLoading(true);
     try {
       const res = await this._fetch('/api/data?t=' + Date.now());
       if (res.ok) {
         const d = await res.json();
         if (d && Array.isArray(d.customers) && Array.isArray(d.items)) {
-          if (d.items.length > 0) {
-            state.customers = d.customers || [];
-            state.items = d.items || [];
-            state.rentals = d.rentals || [];
-            state.payments = d.payments || [];
-            if (d._deleted) state._deleted = d._deleted;
-          } else if (state.items.length === 0) {
-            state.customers = JSON.parse(JSON.stringify(DEFAULT_SEED_CUSTOMERS));
-            state.items = JSON.parse(JSON.stringify(DEFAULT_SEED_ITEMS));
-            state.rentals = JSON.parse(JSON.stringify(DEFAULT_SEED_RENTALS));
-          }
+          state.customers = d.customers || [];
+          state.items = d.items || [];
+          state.rentals = d.rentals || [];
+          state.payments = d.payments || [];
+          if (d._deleted) state._deleted = d._deleted;
           try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
         }
       }
@@ -825,8 +783,6 @@ const Data = {
       if (res.ok) {
         const d = await res.json();
         if (d && Array.isArray(d.customers) && Array.isArray(d.items)) {
-          // Never wipe out local fleet if server returned empty unexpectedly
-          if (d.items.length === 0 && state.items.length > 0) return;
           const currentStr = JSON.stringify({ c: state.customers, i: state.items, r: state.rentals, p: state.payments });
           const serverStr = JSON.stringify({ c: d.customers, i: d.items, r: d.rentals, p: d.payments });
           if (currentStr !== serverStr) {
@@ -857,7 +813,7 @@ const Data = {
       const res = await this._fetch('/api/data?t=' + Date.now());
       if (res.ok) {
         const d = await res.json();
-        if (d && Array.isArray(d.items) && d.items.length > 0) {
+        if (d && Array.isArray(d.customers) && Array.isArray(d.items)) {
           state.customers = d.customers || [];
           state.items = d.items || [];
           state.rentals = d.rentals || [];
@@ -867,18 +823,9 @@ const Data = {
           try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
           UI.renderAll();
           UI.updateDueBanner();
-          if (notify) UI.showToast(`☁️ Cloud Sync: Loaded ${state.items.length} devices & ${state.customers.length} clients!`, 'success');
+          if (notify) UI.showToast(`☁️ Cloud Sync: Loaded ${state.items.length} devices & ${state.customers.length} clients`, 'success');
           return;
         }
-      }
-      // If server returned empty, ensure default seed items are active
-      if (!state.items || state.items.length === 0) {
-        state.customers = JSON.parse(JSON.stringify(DEFAULT_SEED_CUSTOMERS));
-        state.items = JSON.parse(JSON.stringify(DEFAULT_SEED_ITEMS));
-        state.rentals = JSON.parse(JSON.stringify(DEFAULT_SEED_RENTALS));
-        sanitizeFleetState();
-        try { localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
-        UI.renderAll();
       }
       if (notify) UI.showToast(`Active fleet: ${state.items.length} devices ready`, 'info');
     } catch(e) {
@@ -4848,7 +4795,7 @@ function setupApp() {
 }
 
 /* AUTOMATIC INSTANT UPDATE CHECKER & CONTINUOUS BACKGROUND DATA SYNC */
-const CURRENT_BUILD_VERSION = 'v5.9-logout-all';
+const CURRENT_BUILD_VERSION = 'v6.0-clean-slate';
 
 function initAutoUpdateChecker() {
   let checking = false;

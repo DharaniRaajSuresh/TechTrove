@@ -86,13 +86,13 @@ async function loadData() {
         if (d && d.result) {
           let parsed = typeof d.result === 'string' ? JSON.parse(d.result) : d.result;
           if (typeof parsed === 'string') parsed = JSON.parse(parsed);
-          if (parsed && Array.isArray(parsed.customers) && Array.isArray(parsed.items) && parsed.items.length > 0) return parsed;
+          if (parsed && Array.isArray(parsed.customers) && Array.isArray(parsed.items)) return parsed;
         }
       }
     } catch(e) { console.error('Upstash read error:', e.message); }
   }
   const local = loadDataLocal();
-  if (local && Array.isArray(local.items) && local.items.length > 0) return local;
+  if (local && Array.isArray(local.items)) return local;
   return getSeedData();
 }
 
@@ -191,7 +191,7 @@ app.post('/api/auth/login', handleLogin);
 
 app.get('/api/version', (req, res) => {
   setNoCache(res);
-  res.json({ version: 'v5.9-logout-all', authRev: 'tt_auth_v6_force_logout', timestamp: Date.now() });
+  res.json({ version: 'v6.0-clean-slate', authRev: 'tt_auth_v6_force_logout', timestamp: Date.now() });
 });
 
 app.get('/api/data', async (req, res) => {

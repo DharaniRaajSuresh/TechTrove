@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v21-logout-all';
+const CACHE = 'techtrove-v22-clean-slate';
 const ASSETS = [
   '/',
   '/index.html',
