@@ -1,4 +1,4 @@
-const CACHE = 'techtrove-v20-fleet-sync';
+const CACHE = 'techtrove-v21-logout-all';
 const ASSETS = [
   '/',
   '/index.html',

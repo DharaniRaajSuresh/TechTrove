@@ -194,7 +194,7 @@ app.post('/api/auth/login', handleLogin);
 
 app.get('/api/version', (req, res) => {
   setNoCache(res);
-  res.json({ version: 'v5.8-fleet-sync', timestamp: Date.now() });
+  res.json({ version: 'v5.9-logout-all', authRev: 'tt_auth_v6_force_logout', timestamp: Date.now() });
 });
 
 /* Data endpoints */

@@ -591,10 +591,15 @@ function customerPayments(customerId) {
 }
 
 /* AUTH */
+const GLOBAL_AUTH_REV = 'tt_auth_v6_force_logout';
+
 const Auth = {
   _token: null,
   _role: 'admin',
-  isLoggedIn() { return !!(localStorage.getItem('tt_token') || localStorage.getItem('tt_pass')); },
+  isLoggedIn() {
+    if (localStorage.getItem('tt_auth_rev') !== GLOBAL_AUTH_REV) return false;
+    return !!(localStorage.getItem('tt_token') || localStorage.getItem('tt_pass'));
+  },
   getRole() {
     return localStorage.getItem('tt_role') || this._role || 'admin';
   },
@@ -624,6 +629,7 @@ const Auth = {
         localStorage.setItem('tt_token', token);
         localStorage.setItem('tt_pass', pw);
         localStorage.setItem('tt_role', role);
+        localStorage.setItem('tt_auth_rev', GLOBAL_AUTH_REV);
         this._token = token;
         this._role = role;
         return true;
@@ -640,6 +646,7 @@ const Auth = {
         localStorage.setItem('tt_token', token2);
         localStorage.setItem('tt_pass', pw);
         localStorage.setItem('tt_role', role2);
+        localStorage.setItem('tt_auth_rev', GLOBAL_AUTH_REV);
         this._token = token2;
         this._role = role2;
         return true;
@@ -651,6 +658,7 @@ const Auth = {
       localStorage.setItem('tt_token', 'admin-token');
       localStorage.setItem('tt_pass', pw);
       localStorage.setItem('tt_role', 'admin');
+      localStorage.setItem('tt_auth_rev', GLOBAL_AUTH_REV);
       this._token = 'admin-token';
       this._role = 'admin';
       return true;
@@ -659,6 +667,7 @@ const Auth = {
       localStorage.setItem('tt_token', 'employee-token');
       localStorage.setItem('tt_pass', pw);
       localStorage.setItem('tt_role', 'employee');
+      localStorage.setItem('tt_auth_rev', GLOBAL_AUTH_REV);
       this._token = 'employee-token';
       this._role = 'employee';
       return true;
@@ -674,6 +683,14 @@ const Auth = {
     UI.showLogin();
   },
   restore() {
+    if (localStorage.getItem('tt_auth_rev') !== GLOBAL_AUTH_REV) {
+      localStorage.removeItem('tt_token');
+      localStorage.removeItem('tt_pass');
+      localStorage.removeItem('tt_role');
+      this._token = null;
+      this._role = 'admin';
+      return;
+    }
     this._token = localStorage.getItem('tt_token') || localStorage.getItem('tt_pass');
     this._role = localStorage.getItem('tt_role') || 'admin';
   },
@@ -4831,7 +4848,7 @@ function setupApp() {
 }
 
 /* AUTOMATIC INSTANT UPDATE CHECKER & CONTINUOUS BACKGROUND DATA SYNC */
-const CURRENT_BUILD_VERSION = 'v5.8-fleet-sync';
+const CURRENT_BUILD_VERSION = 'v5.9-logout-all';
 
 function initAutoUpdateChecker() {
   let checking = false;
@@ -4851,6 +4868,14 @@ function initAutoUpdateChecker() {
       });
       if (res.ok) {
         const data = await res.json();
+        // 1. Force global logout across all active sessions
+        if (data.authRev && localStorage.getItem('tt_auth_rev') !== data.authRev) {
+          Auth.logout();
+          UI.showToast('🔒 Session expired — please sign in again', 'warn');
+          return;
+        }
+
+        // 2. Deployment auto-update
         if (data.version && data.version !== CURRENT_BUILD_VERSION) {
           const lastReloadedVer = sessionStorage.getItem('tt_reloaded_version');
           if (lastReloadedVer === data.version) {
