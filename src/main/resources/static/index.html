@@ -185,7 +185,8 @@
   <div id="confirmContent" class="modal-content confirm-box"></div>
 </div>
 
-<script src="app.js?v=5.6-smart-sync"></script>
+<script src="vendor/pdf.min.js"></script>
+<script src="app.js?v=5.7-dc-importer"></script>
 <script>
 if ('serviceWorker' in navigator) {
   let refreshing = false;
@@ -195,10 +196,11 @@ if ('serviceWorker' in navigator) {
       window.location.reload();
     }
   });
-  navigator.serviceWorker.register('sw.js?v=5.6-smart-sync').then(function(reg) {
+  navigator.serviceWorker.register('sw.js?v=5.7-dc-importer').then(function(reg) {
     reg.update();
   }).catch(function(){});
 }
 </script>
+
 </body>
 </html>

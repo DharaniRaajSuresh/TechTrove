@@ -276,7 +276,299 @@ test('Tombstones reliably remove deleted records and prevent resurrection', () =
   assert.strictEqual(merged[0].id, 'r2');
 });
 
+console.log('\nDelivery Challan (DC) Parser & Pre-Tax Ingestion');
+
+function parseDeliveryChallanText(text) {
+  if (!text || typeof text !== 'string') return null;
+
+  const challanMatch = text.match(/\b(DC[-_]?\d+)\b/i) ||
+                       text.match(/Delivery\s*Challan\s*#?\s*([A-Za-z0-9\-_]+)/i);
+  const challanNo = challanMatch ? challanMatch[1].toUpperCase() : 'DC-UNKNOWN';
+
+  const dateMatch = text.match(/Challan\s*Date\s*[:\-]?\s*(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/i) ||
+                    text.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
+  let challanDate = new Date().toISOString().split('T')[0];
+  if (dateMatch) {
+    const d = dateMatch[1].padStart(2, '0');
+    const m = dateMatch[2].padStart(2, '0');
+    const y = dateMatch[3];
+    challanDate = `${y}-${m}-${d}`;
+  }
+
+  let customerName = 'Corporate Client';
+  let customerAddress = '';
+  const deliverToMatch = text.match(/Deliver\s*To\s*[\r\n]+([\s\S]*?)(?:Place\s*Of\s*Supply|Challan\s*Date|#\s*Item|Terms)/i);
+  if (deliverToMatch) {
+    const lines = deliverToMatch[1].split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length > 0) {
+      customerName = lines[0];
+      customerAddress = lines.slice(1).join(', ').replace(/\s+,/g, ',');
+    }
+  }
+
+  const items = [];
+  const itemSectionMatch = text.match(/(?:#\s*Item\s*&?\s*Description[\s\S]*?)([\s\S]*?)(?:Sub\s*Total|Terms\s*&|Crafted\s*with)/i);
+  const itemSectionText = itemSectionMatch ? itemSectionMatch[1] : text;
+
+  const rawLines = itemSectionText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const itemBlocks = [];
+  let currentBlock = null;
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+    const isNewItem = /^(\d+)\s+(?:Rent|Rental)\b/i.test(line) ||
+                      /^(?:Rent|Rental)\s+(?:Laptop|Apple|MacBook|Dell|Lenovo|HP|Toshiba)/i.test(line);
+
+    if (isNewItem) {
+      if (currentBlock) itemBlocks.push(currentBlock);
+      currentBlock = { lines: [line] };
+    } else if (currentBlock) {
+      if (/^Sub\s*Total/i.test(line) || /^Total/i.test(line) || /^Terms/i.test(line)) {
+        itemBlocks.push(currentBlock);
+        currentBlock = null;
+        break;
+      }
+      currentBlock.lines.push(line);
+    }
+  }
+  if (currentBlock) itemBlocks.push(currentBlock);
+
+  if (itemBlocks.length === 0 && itemSectionText) {
+    itemBlocks.push({ lines: rawLines });
+  }
+
+  itemBlocks.forEach((block, bIdx) => {
+    const fullBlockText = block.lines.join('\n');
+
+    let rate = 0;
+    const numRegex = /([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)/g;
+    let nMatch;
+    while ((nMatch = numRegex.exec(fullBlockText)) !== null) {
+      const q = parseFloat(nMatch[1].replace(/,/g, ''));
+      const r = parseFloat(nMatch[2].replace(/,/g, ''));
+      const a = parseFloat(nMatch[3].replace(/,/g, ''));
+      if (q > 0 && r > 0 && Math.abs(q * r - a) < 2) {
+        rate = r;
+        break;
+      }
+    }
+    if (!rate) {
+      const moneyMatches = fullBlockText.match(/[\d,]+\.\d{2}/g);
+      if (moneyMatches && moneyMatches.length >= 2) {
+        rate = parseFloat(moneyMatches[moneyMatches.length - 2].replace(/,/g, ''));
+      }
+    }
+
+    let brand = 'Dell';
+    let type = 'Laptop';
+    let model = 'Corporate Series';
+
+    if (/Apple|MacBook|Mac\s*Book/i.test(fullBlockText)) {
+      brand = 'Apple';
+      type = 'MacBook';
+      if (/16[\s\-]*inch/i.test(fullBlockText)) model = 'MacBook Pro 16-inch';
+      else if (/14[\s\-]*inch/i.test(fullBlockText)) model = 'MacBook Pro 14-inch';
+      else if (/Air/i.test(fullBlockText)) model = 'MacBook Air';
+      else model = 'MacBook Pro';
+    } else if (/ThinkPad|Lenovo/i.test(fullBlockText)) {
+      brand = 'Lenovo';
+      type = 'Laptop';
+      model = /ThinkPad/i.test(fullBlockText) ? 'ThinkPad' : 'IdeaPad';
+    } else if (/Ryzen\s*5\s*PRO|HP/i.test(fullBlockText)) {
+      brand = 'HP';
+      type = 'Laptop';
+      model = /Ryzen\s*5\s*PRO\s*4650U/i.test(fullBlockText) ? 'Ryzen 5 PRO 4650U' : 'ProBook';
+    } else if (/Toshiba|DynaBook|Dynabook/i.test(fullBlockText)) {
+      brand = 'Toshiba';
+      type = 'Laptop';
+      model = 'DynaBook';
+    } else if (/Dell|Latitude/i.test(fullBlockText)) {
+      brand = 'Dell';
+      type = 'Laptop';
+      model = 'Latitude 3420';
+    }
+
+    let descLines = block.lines.map(l => {
+      return l.replace(/^\d+\s+(?:Rent|Rental)\s+(?:Laptop|Apple\s+)?/i, '')
+              .replace(/(?:Rent|Rental)\s+(?:Laptop|Apple\s+)?/i, '')
+              .replace(/[\d,]+(?:\.\d+)?\s+[\d,]+(?:\.\d+)?\s+[\d,]+(?:\.\d+)?$/, '')
+              .trim();
+    }).filter(l => 
+      l.length > 0 &&
+      !/^(?:Serial\s*No|Asset\s*No|ASSETNO|Part\s*No)/i.test(l) &&
+      !/^(?:Sub\s*Total|Total|CGST|SGST|IGST)/i.test(l)
+    );
+
+    let baseSpecs = descLines.join(' • ').replace(/\s+/g, ' ').trim();
+    if (baseSpecs.length > 150) baseSpecs = baseSpecs.substring(0, 150) + '...';
+
+    const units = [];
+    const batchRegex = /ASSETNO:\s*([A-Za-z0-9]+)\s*-\s*SLNO:\s*([A-Za-z0-9]+)/gi;
+    let bMatch;
+    while ((bMatch = batchRegex.exec(fullBlockText)) !== null) {
+      units.push({ assetNo: bMatch[1], serial: bMatch[2] });
+    }
+
+    if (units.length === 0) {
+      const serialMatch = fullBlockText.match(/Serial\s*No\s*[:\-]?\s*([A-Za-z0-9]+)/i) ||
+                          fullBlockText.match(/SLNO\s*[:\-]?\s*([A-Za-z0-9]+)/i);
+      const assetMatch = fullBlockText.match(/Asset\s*No\s*[:\-]?\s*([A-Za-z0-9]+)/i) ||
+                         fullBlockText.match(/ASSETNO\s*[:\-]?\s*([A-Za-z0-9]+)/i);
+
+      if (serialMatch) {
+        units.push({
+          serial: serialMatch[1],
+          assetNo: assetMatch ? assetMatch[1] : ''
+        });
+      }
+    }
+
+    if (units.length === 0) {
+      units.push({
+        serial: `SN-${Date.now().toString(36).toUpperCase()}-${bIdx + 1}`,
+        assetNo: ''
+      });
+    }
+
+    units.forEach(u => {
+      items.push({
+        brand,
+        model,
+        type,
+        serial: u.serial,
+        assetNo: u.assetNo,
+        specs: u.assetNo ? `${baseSpecs} | Asset No: ${u.assetNo}` : baseSpecs,
+        rate: rate,
+        status: 'rented'
+      });
+    });
+  });
+
+  return {
+    challanNo,
+    challanDate,
+    customer: {
+      name: customerName,
+      address: customerAddress,
+      phone: '9876543201'
+    },
+    items,
+    totalRentalMonthly: items.reduce((sum, it) => sum + (it.rate || 0), 0)
+  };
+}
+
+test('parseDeliveryChallanText accurately parses DC-0501 (SOEZY Apple MacBooks) with pre-tax rates', () => {
+  const dcText = `
+    DELIVERY CHALLAN
+    Delivery Challan# DC-0501
+    Challan Date : 03/09/2026
+    Deliver To
+    SOEZY INDIA PRIVATE LIMITED
+    385, Paneer Nagar, Mogappair
+    Chennai 600037 Tamil Nadu
+    # Item & Description Qty Rate Amount
+    1 Rent Apple MacBook Pro 16-inch 1.00 20,000.00 20,000.00
+    M3 Pro | 18-Core CPU | 20-Core GPU | 48GB Unified Memory | 1TB SSD | Space Black
+    Part No.: MGEC4HN/A
+    Serial No: SMHP1V7079J
+    Asset No: 780
+    2 Rent Apple MacBook Pro 14-inch 1.00 13,900.00 13,900.00
+    M3 Pro | 15-Core CPU | 16-Core GPU | 24GB Unified Memory | 1TB SSD | Silver
+    Part No: MGDN4HN/A
+    Serial No: 5LJP2TV9L2J
+    Asset No: 781
+    Sub Total 33,900.00
+    CGST9 (9%) 3,051.00
+    SGST9 (9%) 3,051.00
+    Total ₹40,002.00
+  `;
+
+  const parsed = parseDeliveryChallanText(dcText);
+  assert.strictEqual(parsed.challanNo, 'DC-0501');
+  assert.strictEqual(parsed.challanDate, '2026-09-03');
+  assert.strictEqual(parsed.customer.name, 'SOEZY INDIA PRIVATE LIMITED');
+  assert.strictEqual(parsed.items.length, 2);
+
+  // Item 1: 16-inch @ 20,000 without GST
+  assert.strictEqual(parsed.items[0].brand, 'Apple');
+  assert.strictEqual(parsed.items[0].model, 'MacBook Pro 16-inch');
+  assert.strictEqual(parsed.items[0].serial, 'SMHP1V7079J');
+  assert.strictEqual(parsed.items[0].assetNo, '780');
+  assert.strictEqual(parsed.items[0].rate, 20000);
+
+  // Item 2: 14-inch @ 13,900 without GST
+  assert.strictEqual(parsed.items[1].brand, 'Apple');
+  assert.strictEqual(parsed.items[1].model, 'MacBook Pro 14-inch');
+  assert.strictEqual(parsed.items[1].serial, '5LJP2TV9L2J');
+  assert.strictEqual(parsed.items[1].assetNo, '781');
+  assert.strictEqual(parsed.items[1].rate, 13900);
+
+  assert.strictEqual(parsed.totalRentalMonthly, 33900);
+});
+
+test('parseDeliveryChallanText accurately parses DC-0496 (LUXARA multi-serial batch) with pre-tax rates', () => {
+  const dcText = `
+    DELIVERY CHALLAN
+    Delivery Challan# DC-0496
+    Challan Date : 28/08/2026
+    Deliver To
+    LUXARA HOLIDAYS AND RESORTS
+    GROUND FLOOR NO/14 PATTULAS ROAD THOUSAND LIGHTS
+    Chennai 600002 Tamil Nadu
+    # Item & Description Qty Rate Amount
+    1 Rental Laptop Lenovo ThinkPad i5-8th GEN/ 8 GB RAM/ 256 GB 1.00 1,700.00 1,700.00
+    SSD with Adaptor
+    ASSETNO: 606 - SLNO: PF1C5NUR
+    2 Rental Laptop AMD Ryzen 5 PRO 4650U with Radeon Graphics 1.00 1,700.00 1,700.00
+    8GB RAM/ 256 GB SSD with Adaptor
+    ASSETNO: 757 - SLNO: 5CG1074VDO
+    3 Rental Laptop Toshiba DynaBook i7-11th GEN/ 16GB RAM/ 256 6.00 1,700.00 10,200.00
+    GB SSD with Adaptor
+    ASSETNO: 760 - SLNO: 52119506H
+    ASSETNO: 761 - SLNO: 32094378H
+    ASSETNO: 762 - SLNO: 52119486H
+    ASSETNO: 763 - SLNO: V1183901H
+    ASSETNO: 764 - SLNO: Z1104249H
+    ASSETNO: 765 - SLNO: 91027929H
+    Sub Total 13,600.00
+    CGST9 (9%) 1,224.00
+    SGST9 (9%) 1,224.00
+    Total ₹16,048.00
+  `;
+
+  const parsed = parseDeliveryChallanText(dcText);
+  assert.strictEqual(parsed.challanNo, 'DC-0496');
+  assert.strictEqual(parsed.challanDate, '2026-08-28');
+  assert.strictEqual(parsed.customer.name, 'LUXARA HOLIDAYS AND RESORTS');
+  assert.strictEqual(parsed.items.length, 8);
+
+  // Lenovo ThinkPad
+  assert.strictEqual(parsed.items[0].brand, 'Lenovo');
+  assert.strictEqual(parsed.items[0].serial, 'PF1C5NUR');
+  assert.strictEqual(parsed.items[0].assetNo, '606');
+  assert.strictEqual(parsed.items[0].rate, 1700);
+
+  // HP Ryzen
+  assert.strictEqual(parsed.items[1].brand, 'HP');
+  assert.strictEqual(parsed.items[1].serial, '5CG1074VDO');
+  assert.strictEqual(parsed.items[1].assetNo, '757');
+  assert.strictEqual(parsed.items[1].rate, 1700);
+
+  // 6 Toshiba DynaBooks
+  for (let i = 2; i < 8; i++) {
+    assert.strictEqual(parsed.items[i].brand, 'Toshiba');
+    assert.strictEqual(parsed.items[i].rate, 1700);
+  }
+  assert.strictEqual(parsed.items[2].serial, '52119506H');
+  assert.strictEqual(parsed.items[2].assetNo, '760');
+  assert.strictEqual(parsed.items[7].serial, '91027929H');
+  assert.strictEqual(parsed.items[7].assetNo, '765');
+
+  assert.strictEqual(parsed.totalRentalMonthly, 13600);
+});
+
 console.log(`\n${passed} passed, ${failed} failed${failed > 0 ? ' — SOME TESTS FAILED' : ' — all good!'}`);
 process.exit(failed > 0 ? 1 : 0);
+
 
 

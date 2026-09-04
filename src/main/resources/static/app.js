@@ -7,19 +7,46 @@ const DEFAULT_SEED_ITEMS = [
   { id: 'item-dell-lat-02', brand: 'Dell', model: 'Latitude 3420', type: 'Laptop', serial: 'DELL-3420-SN02', specs: 'Intel Core i5 11th Gen • 16GB DDR4 • 512GB NVMe SSD • 14.0" FHD', status: 'repair', repairInfo: { serviceCenter: 'Dell Authorized Service Care, SP Road', servicePerson: 'Suresh Kumar', servicePhone: '9876500001', givenToServiceDate: '2026-09-03', expectedReturnDate: '2026-09-03', repairCost: 1800, repairIssue: 'Keyboard replacement & fan thermal service' } },
   { id: 'item-dell-lat-03', brand: 'Dell', model: 'Latitude 3420', type: 'Laptop', serial: 'DELL-3420-SN03', specs: 'Intel Core i5 11th Gen • 16GB DDR4 • 512GB NVMe SSD • 14.0" FHD', status: 'available' },
   { id: 'item-len-t14-01', brand: 'Lenovo', model: 'ThinkPad T14 Gen 2', type: 'Laptop', serial: 'LEN-T14-SN01', specs: 'Intel Core i5 11th Gen • 16GB DDR4 • 512GB NVMe SSD • 14.0" FHD IPS', status: 'rented' },
-  { id: 'item-apl-m1-01', brand: 'Apple', model: 'MacBook Air M1 (2020)', type: 'MacBook', serial: 'APL-MBA-SN01', specs: 'Apple M1 (8-Core CPU) • 8GB Unified RAM • 256GB SSD • 13.3" Retina Display', status: 'available' }
+  { id: 'item-apl-m1-01', brand: 'Apple', model: 'MacBook Air M1 (2020)', type: 'MacBook', serial: 'APL-MBA-SN01', specs: 'Apple M1 (8-Core CPU) • 8GB Unified RAM • 256GB SSD • 13.3" Retina Display', status: 'available' },
+  // DC-0501 (SOEZY INDIA)
+  { id: 'item-apl-mbp16-780', brand: 'Apple', model: 'MacBook Pro 16-inch', type: 'MacBook', serial: 'SMHP1V7079J', assetNo: '780', specs: 'M3 Pro | 18-Core CPU | 20-Core GPU | 48GB Unified Memory | 1TB SSD | Space Black | Part No: MGEC4HN/A | Asset No: 780', status: 'rented', createdAt: '2026-09-03' },
+  { id: 'item-apl-mbp14-781', brand: 'Apple', model: 'MacBook Pro 14-inch', type: 'MacBook', serial: '5LJP2TV9L2J', assetNo: '781', specs: 'M3 Pro | 15-Core CPU | 16-Core GPU | 24GB Unified Memory | 1TB SSD | Silver | Part No: MGDN4HN/A | Asset No: 781', status: 'rented', createdAt: '2026-09-03' },
+  // DC-0496 (LUXARA HOLIDAYS)
+  { id: 'item-len-tp-606', brand: 'Lenovo', model: 'ThinkPad', type: 'Laptop', serial: 'PF1C5NUR', assetNo: '606', specs: 'i5-8th GEN / 8 GB RAM / 256 GB SSD with Adaptor | Asset No: 606', status: 'rented', createdAt: '2026-08-28' },
+  { id: 'item-hp-ryz-757', brand: 'HP', model: 'AMD Ryzen 5 PRO 4650U', type: 'Laptop', serial: '5CG1074VDO', assetNo: '757', specs: 'AMD Ryzen 5 PRO 4650U with Radeon Graphics • 8GB RAM / 256 GB SSD with Adaptor | Asset No: 757', status: 'rented', createdAt: '2026-08-28' },
+  { id: 'item-tsh-db-760', brand: 'Toshiba', model: 'DynaBook', type: 'Laptop', serial: '52119506H', assetNo: '760', specs: 'i7-11th GEN / 16GB RAM / 256 GB SSD with Adaptor | Asset No: 760', status: 'rented', createdAt: '2026-08-28' },
+  { id: 'item-tsh-db-761', brand: 'Toshiba', model: 'DynaBook', type: 'Laptop', serial: '32094378H', assetNo: '761', specs: 'i7-11th GEN / 16GB RAM / 256 GB SSD with Adaptor | Asset No: 761', status: 'rented', createdAt: '2026-08-28' },
+  { id: 'item-tsh-db-762', brand: 'Toshiba', model: 'DynaBook', type: 'Laptop', serial: '52119486H', assetNo: '762', specs: 'i7-11th GEN / 16GB RAM / 256 GB SSD with Adaptor | Asset No: 762', status: 'rented', createdAt: '2026-08-28' },
+  { id: 'item-tsh-db-763', brand: 'Toshiba', model: 'DynaBook', type: 'Laptop', serial: 'V1183901H', assetNo: '763', specs: 'i7-11th GEN / 16GB RAM / 256 GB SSD with Adaptor | Asset No: 763', status: 'rented', createdAt: '2026-08-28' },
+  { id: 'item-tsh-db-764', brand: 'Toshiba', model: 'DynaBook', type: 'Laptop', serial: 'Z1104249H', assetNo: '764', specs: 'i7-11th GEN / 16GB RAM / 256 GB SSD with Adaptor | Asset No: 764', status: 'rented', createdAt: '2026-08-28' },
+  { id: 'item-tsh-db-765', brand: 'Toshiba', model: 'DynaBook', type: 'Laptop', serial: '91027929H', assetNo: '765', specs: 'i7-11th GEN / 16GB RAM / 256 GB SSD with Adaptor | Asset No: 765', status: 'rented', createdAt: '2026-08-28' }
 ];
 
 const DEFAULT_SEED_CUSTOMERS = [
   { id: 'cust-rajesh', name: 'Rajesh Kumar', phone: '9876543210', address: 'Indiranagar, Bangalore' },
   { id: 'cust-priya', name: 'Priya Sharma', phone: '9845012345', address: 'Koramangala, Bangalore' },
-  { id: 'cust-amit', name: 'Amit Patel', phone: '9731234567', address: 'HSR Layout, Bangalore' }
+  { id: 'cust-amit', name: 'Amit Patel', phone: '9731234567', address: 'HSR Layout, Bangalore' },
+  { id: 'cust-soezy-india', name: 'SOEZY INDIA PRIVATE LIMITED', phone: '9876543201', address: '385, Paneer Nagar, Mogappair, Chennai 600037 Tamil Nadu India', createdAt: '2026-09-03' },
+  { id: 'cust-luxara-holidays', name: 'LUXARA HOLIDAYS AND RESORTS', phone: '9876543202', address: 'GROUND FLOOR NO/14 PATTULAS ROAD THOUSAND LIGHTS, Chennai 600002 Tamil Nadu India', createdAt: '2026-08-28' }
 ];
 
 const DEFAULT_SEED_RENTALS = [
   { id: 'rental-rajesh-dell', customerId: 'cust-rajesh', itemId: 'item-dell-lat-01', rentAmount: 2500, billingCycle: 'monthly', startDate: '2026-09-03', advancePayment: 2500, securityDeposit: 5000, status: 'active' },
-  { id: 'rental-priya-lenovo', customerId: 'cust-priya', itemId: 'item-len-t14-01', rentAmount: 3000, billingCycle: 'monthly', startDate: '2026-09-03', advancePayment: 3000, securityDeposit: 6000, status: 'active' }
+  { id: 'rental-priya-lenovo', customerId: 'cust-priya', itemId: 'item-len-t14-01', rentAmount: 3000, billingCycle: 'monthly', startDate: '2026-09-03', advancePayment: 3000, securityDeposit: 6000, status: 'active' },
+  // DC-0501 (SOEZY)
+  { id: 'rental-soezy-mbp16', customerId: 'cust-soezy-india', itemId: 'item-apl-mbp16-780', rentAmount: 20000, billingCycle: 'monthly', startDate: '2026-09-03', advancePayment: 20000, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0501' },
+  { id: 'rental-soezy-mbp14', customerId: 'cust-soezy-india', itemId: 'item-apl-mbp14-781', rentAmount: 13900, billingCycle: 'monthly', startDate: '2026-09-03', advancePayment: 13900, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0501' },
+  // DC-0496 (LUXARA)
+  { id: 'rental-luxara-tp-606', customerId: 'cust-luxara-holidays', itemId: 'item-len-tp-606', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' },
+  { id: 'rental-luxara-hp-757', customerId: 'cust-luxara-holidays', itemId: 'item-hp-ryz-757', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' },
+  { id: 'rental-luxara-db-760', customerId: 'cust-luxara-holidays', itemId: 'item-tsh-db-760', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' },
+  { id: 'rental-luxara-db-761', customerId: 'cust-luxara-holidays', itemId: 'item-tsh-db-761', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' },
+  { id: 'rental-luxara-db-762', customerId: 'cust-luxara-holidays', itemId: 'item-tsh-db-762', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' },
+  { id: 'rental-luxara-db-763', customerId: 'cust-luxara-holidays', itemId: 'item-tsh-db-763', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' },
+  { id: 'rental-luxara-db-764', customerId: 'cust-luxara-holidays', itemId: 'item-tsh-db-764', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' },
+  { id: 'rental-luxara-db-765', customerId: 'cust-luxara-holidays', itemId: 'item-tsh-db-765', rentAmount: 1700, billingCycle: 'monthly', startDate: '2026-08-28', advancePayment: 1700, securityDeposit: 0, status: 'active', notes: 'Delivery Challan # DC-0496' }
 ];
+
 
 let state = {
   customers: JSON.parse(JSON.stringify(DEFAULT_SEED_CUSTOMERS)),
@@ -122,8 +149,15 @@ const Icons = {
   sun: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
   moon: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
   edit: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
-  trash: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`
+  trash: `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
+  fileText: `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>`
 };
+
+if (typeof window !== 'undefined' && window.pdfjsLib) {
+  try {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdf.worker.min.js';
+  } catch(e) {}
+}
 
 /* PRESET CATALOGUE FOR LAPTOPS, DESKTOPS & MONITORS */
 const PRESET_CATALOGUE = [
@@ -1871,6 +1905,10 @@ const UI = {
         ${Icons.refresh}
         <span style="font-size:0.78rem">Sync</span>
       </button>
+      <button class="btn btn-primary btn-sm" onclick="UI.showDeliveryChallanModal()" title="Upload Delivery Challan PDF" style="display:flex;align-items:center;gap:6px;flex-shrink:0;height:42px;padding:0 12px">
+        ${Icons.fileText}
+        <span style="font-size:0.78rem">Import DC</span>
+      </button>
     </div>
 
     <!-- Brand & Status Filter Pills (Horizontal Scroll) -->
@@ -1883,8 +1921,10 @@ const UI = {
       <button class="brand-pill ${brandFilter === 'Lenovo' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Lenovo')">Lenovo</button>
       <button class="brand-pill ${brandFilter === 'HP' ? 'active' : ''}" onclick="UI.renderInventory('all', 'HP')">HP</button>
       <button class="brand-pill ${brandFilter === 'Apple' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Apple')">Apple</button>
+      <button class="brand-pill ${brandFilter === 'Toshiba' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Toshiba')">Toshiba</button>
       <button class="brand-pill ${brandFilter === 'Monitors' ? 'active' : ''}" onclick="UI.renderInventory('all', 'Monitors')">Monitors</button>
     </div>
+
 
     <!-- Section Count & Add Device Command -->
     <div class="section-head">
@@ -2686,10 +2726,20 @@ const UI = {
       <div class="section-title">Data portability &amp; backup</div>
       <div class="section-count">JSON snapshot</div>
     </div>
-    <div class="ops-list" style="margin-bottom:14px">
+      <div class="ops-setting-row" onclick="UI.showDeliveryChallanModal()" style="border-left:3px solid var(--brand-primary);background:var(--accent-subtle)">
+        <div class="ops-setting-main">
+          <div class="ops-setting-icon" style="color:var(--brand-primary)">${Icons.fileText}</div>
+          <div>
+            <div class="ops-setting-title" style="color:var(--brand-primary);font-weight:700">Import Delivery Challan (PDF)</div>
+            <div class="ops-setting-sub">Upload Zoho Invoice PDF to auto-create client, fleet units &amp; active rentals (excl. GST)</div>
+          </div>
+        </div>
+        <div class="ops-setting-chevron" style="color:var(--brand-primary)">${Icons.chevronRight}</div>
+      </div>
       <div class="ops-setting-row" id="exportBackupRow" onclick="UI.handleExportBackup(this)">
         <div class="ops-setting-main">
           <div class="ops-setting-icon">${Icons.download}</div>
+
           <div>
             <div class="ops-setting-title">Export database snapshot</div>
             <div class="ops-setting-sub">Download complete JSON archive of clients, inventory &amp; payments</div>
@@ -4165,7 +4215,480 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
+/* ==========================================================================
+   DELIVERY CHALLAN (DC) PDF EXTRACTOR & SMART IMPORTER
+   ========================================================================== */
+
+async function extractTextFromPDF(file) {
+  if (typeof pdfjsLib === 'undefined') {
+    throw new Error('PDF reader engine is still initializing. Please retry in a few seconds.');
+  }
+  const arrayBuffer = await file.arrayBuffer();
+  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const pdf = await loadingTask.promise;
+  let fullText = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const tokenContent = await page.getTextContent();
+    const pageText = tokenContent.items.map(item => item.str).join(' ');
+    fullText += pageText + '\n';
+  }
+  return fullText;
+}
+
+function parseDeliveryChallanText(text) {
+  if (!text || typeof text !== 'string') return null;
+
+  // 1. Challan Number: match DC-XXXX
+  const challanMatch = text.match(/\b(DC[-_]?\d+)\b/i) ||
+                       text.match(/Delivery\s*Challan\s*#?\s*([A-Za-z0-9\-_]+)/i);
+  const challanNo = challanMatch ? challanMatch[1].toUpperCase() : 'DC-UNKNOWN';
+
+  // 2. Challan Date: match DD/MM/YYYY
+  const dateMatch = text.match(/Challan\s*Date\s*[:\-]?\s*(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/i) ||
+                    text.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
+  let challanDate = new Date().toISOString().split('T')[0];
+  if (dateMatch) {
+    const d = dateMatch[1].padStart(2, '0');
+    const m = dateMatch[2].padStart(2, '0');
+    const y = dateMatch[3];
+    challanDate = `${y}-${m}-${d}`;
+  }
+
+  // 3. Customer Info (Deliver To)
+  let customerName = 'Corporate Client';
+  let customerAddress = '';
+  const deliverToMatch = text.match(/Deliver\s*To\s*[\r\n]+([\s\S]*?)(?:Place\s*Of\s*Supply|Challan\s*Date|#\s*Item|Terms)/i);
+  if (deliverToMatch) {
+    const lines = deliverToMatch[1].split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length > 0) {
+      customerName = lines[0];
+      customerAddress = lines.slice(1).join(', ').replace(/\s+,/g, ',');
+    }
+  }
+
+  // 4. Parse Items
+  const items = [];
+  const itemSectionMatch = text.match(/(?:#\s*Item\s*&?\s*Description[\s\S]*?)([\s\S]*?)(?:Sub\s*Total|Terms\s*&|Crafted\s*with)/i);
+  const itemSectionText = itemSectionMatch ? itemSectionMatch[1] : text;
+
+  const rawLines = itemSectionText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const itemBlocks = [];
+  let currentBlock = null;
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+    const isNewItem = /^(\d+)\s+(?:Rent|Rental)\b/i.test(line) ||
+                      /^(?:Rent|Rental)\s+(?:Laptop|Apple|MacBook|Dell|Lenovo|HP|Toshiba)/i.test(line);
+
+    if (isNewItem) {
+      if (currentBlock) itemBlocks.push(currentBlock);
+      currentBlock = { lines: [line] };
+    } else if (currentBlock) {
+      if (/^Sub\s*Total/i.test(line) || /^Total/i.test(line) || /^Terms/i.test(line)) {
+        itemBlocks.push(currentBlock);
+        currentBlock = null;
+        break;
+      }
+      currentBlock.lines.push(line);
+    }
+  }
+  if (currentBlock) itemBlocks.push(currentBlock);
+
+  if (itemBlocks.length === 0 && itemSectionText) {
+    itemBlocks.push({ lines: rawLines });
+  }
+
+  itemBlocks.forEach((block, bIdx) => {
+    const fullBlockText = block.lines.join('\n');
+
+    // Extract Unit Rate: Pre-tax base rate! Look for Qty * Rate ≈ Amount
+    let rate = 0;
+    const numRegex = /([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)\s+([\d,]+(?:\.\d+)?)/g;
+    let nMatch;
+    while ((nMatch = numRegex.exec(fullBlockText)) !== null) {
+      const q = parseFloat(nMatch[1].replace(/,/g, ''));
+      const r = parseFloat(nMatch[2].replace(/,/g, ''));
+      const a = parseFloat(nMatch[3].replace(/,/g, ''));
+      if (q > 0 && r > 0 && Math.abs(q * r - a) < 2) {
+        rate = r;
+        break;
+      }
+    }
+    if (!rate) {
+      const moneyMatches = fullBlockText.match(/[\d,]+\.\d{2}/g);
+      if (moneyMatches && moneyMatches.length >= 2) {
+        rate = parseFloat(moneyMatches[moneyMatches.length - 2].replace(/,/g, ''));
+      }
+    }
+
+    // Determine Brand & Type
+    let brand = 'Dell';
+    let type = 'Laptop';
+    let model = 'Corporate Series';
+
+    if (/Apple|MacBook|Mac\s*Book/i.test(fullBlockText)) {
+      brand = 'Apple';
+      type = 'MacBook';
+      if (/16[\s\-]*inch/i.test(fullBlockText)) model = 'MacBook Pro 16-inch';
+      else if (/14[\s\-]*inch/i.test(fullBlockText)) model = 'MacBook Pro 14-inch';
+      else if (/Air/i.test(fullBlockText)) model = 'MacBook Air';
+      else model = 'MacBook Pro';
+    } else if (/ThinkPad|Lenovo/i.test(fullBlockText)) {
+      brand = 'Lenovo';
+      type = 'Laptop';
+      model = /ThinkPad/i.test(fullBlockText) ? 'ThinkPad' : 'IdeaPad';
+    } else if (/Ryzen\s*5\s*PRO|HP/i.test(fullBlockText)) {
+      brand = 'HP';
+      type = 'Laptop';
+      model = /Ryzen\s*5\s*PRO\s*4650U/i.test(fullBlockText) ? 'Ryzen 5 PRO 4650U' : 'ProBook';
+    } else if (/Toshiba|DynaBook|Dynabook/i.test(fullBlockText)) {
+      brand = 'Toshiba';
+      type = 'Laptop';
+      model = 'DynaBook';
+    } else if (/Dell|Latitude/i.test(fullBlockText)) {
+      brand = 'Dell';
+      type = 'Laptop';
+      model = 'Latitude 3420';
+    }
+
+    // Clean Specs: Strip row numbers, pricing, serials
+    let descLines = block.lines.map(l => {
+      return l.replace(/^\d+\s+(?:Rent|Rental)\s+(?:Laptop|Apple\s+)?/i, '')
+              .replace(/(?:Rent|Rental)\s+(?:Laptop|Apple\s+)?/i, '')
+              .replace(/[\d,]+(?:\.\d+)?\s+[\d,]+(?:\.\d+)?\s+[\d,]+(?:\.\d+)?$/, '')
+              .trim();
+    }).filter(l => 
+      l.length > 0 &&
+      !/^(?:Serial\s*No|Asset\s*No|ASSETNO|Part\s*No)/i.test(l) &&
+      !/^(?:Sub\s*Total|Total|CGST|SGST|IGST)/i.test(l)
+    );
+
+    let baseSpecs = descLines.join(' • ').replace(/\s+/g, ' ').trim();
+    if (baseSpecs.length > 150) baseSpecs = baseSpecs.substring(0, 150) + '...';
+
+    // Extract Units (Serial & Asset)
+    const units = [];
+
+    // Pattern A: ASSETNO: 760 - SLNO: 52119506H
+    const batchRegex = /ASSETNO:\s*([A-Za-z0-9]+)\s*-\s*SLNO:\s*([A-Za-z0-9]+)/gi;
+    let bMatch;
+    while ((bMatch = batchRegex.exec(fullBlockText)) !== null) {
+      units.push({ assetNo: bMatch[1], serial: bMatch[2] });
+    }
+
+    // Pattern B: Serial No: SMHP1V7079J ... Asset No: 780
+    if (units.length === 0) {
+      const serialMatch = fullBlockText.match(/Serial\s*No\s*[:\-]?\s*([A-Za-z0-9]+)/i) ||
+                          fullBlockText.match(/SLNO\s*[:\-]?\s*([A-Za-z0-9]+)/i);
+      const assetMatch = fullBlockText.match(/Asset\s*No\s*[:\-]?\s*([A-Za-z0-9]+)/i) ||
+                         fullBlockText.match(/ASSETNO\s*[:\-]?\s*([A-Za-z0-9]+)/i);
+
+      if (serialMatch) {
+        units.push({
+          serial: serialMatch[1],
+          assetNo: assetMatch ? assetMatch[1] : ''
+        });
+      }
+    }
+
+    if (units.length === 0) {
+      units.push({
+        serial: `SN-${Date.now().toString(36).toUpperCase()}-${bIdx + 1}`,
+        assetNo: ''
+      });
+    }
+
+    units.forEach(u => {
+      items.push({
+        brand,
+        model,
+        type,
+        serial: u.serial,
+        assetNo: u.assetNo,
+        specs: u.assetNo ? `${baseSpecs} | Asset No: ${u.assetNo}` : baseSpecs,
+        rate: rate, // STRICT PRE-TAX BASE RATE
+        status: 'rented'
+      });
+    });
+  });
+
+  return {
+    challanNo,
+    challanDate,
+    customer: {
+      name: customerName,
+      address: customerAddress,
+      phone: '9876543201'
+    },
+    items,
+    totalRentalMonthly: items.reduce((sum, it) => sum + (it.rate || 0), 0)
+  };
+}
+
+let currentParsedDC = null;
+
+UI.showDeliveryChallanModal = function(preParsed = null) {
+  currentParsedDC = preParsed;
+
+  let contentHtml = '';
+  if (!preParsed) {
+    contentHtml = `
+      <div class="modal-header">
+        <h3 class="modal-title">Import Delivery Challan (PDF)</h3>
+        <button class="modal-close" onclick="UI.hideModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="dc-drop-zone" id="dcDropZone" onclick="document.getElementById('dcPdfInput').click()">
+          <div class="dc-drop-icon">
+            <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="12" y1="18" x2="12" y2="12"/>
+              <line x1="9" y1="15" x2="15" y2="15"/>
+            </svg>
+          </div>
+          <div class="dc-drop-text">
+            <strong>Choose Delivery Challan PDF</strong> or drag &amp; drop here
+          </div>
+          <div class="dc-drop-hint">Upload Zoho Invoice Delivery Challan PDF. Base rental rates (excluding GST) are automatically extracted.</div>
+          <input type="file" id="dcPdfInput" accept="application/pdf,.pdf" style="display:none" onchange="UI.handleDCPdfUpload(this.files[0])">
+        </div>
+        <div id="dcLoadingState" class="hidden" style="text-align:center;padding:24px 0">
+          <div class="spinner" style="margin:0 auto 12px"></div>
+          <div style="font-weight:600;color:var(--text-primary)">Extracting &amp; parsing PDF data...</div>
+          <div style="font-size:0.75rem;color:var(--text-muted)">Extracting client, asset serials, and pre-tax rates</div>
+        </div>
+      </div>
+    `;
+  } else {
+    const totalRent = preParsed.items.reduce((acc, it) => acc + (it.rate || 0), 0);
+    contentHtml = `
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Review &amp; Confirm Import</h3>
+          <span class="status-pill ok" style="font-size:0.72rem;font-weight:700">${preParsed.challanNo} &bull; ${preParsed.challanDate}</span>
+        </div>
+        <button class="modal-close" onclick="UI.hideModal()">&times;</button>
+      </div>
+      <div class="modal-body" style="max-height:75vh;overflow-y:auto">
+        <!-- Client Details -->
+        <div class="dc-section-card">
+          <div class="dc-section-title">Corporate Client Details</div>
+          <div class="form-group" style="margin-bottom:8px">
+            <label class="form-label">Client Name</label>
+            <input type="text" class="form-input" id="dcCustName" value="${escHtml(preParsed.customer.name)}">
+          </div>
+          <div class="form-group" style="margin-bottom:8px">
+            <label class="form-label">Delivery Address</label>
+            <input type="text" class="form-input" id="dcCustAddress" value="${escHtml(preParsed.customer.address)}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Contact Phone</label>
+            <input type="tel" class="form-input" id="dcCustPhone" value="${escHtml(preParsed.customer.phone || '9876543201')}" placeholder="10-digit Phone Number">
+          </div>
+        </div>
+
+        <!-- Detected Fleet Items -->
+        <div class="dc-section-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div class="dc-section-title" style="margin-bottom:0">Fleet Items to Rent (${preParsed.items.length} units)</div>
+            <span style="font-size:0.75rem;color:var(--status-ok);font-weight:700">Pre-Tax Rates (Without GST)</span>
+          </div>
+
+          <div style="overflow-x:auto">
+            <table class="dc-preview-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Brand &amp; Model</th>
+                  <th>Serial / Asset</th>
+                  <th>Rate (No GST)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="dcItemsTbody">
+                ${preParsed.items.map((it, idx) => `
+                  <tr data-idx="${idx}">
+                    <td style="color:var(--text-muted);font-size:0.75rem">${idx + 1}</td>
+                    <td>
+                      <div style="font-weight:700;color:var(--text-primary)">${it.brand} ${it.model}</div>
+                      <div style="font-size:0.72rem;color:var(--text-muted);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it.specs}</div>
+                    </td>
+                    <td>
+                      <div style="font-family:monospace;font-weight:600;font-size:0.78rem">${it.serial}</div>
+                      ${it.assetNo ? `<div style="font-size:0.7rem;color:var(--brand-primary)">Asset #${it.assetNo}</div>` : ''}
+                    </td>
+                    <td>
+                      <div style="font-weight:800;color:var(--status-ok)">₹${it.rate.toLocaleString('en-IN')}</div>
+                      <div style="font-size:0.68rem;color:var(--text-muted)">/mo</div>
+                    </td>
+                    <td>
+                      <button type="button" class="btn-icon" title="Remove" onclick="UI.removeDCParsedItem(${idx})" style="color:var(--status-danger)">
+                        ${Icons.trash}
+                      </button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Total Banner -->
+          <div class="dc-total-bar">
+            <span>Total Monthly Billing (Excl. GST):</span>
+            <strong id="dcTotalMonthly">₹${totalRent.toLocaleString('en-IN')}/mo</strong>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">
+          <button class="btn btn-secondary" onclick="UI.showDeliveryChallanModal(null)">Upload Another PDF</button>
+          <button class="btn btn-primary" onclick="UI.confirmDCImport()">
+            <span>Confirm &amp; Import ${preParsed.items.length} Units</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  document.getElementById('modalContent').innerHTML = contentHtml;
+  document.getElementById('modalOverlay').classList.remove('hidden');
+
+  const dropZone = document.getElementById('dcDropZone');
+  if (dropZone) {
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('active');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('active'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('active');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        UI.handleDCPdfUpload(e.dataTransfer.files[0]);
+      }
+    });
+  }
+};
+
+UI.handleDCPdfUpload = async function(file) {
+  if (!file) return;
+  if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+    UI.showToast('Please upload a valid .pdf file');
+    return;
+  }
+
+  const dropZone = document.getElementById('dcDropZone');
+  const loading = document.getElementById('dcLoadingState');
+  if (dropZone) dropZone.classList.add('hidden');
+  if (loading) loading.classList.remove('hidden');
+
+  try {
+    const rawText = await extractTextFromPDF(file);
+    const parsed = parseDeliveryChallanText(rawText);
+    if (!parsed || parsed.items.length === 0) {
+      throw new Error('No equipment items or serial numbers could be detected in this Delivery Challan PDF.');
+    }
+    UI.showDeliveryChallanModal(parsed);
+  } catch (err) {
+    console.error('Error parsing DC PDF:', err);
+    UI.showToast('Failed to parse PDF: ' + err.message);
+    if (dropZone) dropZone.classList.remove('hidden');
+    if (loading) loading.classList.add('hidden');
+  }
+};
+
+UI.removeDCParsedItem = function(idx) {
+  if (!currentParsedDC || !currentParsedDC.items[idx]) return;
+  currentParsedDC.items.splice(idx, 1);
+  UI.showDeliveryChallanModal(currentParsedDC);
+};
+
+UI.confirmDCImport = function() {
+  if (!currentParsedDC || currentParsedDC.items.length === 0) {
+    UI.showToast('No items to import');
+    return;
+  }
+
+  const custName = (document.getElementById('dcCustName')?.value || currentParsedDC.customer.name).trim();
+  const custAddress = (document.getElementById('dcCustAddress')?.value || currentParsedDC.customer.address).trim();
+  const custPhone = (document.getElementById('dcCustPhone')?.value || currentParsedDC.customer.phone || '9876543201').trim();
+
+  // 1. Find or create customer
+  let cust = state.customers.find(c => c.name.toLowerCase() === custName.toLowerCase());
+  if (!cust) {
+    cust = {
+      id: 'cust-' + Date.now().toString(36),
+      name: custName,
+      phone: custPhone,
+      address: custAddress,
+      createdAt: currentParsedDC.challanDate,
+      updatedAt: new Date().toISOString()
+    };
+    state.customers.push(cust);
+  } else {
+    if (custAddress) cust.address = custAddress;
+    cust.updatedAt = new Date().toISOString();
+  }
+
+  // 2. Create items & rentals
+  let addedItemsCount = 0;
+  currentParsedDC.items.forEach((item, i) => {
+    let existing = state.items.find(it => it.serial && it.serial.toLowerCase() === item.serial.toLowerCase());
+    let itemId = existing ? existing.id : 'item-' + Date.now().toString(36) + '-' + (i + 1);
+
+    if (!existing) {
+      const newItem = {
+        id: itemId,
+        brand: item.brand,
+        model: item.model,
+        type: item.type,
+        serial: item.serial,
+        assetNo: item.assetNo,
+        specs: item.specs,
+        status: 'rented',
+        createdAt: currentParsedDC.challanDate,
+        updatedAt: new Date().toISOString()
+      };
+      state.items.push(newItem);
+    } else {
+      existing.status = 'rented';
+      existing.updatedAt = new Date().toISOString();
+    }
+
+    // Create active rental
+    const rentalId = 'rental-' + Date.now().toString(36) + '-' + (i + 1);
+    const newRental = {
+      id: rentalId,
+      customerId: cust.id,
+      itemId: itemId,
+      rentAmount: item.rate, // STRICTLY WITHOUT GST
+      billingCycle: 'monthly',
+      startDate: currentParsedDC.challanDate,
+      advancePayment: item.rate,
+      securityDeposit: 0,
+      status: 'active',
+      notes: `Delivery Challan # ${currentParsedDC.challanNo}`,
+      createdAt: currentParsedDC.challanDate,
+      updatedAt: new Date().toISOString()
+    };
+    state.rentals.push(newRental);
+    addedItemsCount++;
+  });
+
+  // 3. Save & Sync
+  Data.save();
+  UI.hideModal();
+  UI.showToast(`✓ Imported ${addedItemsCount} units from ${currentParsedDC.challanNo}!`);
+
+  if (currentPage === 'inventory') UI.renderInventory();
+  else if (currentPage === 'customers') UI.renderCustomers();
+  else if (currentPage === 'dashboard') UI.renderDashboard();
+  else UI.navigate('inventory');
+};
+
 function setupApp() {
+
   /* Bottom Navigation */
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -4234,7 +4757,7 @@ function setupApp() {
 }
 
 /* AUTOMATIC INSTANT UPDATE CHECKER & CONTINUOUS BACKGROUND DATA SYNC */
-const CURRENT_BUILD_VERSION = 'v5.6-smart-sync';
+const CURRENT_BUILD_VERSION = 'v5.7-dc-importer';
 
 function initAutoUpdateChecker() {
   let checking = false;

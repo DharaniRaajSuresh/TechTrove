@@ -1,13 +1,16 @@
-const CACHE = 'techtrove-v18-smart-sync';
+const CACHE = 'techtrove-v19-dc-importer';
 const ASSETS = [
   '/',
   '/index.html',
   '/styles.css',
   '/app.js',
+  '/vendor/pdf.min.js',
+  '/vendor/pdf.worker.min.js',
   '/manifest.json',
   '/icon.svg',
   '/icon.png'
 ];
+
 
 self.addEventListener('install', (e) => {
   e.waitUntil(

@@ -2512,3 +2512,90 @@ header h1#headerTitle {
 [data-theme="light"] .nav-btn.active {
   color: #2563EB;
 }
+
+/* ==========================================================================
+   DELIVERY CHALLAN (DC) PDF IMPORTER STYLING
+   ========================================================================== */
+.dc-drop-zone {
+  border: 2px dashed var(--border-focus);
+  border-radius: var(--radius-md);
+  padding: 36px 20px;
+  text-align: center;
+  background: var(--surface-raised);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.dc-drop-zone:hover, .dc-drop-zone.active {
+  border-color: var(--brand-primary);
+  background: var(--accent-subtle);
+  transform: scale(1.005);
+}
+.dc-drop-icon {
+  color: var(--brand-primary);
+  margin-bottom: 12px;
+}
+.dc-drop-text {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.dc-drop-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  max-width: 380px;
+  margin: 0 auto;
+  line-height: 1.4;
+}
+.dc-section-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.dc-section-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.dc-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.dc-preview-table th {
+  text-align: left;
+  padding: 8px 10px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-bottom: 1px solid var(--border);
+}
+.dc-preview-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+.dc-total-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-top: 12px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.dc-total-bar strong {
+  color: var(--status-ok);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
