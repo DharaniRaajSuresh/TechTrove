@@ -9,7 +9,7 @@ const UPSTASH_KEY = 'techtrove:data';
 const UPSTASH_URL = 'https://ideal-hyena-156293.upstash.io';
 const UPSTASH_TOKEN = 'gQAAAAAAAmKFAAIgcDE2YmMyZWI3NDYxZjM0ZTg4OGE4OGY2ZGIwMTkxNTg0ZQ';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.APP_PASSWORD || '1202';
-const EMPLOYEE_PASSWORD = process.env.EMPLOYEE_PASSWORD || '1202';
+const EMPLOYEE_PASSWORD = process.env.EMPLOYEE_PASSWORD || '1203';
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -45,7 +45,7 @@ function requireAuth(req, res, next) {
   const pw = String(req.headers['x-password'] || req.body?.password || token || queryToken || '').trim();
 
   const isAdmin = pw === '1202' || pw === 'rent123' || pw === 'admin123' || pw === ADMIN_PASSWORD || token === 'admin-token' || queryToken === 'admin-token';
-  const isEmployee = pw === '1202' || pw === 'staff123' || pw === 'emp123' || pw === 'team123' || pw === EMPLOYEE_PASSWORD || token === 'employee-token' || queryToken === 'employee-token';
+  const isEmployee = pw === '1203' || pw === 'staff123' || pw === 'emp123' || pw === 'team123' || pw === EMPLOYEE_PASSWORD || token === 'employee-token' || queryToken === 'employee-token';
 
   if (isAdmin) {
     req.userRole = 'admin';
@@ -261,26 +261,31 @@ function mergeState(serverState = {}, incomingState = {}) {
 const handleLogin = (req, res) => {
   const { password, role: requestedRole } = req.body || {};
   const pw = String(password || '').trim();
-  const isAdmin = pw === '1202' || pw === 'rent123' || pw === 'admin123' || pw === ADMIN_PASSWORD;
-  const isEmployee = pw === '1202' || pw === 'staff123' || pw === 'emp123' || pw === 'team123' || pw === EMPLOYEE_PASSWORD;
+  const role = requestedRole ? String(requestedRole).toLowerCase().trim() : null;
 
-  if (pw === '1202') {
-    const role = requestedRole === 'employee' ? 'employee' : 'admin';
-    return res.json({
-      success: true,
-      token: role === 'employee' ? 'employee-token' : 'admin-token',
-      role: role,
-      user: role === 'employee' ? 'Employee' : 'Administrator'
-    });
+  if (role === 'admin') {
+    if (pw === '1202' || pw === 'rent123' || pw === 'admin123' || pw === ADMIN_PASSWORD) {
+      return res.json({ success: true, token: 'admin-token', role: 'admin', user: 'Administrator' });
+    }
+    return res.status(401).json({ error: 'Invalid admin password' });
   }
 
-  if (isAdmin && requestedRole !== 'employee') {
-    res.json({ success: true, token: 'admin-token', role: 'admin', user: 'Administrator' });
-  } else if (isEmployee) {
-    res.json({ success: true, token: 'employee-token', role: 'employee', user: 'Employee' });
-  } else {
-    res.status(401).json({ error: 'Invalid password' });
+  if (role === 'employee') {
+    if (pw === '1203' || pw === 'staff123' || pw === 'emp123' || pw === 'team123' || pw === EMPLOYEE_PASSWORD) {
+      return res.json({ success: true, token: 'employee-token', role: 'employee', user: 'Employee' });
+    }
+    return res.status(401).json({ error: 'Invalid employee password' });
   }
+
+  // Fallback if no role was specified
+  if (pw === '1202' || pw === 'rent123' || pw === 'admin123' || pw === ADMIN_PASSWORD) {
+    return res.json({ success: true, token: 'admin-token', role: 'admin', user: 'Administrator' });
+  }
+  if (pw === '1203' || pw === 'staff123' || pw === 'emp123' || pw === 'team123' || pw === EMPLOYEE_PASSWORD) {
+    return res.json({ success: true, token: 'employee-token', role: 'employee', user: 'Employee' });
+  }
+
+  return res.status(401).json({ error: 'Invalid password' });
 };
 app.post('/api/login', handleLogin);
 app.post('/api/auth/login', handleLogin);
@@ -295,10 +300,11 @@ app.get('/api/version', (req, res) => {
       'Asset Number Sole Unique Primary Key',
       'Strict 1-Day Payment Due Reminders',
       'Device Customer Rental History Modal & Timeline',
-      'PIN 1202 for Admin & Staff',
+      'Admin PIN 1202 and Employee PIN 1203',
+      'Clean Password Input Field Without Leaked Placeholders',
       'Optional App Lock to Require Password on Entry'
     ],
-    authRev: 'tt_auth_v7_pass_1202',
+    authRev: 'tt_auth_v8_admin1202_emp1203',
     apkDownloadUrl: 'https://ttstts.vercel.app/TechTrove-Rental-Tracker.apk',
     timestamp: Date.now()
   });

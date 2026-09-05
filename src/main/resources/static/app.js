@@ -777,7 +777,7 @@ function getItemRentalsHistory(itemOrId) {
 }
 
 /* AUTH */
-const GLOBAL_AUTH_REV = 'tt_auth_v7_pass_1202';
+const GLOBAL_AUTH_REV = 'tt_auth_v8_admin1202_emp1203';
 
 const Auth = {
   _token: null,
@@ -845,9 +845,22 @@ const Auth = {
       }
     } catch(e) {}
 
-    // Offline / local fallback credentials: 1202 for both admin and employee
-    if (pw === '1202' || pw === 'rent123' || pw === 'admin123' || pw === 'staff123' || pw === 'emp123') {
-      const targetRole = role === 'employee' ? 'employee' : 'admin';
+    // Offline / local fallback credentials: 1202 for admin, 1203 for employee
+    const isAdminPw = (pw === '1202' || pw === 'rent123' || pw === 'admin123');
+    const isEmpPw = (pw === '1203' || pw === 'staff123' || pw === 'emp123');
+    let targetRole = null;
+
+    if (role === 'admin' && isAdminPw) {
+      targetRole = 'admin';
+    } else if (role === 'employee' && isEmpPw) {
+      targetRole = 'employee';
+    } else if (isAdminPw && role !== 'employee') {
+      targetRole = 'admin';
+    } else if (isEmpPw && role !== 'admin') {
+      targetRole = 'employee';
+    }
+
+    if (targetRole) {
       const targetToken = targetRole === 'employee' ? 'employee-token' : 'admin-token';
       localStorage.setItem('tt_token', targetToken);
       localStorage.setItem('tt_pass', pw);
@@ -1480,15 +1493,15 @@ const UI = {
     if (role === 'admin') {
       if (adminBtn) adminBtn.classList.add('active');
       if (empBtn) empBtn.classList.remove('active');
-      if (pwInput) pwInput.placeholder = 'Enter Admin Password (1202)';
+      if (pwInput) pwInput.placeholder = '';
       if (btnText) btnText.textContent = 'Sign In as Admin';
-      if (hint) hint.innerHTML = '🛡️ <strong>Admin:</strong> Full control, edit &amp; delete records (PIN: <strong>1202</strong>)';
+      if (hint) hint.innerHTML = '🛡️ <strong>Admin:</strong> Full control, edit &amp; delete records';
     } else {
       if (adminBtn) adminBtn.classList.remove('active');
       if (empBtn) empBtn.classList.add('active');
-      if (pwInput) pwInput.placeholder = 'Enter Employee Password (1202)';
+      if (pwInput) pwInput.placeholder = '';
       if (btnText) btnText.textContent = 'Sign In as Employee';
-      if (hint) hint.innerHTML = '👤 <strong>Employee:</strong> Create rentals, log payments &amp; fleet operations (PIN: <strong>1202</strong>)';
+      if (hint) hint.innerHTML = '👤 <strong>Employee:</strong> Create rentals, log payments &amp; fleet operations';
     }
     if (pwInput) pwInput.focus();
   },
@@ -1513,7 +1526,7 @@ const UI = {
     if (loginToggle) loginToggle.checked = enabled;
     if (moreToggle) moreToggle.checked = enabled;
     if (enabled) {
-      this.showToast('🔒 Security: Password (1202) required every time on entry', 'info');
+      this.showToast('🔒 Security: Password required every time on entry', 'info');
     } else {
       this.showToast('🔓 Security: Remembered on this device', 'info');
     }
@@ -3478,7 +3491,7 @@ const UI = {
     <!-- Security & App Lock -->
     <div class="section-head">
       <div class="section-title">Security &amp; App Lock</div>
-      <div class="section-count">${localStorage.getItem('tt_always_ask_pw') !== 'false' ? 'PIN 1202 Required' : 'Remembered'}</div>
+      <div class="section-count">${localStorage.getItem('tt_always_ask_pw') !== 'false' ? 'App Lock Active' : 'Remembered'}</div>
     </div>
     <div class="ops-list" style="margin-bottom:14px">
       <div class="ops-setting-row" onclick="const t = document.getElementById('moreAlwaysAskToggle'); t.checked = !t.checked; UI.toggleAlwaysAskPassword(t.checked);">
@@ -3486,7 +3499,7 @@ const UI = {
           <div class="ops-setting-icon" style="color:var(--accent)">${Icons.lock}</div>
           <div>
             <div class="ops-setting-title" style="font-weight:700">Ask password every time when got in</div>
-            <div class="ops-setting-sub">Always prompts for PIN (1202) on every app open or resume</div>
+            <div class="ops-setting-sub">Prompts for password on every app open or return</div>
           </div>
         </div>
         <label class="toggle-switch" onclick="event.stopPropagation()">
@@ -6026,7 +6039,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const role = UI._selectedLoginRole || 'admin';
       if (!pw) {
         if (loginErr) {
-          loginErr.textContent = `Please enter the ${role === 'admin' ? 'Admin' : 'Employee'} password`;
+          loginErr.textContent = 'Please enter password';
           loginErr.classList.remove('hidden');
         }
         return;
@@ -6044,7 +6057,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         UI.showToast(`Signed in as ${Auth.isAdmin() ? '🛡️ Admin' : '👤 Employee'}`, 'success');
       } else {
         if (loginErr) {
-          loginErr.textContent = 'Incorrect password (use 1202)';
+          loginErr.textContent = 'Incorrect password';
           loginErr.classList.remove('hidden');
         }
       }
