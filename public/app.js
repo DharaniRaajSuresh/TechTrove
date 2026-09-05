@@ -1,4 +1,5 @@
 /* STATE & LOCAL STORAGE PERSISTENCE */
+const APP_VERSION = '2.0';
 const LOCAL_STORAGE_KEY = 'techtrove_state_v1';
 const PAYMENT_COLLECTORS = ['Suresh', 'Pragathi', 'Varusha', 'Dharani'];
 
@@ -330,7 +331,8 @@ function rentalStatus(rental) {
   const isOverdue = totalExpected > totalPaid && completedCycles > 0;
   const daysOverdue = isOverdue ? Math.round((now - currentCycleEnd) / 86400000) : 0;
   const nextCyclePaid = totalPaid >= (completedCycles + 1) * (rental.rentAmount || 0);
-  const isDueSoon = !nextCyclePaid && daysUntilDue >= 0 && daysUntilDue <= 7;
+  // Payment reminder: 1 day before due date (or on due date)
+  const isDueSoon = !nextCyclePaid && daysUntilDue >= 0 && daysUntilDue <= 1;
   return { totalExpected, totalPaid, outstanding, nextDueDate, daysUntilDue, isOverdue, daysOverdue, isDueSoon };
 }
 
@@ -376,7 +378,7 @@ function sanitizeFleetState() {
     if (s === 'repair') {
       item.status = 'repair';
     } else {
-      const activeRental = state.rentals.find(r => String(r.itemId) === String(item.id) && isActiveRental(r));
+      const activeRental = state.rentals && state.rentals.find(r => String(r.itemId) === String(item.id) && isActiveRental(r));
       item.status = activeRental ? 'rented' : 'available';
     }
   });
@@ -403,9 +405,16 @@ function getAvailableItems(preselectedItemId) {
 function buildWaReminderMessage(customer, rental, item, status) {
   const itemTitle = getItemFullTitle(item);
   const specsText = item && item.specs ? ` (${item.specs})` : '';
-  const dueInfo = status.isOverdue 
-    ? `was due on *${fmtDate(status.nextDueDate)}* (*${status.daysOverdue} days overdue*)`
-    : `is due on *${fmtDate(status.nextDueDate)}*`;
+  let dueInfo;
+  if (status.isOverdue) {
+    dueInfo = `was due on *${fmtDate(status.nextDueDate)}* (*${status.daysOverdue} days overdue*)`;
+  } else if (status.daysUntilDue === 1) {
+    dueInfo = `is due *tomorrow* (*${fmtDate(status.nextDueDate)}*)`;
+  } else if (status.daysUntilDue === 0) {
+    dueInfo = `is due *today* (*${fmtDate(status.nextDueDate)}*)`;
+  } else {
+    dueInfo = `is due on *${fmtDate(status.nextDueDate)}*`;
+  }
   
   return `Hello *${customer.name}*,\n\nThis is a gentle payment reminder from *TechTrove Systems*:\n\n• *Device*: ${itemTitle}${specsText}\n• *Rent Amount*: ₹${rental.rentAmount} / ${rental.billingCycle}\n• *Due Status*: ${dueInfo}\n• *Outstanding Balance*: *₹${status.outstanding || rental.rentAmount}*\n\nPlease make the payment via GPay / PhonePe / UPI to confirm your rental continuation.\n\nThank you!\n*TechTrove Systems*`;
 }
@@ -530,7 +539,7 @@ const AppNotif = {
 
       let summaryText = overdue.length > 0
         ? `${overdue.length} overdue rental payment(s) require follow-up.`
-        : `${dueSoon.length} payment(s) due this week.`;
+        : `${dueSoon.length} payment(s) due tomorrow / today.`;
 
       await ln.schedule({
         notifications: [{
@@ -741,14 +750,43 @@ function customerPayments(customerId) {
   return state.payments.filter(p => rentalIds.includes(p.rentalId)).sort((a, b) => b.date.localeCompare(a.date));
 }
 
+function getItemRentalsHistory(itemOrId) {
+  if (!itemOrId || !state || !Array.isArray(state.rentals)) return [];
+  const item = typeof itemOrId === 'object' ? itemOrId : getItem(itemOrId);
+  const itemIdStr = item ? String(item.id) : String(itemOrId);
+  const cleanAsset = item && item.assetNo ? String(item.assetNo).trim().toLowerCase() : '';
+  const cleanSerial = item && item.serial ? String(item.serial).trim().toLowerCase() : '';
+
+  const matched = state.rentals.filter(r => {
+    if (String(r.itemId) === itemIdStr) return true;
+    if (cleanAsset && r.assetNo && String(r.assetNo).trim().toLowerCase() === cleanAsset) return true;
+    if (cleanSerial && r.serial && String(r.serial).trim().toLowerCase() === cleanSerial) return true;
+    if (cleanSerial && r.notes && r.notes.toLowerCase().includes(cleanSerial)) return true;
+    if (cleanAsset && r.notes && r.notes.toLowerCase().includes(cleanAsset)) return true;
+    return false;
+  });
+
+  return matched.sort((a, b) => {
+    const aActive = isActiveRental(a) ? 1 : 0;
+    const bActive = isActiveRental(b) ? 1 : 0;
+    if (aActive !== bActive) return bActive - aActive;
+    const timeA = new Date(a.startDate || a.createdAt || 0).getTime();
+    const timeB = new Date(b.startDate || b.createdAt || 0).getTime();
+    return timeB - timeA;
+  });
+}
+
 /* AUTH */
-const GLOBAL_AUTH_REV = 'tt_auth_v6_force_logout';
+const GLOBAL_AUTH_REV = 'tt_auth_v7_pass_1202';
 
 const Auth = {
   _token: null,
   _role: 'admin',
+  _sessionUnlocked: false,
   isLoggedIn() {
     if (localStorage.getItem('tt_auth_rev') !== GLOBAL_AUTH_REV) return false;
+    const alwaysAsk = localStorage.getItem('tt_always_ask_pw') !== 'false';
+    if (alwaysAsk && !this._sessionUnlocked) return false;
     return !!(localStorage.getItem('tt_token') || localStorage.getItem('tt_pass'));
   },
   getRole() {
@@ -764,63 +802,60 @@ const Auth = {
     this._role = role;
     localStorage.setItem('tt_role', role);
   },
-  async login(password) {
+  async login(password, requestedRole) {
     const pw = (password || '').trim();
+    const role = requestedRole || UI._selectedLoginRole || 'admin';
     if (!pw) return false;
     try {
       const res = await fetch(API_BASE + '/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pw })
+        body: JSON.stringify({ password: pw, role: role })
       });
       if (res.ok) {
         const data = await res.json();
-        const token = data.token || (data.role === 'employee' ? 'employee-token' : 'admin-token');
-        const role = data.role || (token.includes('employee') ? 'employee' : 'admin');
+        const token = data.token || (role === 'employee' ? 'employee-token' : 'admin-token');
+        const finalRole = data.role || role;
         localStorage.setItem('tt_token', token);
         localStorage.setItem('tt_pass', pw);
-        localStorage.setItem('tt_role', role);
+        localStorage.setItem('tt_role', finalRole);
         localStorage.setItem('tt_auth_rev', GLOBAL_AUTH_REV);
         this._token = token;
-        this._role = role;
+        this._role = finalRole;
+        this._sessionUnlocked = true;
         return true;
       }
       const res2 = await fetch(API_BASE + '/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pw })
+        body: JSON.stringify({ password: pw, role: role })
       });
       if (res2.ok) {
         const data2 = await res2.json();
-        const token2 = data2.token || 'admin-token';
-        const role2 = data2.role || (token2.includes('employee') ? 'employee' : 'admin');
+        const token2 = data2.token || (role === 'employee' ? 'employee-token' : 'admin-token');
+        const finalRole2 = data2.role || role;
         localStorage.setItem('tt_token', token2);
         localStorage.setItem('tt_pass', pw);
-        localStorage.setItem('tt_role', role2);
+        localStorage.setItem('tt_role', finalRole2);
         localStorage.setItem('tt_auth_rev', GLOBAL_AUTH_REV);
         this._token = token2;
-        this._role = role2;
+        this._role = finalRole2;
+        this._sessionUnlocked = true;
         return true;
       }
     } catch(e) {}
 
-    // Offline / local fallback credentials
-    if (pw === 'rent123' || pw === 'admin123') {
-      localStorage.setItem('tt_token', 'admin-token');
+    // Offline / local fallback credentials: 1202 for both admin and employee
+    if (pw === '1202' || pw === 'rent123' || pw === 'admin123' || pw === 'staff123' || pw === 'emp123') {
+      const targetRole = role === 'employee' ? 'employee' : 'admin';
+      const targetToken = targetRole === 'employee' ? 'employee-token' : 'admin-token';
+      localStorage.setItem('tt_token', targetToken);
       localStorage.setItem('tt_pass', pw);
-      localStorage.setItem('tt_role', 'admin');
+      localStorage.setItem('tt_role', targetRole);
       localStorage.setItem('tt_auth_rev', GLOBAL_AUTH_REV);
-      this._token = 'admin-token';
-      this._role = 'admin';
-      return true;
-    }
-    if (pw === 'staff123' || pw === 'emp123' || pw === 'team123') {
-      localStorage.setItem('tt_token', 'employee-token');
-      localStorage.setItem('tt_pass', pw);
-      localStorage.setItem('tt_role', 'employee');
-      localStorage.setItem('tt_auth_rev', GLOBAL_AUTH_REV);
-      this._token = 'employee-token';
-      this._role = 'employee';
+      this._token = targetToken;
+      this._role = targetRole;
+      this._sessionUnlocked = true;
       return true;
     }
     return false;
@@ -828,6 +863,7 @@ const Auth = {
   logout() {
     this._token = null;
     this._role = 'admin';
+    this._sessionUnlocked = false;
     localStorage.removeItem('tt_token');
     localStorage.removeItem('tt_pass');
     localStorage.removeItem('tt_role');
@@ -840,14 +876,19 @@ const Auth = {
       localStorage.removeItem('tt_role');
       this._token = null;
       this._role = 'admin';
+      this._sessionUnlocked = false;
       return;
     }
     this._token = localStorage.getItem('tt_token') || localStorage.getItem('tt_pass') || 'admin-token';
     this._role = localStorage.getItem('tt_role') || 'admin';
+    const alwaysAsk = localStorage.getItem('tt_always_ask_pw') !== 'false';
+    if (!alwaysAsk) {
+      this._sessionUnlocked = true;
+    }
   },
   header() {
     const token = this._token || localStorage.getItem('tt_token') || 'admin-token';
-    const pw = localStorage.getItem('tt_pass') || (token.includes('employee') ? 'staff123' : 'rent123');
+    const pw = localStorage.getItem('tt_pass') || '1202';
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ' + token,
@@ -1439,15 +1480,15 @@ const UI = {
     if (role === 'admin') {
       if (adminBtn) adminBtn.classList.add('active');
       if (empBtn) empBtn.classList.remove('active');
-      if (pwInput) pwInput.placeholder = 'Enter Admin Password';
+      if (pwInput) pwInput.placeholder = 'Enter Admin Password (1202)';
       if (btnText) btnText.textContent = 'Sign In as Admin';
-      if (hint) hint.innerHTML = '🛡️ <strong>Admin:</strong> Full control, edit &amp; delete records';
+      if (hint) hint.innerHTML = '🛡️ <strong>Admin:</strong> Full control, edit &amp; delete records (PIN: <strong>1202</strong>)';
     } else {
       if (adminBtn) adminBtn.classList.remove('active');
       if (empBtn) empBtn.classList.add('active');
-      if (pwInput) pwInput.placeholder = 'Enter Employee Password';
+      if (pwInput) pwInput.placeholder = 'Enter Employee Password (1202)';
       if (btnText) btnText.textContent = 'Sign In as Employee';
-      if (hint) hint.innerHTML = '👤 <strong>Employee:</strong> Create rentals, log payments &amp; fleet operations';
+      if (hint) hint.innerHTML = '👤 <strong>Employee:</strong> Create rentals, log payments &amp; fleet operations (PIN: <strong>1202</strong>)';
     }
     if (pwInput) pwInput.focus();
   },
@@ -1458,7 +1499,24 @@ const UI = {
     document.getElementById('app').classList.add('hidden');
     document.getElementById('loginError').classList.add('hidden');
     document.getElementById('loginPassword').value = '';
-    this.setLoginRole(this._selectedLoginRole || 'admin');
+    const alwaysAsk = localStorage.getItem('tt_always_ask_pw') !== 'false';
+    const toggle = document.getElementById('loginAlwaysAskToggle');
+    if (toggle) toggle.checked = alwaysAsk;
+    const initialRole = this._selectedLoginRole || localStorage.getItem('tt_role') || 'admin';
+    this.setLoginRole(initialRole);
+  },
+
+  toggleAlwaysAskPassword(enabled) {
+    localStorage.setItem('tt_always_ask_pw', enabled ? 'true' : 'false');
+    const loginToggle = document.getElementById('loginAlwaysAskToggle');
+    const moreToggle = document.getElementById('moreAlwaysAskToggle');
+    if (loginToggle) loginToggle.checked = enabled;
+    if (moreToggle) moreToggle.checked = enabled;
+    if (enabled) {
+      this.showToast('🔒 Security: Password (1202) required every time on entry', 'info');
+    } else {
+      this.showToast('🔓 Security: Remembered on this device', 'info');
+    }
   },
 
   showApp() {
@@ -1485,15 +1543,28 @@ const UI = {
     document.getElementById('modalOverlay').classList.add('hidden');
   },
 
-  showConfirm(msg, onConfirm) {
+  showConfirm(msg, onConfirm, onCancel = null) {
     document.getElementById('confirmContent').innerHTML = `
       <p>${msg}</p>
       <div class="btn-group">
-        <button class="btn btn-outline btn-sm" onclick="UI.hideConfirm()">Cancel</button>
+        <button class="btn btn-outline btn-sm" id="confirmCancelBtn">Cancel</button>
         <button class="btn btn-danger btn-sm" id="confirmOkBtn">Confirm</button>
       </div>`;
     document.getElementById('confirmOverlay').classList.remove('hidden');
-    document.getElementById('confirmOkBtn').onclick = () => { UI.hideConfirm(); onConfirm(); };
+    const cancelBtn = document.getElementById('confirmCancelBtn');
+    if (cancelBtn) {
+      cancelBtn.onclick = () => {
+        UI.hideConfirm();
+        if (typeof onCancel === 'function') onCancel();
+      };
+    }
+    const okBtn = document.getElementById('confirmOkBtn');
+    if (okBtn) {
+      okBtn.onclick = () => {
+        UI.hideConfirm();
+        if (typeof onConfirm === 'function') onConfirm();
+      };
+    }
   },
 
   hideConfirm() {
@@ -1658,7 +1729,7 @@ const UI = {
         banner.classList.remove('hidden');
       } else if (dueSoon.length > 0) {
         banner.className = 'due-alert-banner due-soon-banner';
-        banner.innerHTML = `<span class="due-alert-icon">${Icons.bell}</span> <span><strong>${dueSoon.length} Payment(s) Due Within 7 Days</strong></span>`;
+        banner.innerHTML = `<span class="due-alert-icon">${Icons.bell}</span> <span><strong>${dueSoon.length} Payment(s) Due Tomorrow / 24h</strong></span>`;
         banner.classList.remove('hidden');
       } else {
         banner.classList.add('hidden');
@@ -1771,7 +1842,7 @@ const UI = {
           </div>
           <div class="fintech-meter-legend">
             <span style="display:flex;align-items:center;gap:4px"><span class="status-dot ok"></span> ${fmtCurrency(totalRevenueCollected)} Settled</span>
-            ${dueSoonAmount > 0 ? `<span style="display:flex;align-items:center;gap:4px"><span class="status-dot warn"></span> ${fmtCurrency(dueSoonAmount)} Due 7d</span>` : ''}
+            ${dueSoonAmount > 0 ? `<span style="display:flex;align-items:center;gap:4px"><span class="status-dot warn"></span> ${fmtCurrency(dueSoonAmount)} Due 24h</span>` : ''}
             ${totalOverdueOutstanding > 0 ? `<span style="display:flex;align-items:center;gap:4px"><span class="status-dot danger"></span> ${fmtCurrency(totalOverdueOutstanding)} Overdue</span>` : ''}
           </div>
         </div>
@@ -1792,7 +1863,7 @@ const UI = {
             <span class="status-dot ${dueSoonList.length > 0 ? 'warn' : 'ok'}"></span>
             <span class="stat-chip-num">${dueSoonList.length}</span>
           </div>
-          <div class="stat-chip-label">Due this week</div>
+          <div class="stat-chip-label">Due Tomorrow / 24h</div>
           <div class="stat-chip-sub"><span style="color:var(--status-warn);font-weight:600">${dueSoonAmount > 0 ? fmtCurrency(dueSoonAmount) : '₹0'} Exp.</span></div>
         </div>
         <div class="stat-chip" onclick="UI.openRepairsFilter()">
@@ -1911,7 +1982,7 @@ const UI = {
           <div class="ops-row-status">
             <span class="ops-status-badge ${isOverdue ? 'danger' : 'warn'}">
               <span class="status-dot ${isOverdue ? 'danger' : 'warn'}"></span>
-              ${isOverdue ? `Overdue ${st.daysOverdue}d` : `Due in ${st.daysUntilDue}d`}
+              ${isOverdue ? `Overdue ${st.daysOverdue}d` : (st.daysUntilDue === 1 ? 'Due Tomorrow' : (st.daysUntilDue === 0 ? 'Due Today' : `Due in ${st.daysUntilDue}d`))}
             </span>
           </div>
           <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
@@ -2231,7 +2302,7 @@ const UI = {
             <div style="text-align:right">
               <span class="ops-status-badge ${st.isOverdue ? 'danger' : st.isDueSoon ? 'warn' : 'ok'}">
                 <span class="status-dot ${st.isOverdue ? 'danger' : st.isDueSoon ? 'warn' : 'ok'}"></span>
-                ${st.isOverdue ? `Overdue ${st.daysOverdue}d` : st.isDueSoon ? `Due in ${st.daysUntilDue}d` : 'Current'}
+                ${st.isOverdue ? `Overdue ${st.daysOverdue}d` : st.isDueSoon ? (st.daysUntilDue === 1 ? 'Due Tomorrow' : (st.daysUntilDue === 0 ? 'Due Today' : `Due in ${st.daysUntilDue}d`)) : 'Current'}
               </span>
             </div>
           </div>
@@ -2458,6 +2529,8 @@ const UI = {
       list.forEach(i => {
         const rental = getActiveRentalForItem(i.id);
         const customer = rental ? getCustomer(rental.customerId) : null;
+        const pastRentals = getItemRentalsHistory(i);
+        const pastCustCount = pastRentals.length;
         const isAvail = i.status === 'available';
         const isRented = i.status === 'rented';
         const isRepair = i.status === 'repair';
@@ -2540,7 +2613,7 @@ const UI = {
         }
 
         listHtml += `
-        <div class="hardware-card" onclick="UI.showEditItemModal('${i.id}')">
+        <div class="hardware-card" onclick="UI.showEditItemModal('${i.id}', 'history')">
           <!-- Top Row: Brand & Status -->
           <div class="hardware-card-top">
             <div style="display:flex;align-items:center;gap:8px">
@@ -2567,6 +2640,11 @@ const UI = {
                 <span>SN:</span>
                 <span class="tnum">${escHtml(i.serial || 'N/A')}</span>
               </span>
+              <span class="hardware-serial-pill" style="background:rgba(16,185,129,0.12);color:var(--status-ok);border:1px solid rgba(16,185,129,0.3);cursor:pointer" onclick="event.stopPropagation();UI.showEditItemModal('${i.id}', 'history')" title="View past customer rental history">
+                <span>👥</span>
+                <span class="tnum" style="font-weight:700">${pastCustCount}</span>
+                <span>Past User${pastCustCount === 1 ? '' : 's'}</span>
+              </span>
             </div>
           </div>
 
@@ -2583,16 +2661,22 @@ const UI = {
                 ${Icons.plus}
                 <span>⚡ Rent this Device</span>
               </button>
+              <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();UI.showEditItemModal('${i.id}', 'history')" title="View customer rental history">
+                👥 History (${pastCustCount})
+              </button>
               <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();UI.showSendToRepairModal('${i.id}')" title="Send to service">
                 ${Icons.repairs}
                 <span>Service</span>
               </button>
-              <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();UI.showEditItemModal('${i.id}')">
-                Edit
+              <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();UI.showEditItemModal('${i.id}', 'specs')">
+                ⚙️ Specs
               </button>
             ` : `
-              <button class="btn btn-outline btn-sm" style="flex:1" onclick="event.stopPropagation();UI.showEditItemModal('${i.id}')">
-                <span>⚙️ Manage Device &amp; Specs</span>
+              <button class="btn btn-primary btn-sm" style="flex:1" onclick="event.stopPropagation();UI.showEditItemModal('${i.id}', 'history')">
+                <span>👥 Past Customers (${pastCustCount})</span>
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="event.stopPropagation();UI.showEditItemModal('${i.id}', 'specs')">
+                <span>⚙️ Manage Specs</span>
               </button>
             `}
           </div>
@@ -3391,6 +3475,27 @@ const UI = {
       </div>
     </div>
 
+    <!-- Security & App Lock -->
+    <div class="section-head">
+      <div class="section-title">Security &amp; App Lock</div>
+      <div class="section-count">${localStorage.getItem('tt_always_ask_pw') !== 'false' ? 'PIN 1202 Required' : 'Remembered'}</div>
+    </div>
+    <div class="ops-list" style="margin-bottom:14px">
+      <div class="ops-setting-row" onclick="const t = document.getElementById('moreAlwaysAskToggle'); t.checked = !t.checked; UI.toggleAlwaysAskPassword(t.checked);">
+        <div class="ops-setting-main">
+          <div class="ops-setting-icon" style="color:var(--accent)">${Icons.lock}</div>
+          <div>
+            <div class="ops-setting-title" style="font-weight:700">Ask password every time when got in</div>
+            <div class="ops-setting-sub">Always prompts for PIN (1202) on every app open or resume</div>
+          </div>
+        </div>
+        <label class="toggle-switch" onclick="event.stopPropagation()">
+          <input type="checkbox" id="moreAlwaysAskToggle" ${localStorage.getItem('tt_always_ask_pw') !== 'false' ? 'checked' : ''} onchange="UI.toggleAlwaysAskPassword(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
     <!-- Section 1: Appearance & Theme -->
     <div class="section-head">
       <div class="section-title">Appearance &amp; theme</div>
@@ -3525,7 +3630,7 @@ const UI = {
         <div class="ops-setting-main">
           <div class="ops-setting-icon" style="color:var(--status-ok)">${Icons.download}</div>
           <div>
-            <div class="ops-setting-title">Download latest APK file (v1.9)</div>
+            <div class="ops-setting-title">Download latest APK file (v2.0)</div>
             <div class="ops-setting-sub">1-tap direct download for manual install or sharing with other devices</div>
           </div>
         </div>
@@ -3545,7 +3650,7 @@ const UI = {
     </div>
 
     <div style="text-align:center;padding:12px 0 20px;font-size:0.74rem;color:var(--text-dim)">
-      TechTrove Systems &middot; Terminal v1.9 (Cloud Auto-Sync)
+      TechTrove Systems &middot; Terminal v2.0 (Cloud Auto-Sync)
     </div>`;
 
     document.getElementById('page-more').innerHTML = html;
@@ -3913,18 +4018,25 @@ const UI = {
 
   async checkAppUpdate() {
     try {
-      const res = await fetch('/api/version?t=' + Date.now(), { cache: 'no-store' });
+      const fetchUrl = (API_BASE ? API_BASE : '') + '/api/version?t=' + Date.now();
+      const res = await fetch(fetchUrl, { cache: 'no-store' });
       if (res.ok) {
         const info = await res.json();
-        const currentVer = '1.8';
+        const currentVer = typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.0';
         if (info.version && info.version !== currentVer) {
+          if (sessionStorage.getItem('tt_update_prompted_version') === info.version) return;
+          if (localStorage.getItem('tt_dismissed_version') === info.version) return;
+          sessionStorage.setItem('tt_update_prompted_version', info.version);
           UI.showConfirm(
             `🚀 <strong>New Version v${escHtml(info.version)} Available!</strong><br><br>` +
             `<div style="font-size:0.82rem;color:var(--text-muted);text-align:left;margin-bottom:8px">` +
             (info.features ? info.features.map(f => `&bull; ${escHtml(f)}`).join('<br>') : 'New features and bug fixes.') +
             `</div>` +
             `Tap OK to reload the latest version now.`,
-            () => UI.checkForUpdates()
+            () => UI.checkForUpdates(),
+            () => {
+              localStorage.setItem('tt_dismissed_version', info.version);
+            }
           );
         }
       }
@@ -4540,173 +4652,349 @@ const UI = {
     }, 300);
   },
 
-  showEditItemModal(itemId) {
+  showEditItemModal(itemId, initialTab = 'history') {
     const i = getItem(itemId);
     if (!i) return;
     const activeRental = getActiveRentalForItem(itemId);
     const isRented = !!activeRental;
+    const isAvail = i.status === 'available';
     const rep = i.repairInfo || {};
     this.currentPresetBrandFilter = 'ALL';
 
+    const itemRentals = getItemRentalsHistory(i);
+    const itemTitle = getItemFullTitle(i);
+
+    let historyHtml = '';
+    if (itemRentals.length === 0) {
+      historyHtml = `
+        <div class="ops-empty" style="padding:28px 16px;background:var(--card-bg);border:1px dashed var(--border);border-radius:12px;text-align:center;margin-top:10px">
+          <div style="font-size:2.2rem;margin-bottom:8px">👥</div>
+          <div style="font-weight:700;font-size:0.95rem;color:var(--text-primary)">No Customer Rental History Yet</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;max-width:280px;margin-left:auto;margin-right:auto">
+            This machine has not been rented out to any client yet.
+          </div>
+          ${isAvail ? `
+            <button class="btn btn-primary btn-sm" style="margin-top:14px;padding:8px 18px" onclick="UI.hideModal();UI.showAddRentalWithItem('${i.id}')">
+              ⚡ Rent this Device Now
+            </button>
+          ` : ''}
+        </div>`;
+    } else {
+      historyHtml = `
+        <div style="margin-top:8px">
+          <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.5px;margin-bottom:10px">
+            Chronological User History (${itemRentals.length} Agreement${itemRentals.length === 1 ? '' : 's'})
+          </div>
+          <div class="history-list" style="display:flex;flex-direction:column;gap:12px">`;
+
+      itemRentals.forEach(r => {
+        const cust = getCustomer(r.customerId) || { name: 'Unknown Customer', phone: '' };
+        const isActive = isActiveRental(r);
+        const st = rentalStatus(r);
+        const payments = (state.payments || []).filter(p => p.rentalId === r.id);
+        const totalPaid = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0) + (parseFloat(r.advancePayment) || 0);
+
+        const startDateStr = fmtDate(r.startDate);
+        const endDateStr = r.endDate ? fmtDate(r.endDate) : (isActive ? 'Ongoing (Active)' : 'Ended');
+        const durationDays = daysBetween(r.startDate, r.endDate || today());
+        let durationText = `${durationDays} day${durationDays === 1 ? '' : 's'}`;
+        if (durationDays >= 30) {
+          const months = (durationDays / 30).toFixed(1).replace(/\.0$/, '');
+          durationText = `${months} mo (${durationDays}d)`;
+        }
+
+        historyHtml += `
+          <div style="background:var(--surface);border:1px solid ${isActive ? 'var(--accent)' : 'var(--border)'};border-radius:10px;padding:12px 14px;position:relative">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div class="avatar-initials" style="width:34px;height:34px;font-size:0.8rem">${getInitials(cust.name)}</div>
+                <div>
+                  <div style="font-weight:800;font-size:0.95rem;color:var(--text-primary)">
+                    ${escHtml(cust.name)}
+                    ${isActive ? '<span class="status-dot ok" style="margin-left:4px;display:inline-block" title="Active rental"></span>' : ''}
+                  </div>
+                  ${cust.company ? `<div style="font-size:0.75rem;color:var(--text-muted)">${escHtml(cust.company)}</div>` : ''}
+                </div>
+              </div>
+              <span class="ops-status-badge ${isActive ? 'ok' : 'muted'}" style="font-size:0.7rem;padding:2px 8px">
+                ${isActive ? 'Currently Active' : 'Returned'}
+              </span>
+            </div>
+
+            <!-- Date & Duration Bar -->
+            <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;background:var(--card-bg);padding:8px 10px;border-radius:6px;border:1px solid var(--border)">
+              <div>
+                <div style="font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;font-weight:700">Usage Period</div>
+                <div style="font-size:0.78rem;font-weight:700;color:var(--text-primary);margin-top:1px">${startDateStr} &rarr; ${endDateStr}</div>
+                <div style="font-size:0.72rem;color:var(--accent);font-weight:600">${durationText}</div>
+              </div>
+              <div>
+                <div style="font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;font-weight:700">Rent &amp; Ref</div>
+                <div style="font-size:0.78rem;font-weight:700;color:var(--text-primary);margin-top:1px">${fmtCurrency(r.rentAmount)} / ${escHtml(r.billingCycle || 'month')}</div>
+                <div style="font-size:0.72rem;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(r.notes || '')}">${r.notes ? escHtml(r.notes) : 'Rental Agreement'}</div>
+              </div>
+            </div>
+
+            <!-- Financials Summary -->
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.76rem;margin-top:8px;padding-top:6px;border-top:1px dashed var(--border)">
+              <div>
+                <span style="color:var(--text-muted)">Paid:</span>
+                <strong style="color:var(--status-ok);margin-left:4px">${fmtCurrency(totalPaid)}</strong>
+              </div>
+              ${isActive && st.outstanding > 0 ? `
+                <div>
+                  <span style="color:var(--text-muted)">Due:</span>
+                  <strong style="color:var(--status-danger);margin-left:4px">${fmtCurrency(st.outstanding)}</strong>
+                </div>
+              ` : ''}
+              <div>
+                <span style="color:var(--text-muted)">Deposit:</span>
+                <strong style="margin-left:4px">${fmtCurrency(r.securityDeposit || 0)}</strong>
+              </div>
+            </div>
+
+            <!-- Actions Row -->
+            <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+              ${cust.phone ? `
+                <a href="tel:${escHtml(cust.phone)}" class="btn-micro" style="text-decoration:none" onclick="event.stopPropagation()">
+                  ${Icons.phone}
+                  <span>Call</span>
+                </a>
+                <button class="btn-micro btn-micro-wa" onclick="event.stopPropagation();openWhatsAppReminder('${escHtml(cust.phone)}', 'Hello *${escHtml(cust.name)}*, regarding device *${escHtml(itemTitle)}* (Asset: ${escHtml(i.assetNo || 'N/A')}) from TechTrove Systems.')">
+                  ${Icons.whatsapp}
+                  <span>WA</span>
+                </button>
+              ` : ''}
+              <button class="btn-micro" onclick="event.stopPropagation();UI.hideModal();UI.pushPage('customer-detail', '${cust.id}')">
+                Client Profile
+              </button>
+              ${isActive ? `
+                <button class="btn-micro" style="color:var(--status-danger);border-color:rgba(239,68,68,0.4)" onclick="event.stopPropagation();UI.hideModal();UI.showCloseRentalModal('${r.id}')">
+                  📦 Return &amp; Close
+                </button>
+              ` : ''}
+            </div>
+          </div>`;
+      });
+
+      historyHtml += `</div></div>`;
+    }
+
     this.showModal(`
       <button class="modal-close" onclick="UI.hideModal()">&times;</button>
-      <h2>Edit Device</h2>
-
-      <!-- SEARCHABLE PRESET MODEL PICKER -->
-      <div class="preset-search-box">
-        <div class="preset-search-header">
-          <label style="font-weight:700;color:var(--text-primary);font-size:.85rem">Search &amp; Pick Model Preset</label>
-          <div style="font-size:.74rem;color:var(--text-muted)">Type any model name (e.g. <em>3420, T14, M1, 840</em>) or tap a brand:</div>
+      
+      <!-- Device Header -->
+      <div style="margin-bottom:12px;padding-right:24px">
+        <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;color:var(--accent);letter-spacing:0.5px">Hardware Profile</div>
+        <h2 style="margin:2px 0 4px 0;font-size:1.22rem">${escHtml(itemTitle)}</h2>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:0.78rem">
+          ${i.assetNo ? `
+            <span class="hardware-serial-pill" style="background:rgba(99,102,241,0.18);border:1px solid rgba(99,102,241,0.4);color:var(--accent);font-weight:700">
+              🏷️ Asset: <strong class="tnum">${escHtml(i.assetNo)}</strong>
+            </span>
+          ` : ''}
+          <span class="hardware-serial-pill">
+            SN: <strong class="tnum">${escHtml(i.serial || 'N/A')}</strong>
+          </span>
+          <span class="ops-status-badge ${isAvail ? 'ok' : isRented ? 'warn' : 'danger'}" style="font-size:0.7rem;padding:2px 8px">
+            <span class="status-dot ${isAvail ? 'ok' : isRented ? 'warn' : 'danger'}"></span>
+            ${isAvail ? 'Available' : isRented ? 'Rented' : 'In Repair'}
+          </span>
         </div>
+      </div>
 
-        <div class="preset-brand-pills" id="presetBrandPills">
-          <button type="button" class="brand-pill active" onclick="UI.filterPresetsByBrand('ALL', this)">All</button>
-          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Dell', this)">Dell</button>
-          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Lenovo', this)">Lenovo</button>
-          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('HP', this)">HP</button>
-          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Apple', this)">Apple</button>
-          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Asus', this)">Asus</button>
-          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Acer', this)">Acer</button>
-          <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Monitor', this)">Monitors</button>
-        </div>
+      <!-- Tabs Switcher -->
+      <div style="display:flex;border-bottom:1px solid var(--border);margin-bottom:14px">
+        <button type="button" id="tabItemHistoryBtn" class="ops-tab-btn ${initialTab === 'history' ? 'active' : ''}" style="flex:1;padding:9px;font-size:0.85rem;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:2px solid ${initialTab === 'history' ? 'var(--accent)' : 'transparent'};color:${initialTab === 'history' ? 'var(--text-bright)' : 'var(--text-dim)'}" onclick="UI.switchItemTab('history')">
+          👥 Customer History (${itemRentals.length})
+        </button>
+        <button type="button" id="tabItemSpecsBtn" class="ops-tab-btn ${initialTab === 'specs' ? 'active' : ''}" style="flex:1;padding:9px;font-size:0.85rem;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:2px solid ${initialTab === 'specs' ? 'var(--accent)' : 'transparent'};color:${initialTab === 'specs' ? 'var(--text-bright)' : 'var(--text-dim)'}" onclick="UI.switchItemTab('specs')">
+          ⚙️ Hardware &amp; Specs
+        </button>
+      </div>
 
-        <div class="preset-input-wrapper">
-          <input type="text" id="presetSearchInput" class="preset-search-input" value="${escHtml(i.brand ? i.brand + ' ' + (i.model || '') : '')}" placeholder="Search models..." oninput="UI.onPresetSearchInput(this.value)" onfocus="document.getElementById('presetResultsList').style.display='block'" autocomplete="off">
-          <button type="button" class="preset-clear-btn" onclick="UI.clearPresetSelection()">&times;</button>
-        </div>
+      <!-- Tab 1: Customer Rental History -->
+      <div id="itemHistoryContainer" style="display:${initialTab === 'history' ? 'block' : 'none'}">
+        ${historyHtml}
+      </div>
 
-        <div id="presetResultsList" class="preset-results-dropdown" style="display:none">
-          ${this.renderPresetSearchResults(i.model || '')}
-        </div>
-
-        <div id="selectedPresetBanner" class="selected-preset-banner" style="${i.model ? 'display:flex' : 'display:none'}">
-          <div>
-            <span>Current: <strong>${escHtml(i.brand || '')} ${escHtml(i.model || '')}</strong></span>
+      <!-- Tab 2: Hardware Specs & Settings -->
+      <div id="itemSpecsContainer" style="display:${initialTab === 'specs' ? 'block' : 'none'}">
+        <!-- SEARCHABLE PRESET MODEL PICKER -->
+        <div class="preset-search-box">
+          <div class="preset-search-header">
+            <label style="font-weight:700;color:var(--text-primary);font-size:.85rem">Search &amp; Pick Model Preset</label>
+            <div style="font-size:.74rem;color:var(--text-muted)">Type any model name (e.g. <em>3420, T14, M1, 840</em>) or tap a brand:</div>
           </div>
-          <button type="button" class="btn btn-sm btn-outline" style="padding:2px 8px;min-height:24px;font-size:.72rem;background:var(--surface);border-color:var(--accent-border);color:var(--accent)" onclick="UI.clearPresetSelection()">Change</button>
-        </div>
-      </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>Device Type *</label>
-          <select id="itemType">
-            <option value="Laptop" ${i.type==='Laptop'?'selected':''}>Laptop</option>
-            <option value="Desktop" ${i.type==='Desktop'?'selected':''}>Desktop PC / Tower</option>
-            <option value="MacBook" ${i.type==='MacBook'?'selected':''}>MacBook / Apple</option>
-            <option value="Monitor" ${i.type==='Monitor'?'selected':''}>Monitor</option>
-            <option value="Projector" ${i.type==='Projector'?'selected':''}>Projector</option>
-            <option value="Other" ${i.type==='Other'?'selected':''}>Other</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Status</label>
-          <select id="itemStatus" ${isRented ? 'disabled' : ''} onchange="UI.onStatusDropdownChange(this)">
-            <option value="available" ${i.status==='available'?'selected':''}>Available</option>
-            <option value="rented" ${i.status==='rented'?'selected':''}>Rented</option>
-            <option value="repair" ${i.status==='repair'?'selected':''}>Under Repair / Service</option>
-          </select>
-        </div>
-      </div>
+          <div class="preset-brand-pills" id="presetBrandPills">
+            <button type="button" class="brand-pill active" onclick="UI.filterPresetsByBrand('ALL', this)">All</button>
+            <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Dell', this)">Dell</button>
+            <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Lenovo', this)">Lenovo</button>
+            <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('HP', this)">HP</button>
+            <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Apple', this)">Apple</button>
+            <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Asus', this)">Asus</button>
+            <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Acer', this)">Acer</button>
+            <button type="button" class="brand-pill" onclick="UI.filterPresetsByBrand('Monitor', this)">Monitors</button>
+          </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>Brand *</label>
-          <input type="text" id="itemBrand" value="${escHtml(i.brand || '')}">
-        </div>
-        <div class="form-group">
-          <label>Model *</label>
-          <input type="text" id="itemModel" value="${escHtml(i.model || '')}">
-        </div>
-      </div>
+          <div class="preset-input-wrapper">
+            <input type="text" id="presetSearchInput" class="preset-search-input" value="${escHtml(i.brand ? i.brand + ' ' + (i.model || '') : '')}" placeholder="Search models..." oninput="UI.onPresetSearchInput(this.value)" onfocus="document.getElementById('presetResultsList').style.display='block'" autocomplete="off">
+            <button type="button" class="preset-clear-btn" onclick="UI.clearPresetSelection()">&times;</button>
+          </div>
 
-      <!-- COMPONENT PICKER DROPDOWNS -->
-      <div class="spec-builder-box">
-        <div class="spec-builder-title">Quick Spec Builder (Pick or Customize)</div>
+          <div id="presetResultsList" class="preset-results-dropdown" style="display:none">
+            ${this.renderPresetSearchResults(i.model || '')}
+          </div>
+
+          <div id="selectedPresetBanner" class="selected-preset-banner" style="${i.model ? 'display:flex' : 'display:none'}">
+            <div>
+              <span>Current: <strong>${escHtml(i.brand || '')} ${escHtml(i.model || '')}</strong></span>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline" style="padding:2px 8px;min-height:24px;font-size:.72rem;background:var(--surface);border-color:var(--accent-border);color:var(--accent)" onclick="UI.clearPresetSelection()">Change</button>
+          </div>
+        </div>
+
         <div class="form-row">
           <div class="form-group">
-            <label style="font-size:.75rem">Processor</label>
-            <select id="itemCpu" onchange="UI.onComponentDropdownChange()">${this._buildSelectOptions(PROCESSOR_LIST, i.specs)}</select>
+            <label>Device Type *</label>
+            <select id="itemType">
+              <option value="Laptop" ${i.type==='Laptop'?'selected':''}>Laptop</option>
+              <option value="Desktop" ${i.type==='Desktop'?'selected':''}>Desktop PC / Tower</option>
+              <option value="MacBook" ${i.type==='MacBook'?'selected':''}>MacBook / Apple</option>
+              <option value="Monitor" ${i.type==='Monitor'?'selected':''}>Monitor</option>
+              <option value="Projector" ${i.type==='Projector'?'selected':''}>Projector</option>
+              <option value="Other" ${i.type==='Other'?'selected':''}>Other</option>
+            </select>
           </div>
           <div class="form-group">
-            <label style="font-size:.75rem">RAM Memory</label>
-            <select id="itemRam" onchange="UI.onComponentDropdownChange()">${this._buildSelectOptions(RAM_LIST, i.specs)}</select>
+            <label>Status</label>
+            <select id="itemStatus" ${isRented ? 'disabled' : ''} onchange="UI.onStatusDropdownChange(this)">
+              <option value="available" ${i.status==='available'?'selected':''}>Available</option>
+              <option value="rented" ${i.status==='rented'?'selected':''}>Rented</option>
+              <option value="repair" ${i.status==='repair'?'selected':''}>Under Repair / Service</option>
+            </select>
           </div>
         </div>
+
         <div class="form-row">
           <div class="form-group">
-            <label style="font-size:.75rem">Storage Drive</label>
-            <select id="itemStorage" onchange="UI.onComponentDropdownChange()">${this._buildSelectOptions(STORAGE_LIST, i.specs)}</select>
+            <label>Brand *</label>
+            <input type="text" id="itemBrand" value="${escHtml(i.brand || '')}">
           </div>
           <div class="form-group">
-            <label style="font-size:.75rem">Display / Screen</label>
-            <select id="itemScreen" onchange="UI.onComponentDropdownChange()">${this._buildSelectOptions(SCREEN_LIST, i.specs)}</select>
+            <label>Model *</label>
+            <input type="text" id="itemModel" value="${escHtml(i.model || '')}">
           </div>
         </div>
-      </div>
 
-      <div class="form-group">
-        <label>Full Specifications (Editable Text)</label>
-        <input type="text" id="itemSpecs" value="${escHtml(i.specs || '')}">
-      </div>
+        <!-- COMPONENT PICKER DROPDOWNS -->
+        <div class="spec-builder-box">
+          <div class="spec-builder-title">Quick Spec Builder (Pick or Customize)</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label style="font-size:.75rem">Processor</label>
+              <select id="itemCpu" onchange="UI.onComponentDropdownChange()">${this._buildSelectOptions(PROCESSOR_LIST, i.specs)}</select>
+            </div>
+            <div class="form-group">
+              <label style="font-size:.75rem">RAM Memory</label>
+              <select id="itemRam" onchange="UI.onComponentDropdownChange()">${this._buildSelectOptions(RAM_LIST, i.specs)}</select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label style="font-size:.75rem">Storage Drive</label>
+              <select id="itemStorage" onchange="UI.onComponentDropdownChange()">${this._buildSelectOptions(STORAGE_LIST, i.specs)}</select>
+            </div>
+            <div class="form-group">
+              <label style="font-size:.75rem">Display / Screen</label>
+              <select id="itemScreen" onchange="UI.onComponentDropdownChange()">${this._buildSelectOptions(SCREEN_LIST, i.specs)}</select>
+            </div>
+          </div>
+        </div>
 
-      <div class="form-row">
         <div class="form-group">
-          <label>Asset Number / Tag <span style="color:var(--accent);font-weight:700">(Primary ID)</span> *</label>
-          <input type="text" id="itemAssetNo" value="${escHtml(i.assetNo || '')}" placeholder="e.g. 760, 780, TT-01">
+          <label>Full Specifications (Editable Text)</label>
+          <input type="text" id="itemSpecs" value="${escHtml(i.specs || '')}">
         </div>
-        <div class="form-group">
-          <label>Manufacturer Serial Number</label>
-          <input type="text" id="itemSerial" value="${escHtml(i.serial || '')}" placeholder="e.g. 52119506H, SMHP1V7079J">
-        </div>
-      </div>
 
-      <!-- DYNAMIC UNDER REPAIR / SERVICE FORM -->
-      <div id="repairSection" class="repair-section-form" style="display:${i.status==='repair'?'block':'none'}">
-        <div style="font-weight:700;color:var(--text-primary);margin-bottom:8px;font-size:.9rem">Under Repair &amp; Service Details</div>
-        <div class="form-group">
-          <label>Service Center / Shop Name &amp; Location</label>
-          <input type="text" id="repairServiceCenter" value="${escHtml(rep.serviceCenter || '')}" placeholder="e.g. Dell Authorized Service, SP Road">
-        </div>
         <div class="form-row">
           <div class="form-group">
-            <label>Technician / Contact Person</label>
-            <input type="text" id="repairServicePerson" value="${escHtml(rep.servicePerson || '')}" placeholder="e.g. Suresh Kumar">
+            <label>Asset Number / Tag <span style="color:var(--accent);font-weight:700">(Primary ID)</span> *</label>
+            <input type="text" id="itemAssetNo" value="${escHtml(i.assetNo || '')}" placeholder="e.g. 760, 780, TT-01">
           </div>
           <div class="form-group">
-            <label>Technician Phone Number (10 Digits)</label>
-            <input type="tel" id="repairServicePhone" value="${escHtml(cleanPhone(rep.servicePhone || ''))}" placeholder="10-digit mobile number" maxlength="20" inputmode="numeric" oninput="this.value=cleanPhone(this.value)" onpaste="setTimeout(()=>{ this.value=cleanPhone(this.value); },0)">
+            <label>Manufacturer Serial Number</label>
+            <input type="text" id="itemSerial" value="${escHtml(i.serial || '')}" placeholder="e.g. 52119506H, SMHP1V7079J">
           </div>
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Handover to Service Date</label>
-            <input type="date" id="repairHandoverDate" value="${rep.givenToServiceDate || today()}">
-          </div>
-          <div class="form-group">
-            <label>Expected Return Date</label>
-            <input type="date" id="repairExpectedReturnDate" value="${rep.expectedReturnDate || ''}">
-          </div>
-        </div>
-        <div class="form-group">
-          <label>Date Picked up from Customer (if applicable)</label>
-          <input type="date" id="repairCollectedDate" value="${rep.collectedFromCustomerDate || ''}">
-        </div>
-        <div class="form-group">
-          <label>Repair Issue Description / Notes</label>
-          <textarea id="repairIssue" placeholder="e.g. Screen flickering / Keyboard replacement">${escHtml(rep.repairIssue || '')}</textarea>
-        </div>
-        <div class="form-group">
-          <label>Estimated / Actual Cost (₹)</label>
-          <input type="number" id="repairCost" value="${rep.repairCost || ''}" placeholder="e.g. 1500" min="0" step="1">
-        </div>
-      </div>
 
-      <div class="form-actions">
-        <button class="btn btn-outline" onclick="UI.hideModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="UI.saveItem('${i.id}')">Update Device</button>
-      </div>
-      ${Auth.isAdmin() ? (!isRented ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"><button class="btn btn-danger btn-block btn-sm" onclick="UI.deleteItem('${i.id}')">Delete Item</button></div>` : '<div style="margin-top:8px;font-size:.8rem;color:var(--text-muted);text-align:center">Cannot delete — currently rented out.</div>') : ''}`);
+        <!-- DYNAMIC UNDER REPAIR / SERVICE FORM -->
+        <div id="repairSection" class="repair-section-form" style="display:${i.status==='repair'?'block':'none'}">
+          <div style="font-weight:700;color:var(--text-primary);margin-bottom:8px;font-size:.9rem">Under Repair &amp; Service Details</div>
+          <div class="form-group">
+            <label>Service Center / Shop Name &amp; Location</label>
+            <input type="text" id="repairServiceCenter" value="${escHtml(rep.serviceCenter || '')}" placeholder="e.g. Dell Authorized Service, SP Road">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Technician / Contact Person</label>
+              <input type="text" id="repairServicePerson" value="${escHtml(rep.servicePerson || '')}" placeholder="e.g. Suresh Kumar">
+            </div>
+            <div class="form-group">
+              <label>Technician Phone Number (10 Digits)</label>
+              <input type="tel" id="repairServicePhone" value="${escHtml(cleanPhone(rep.servicePhone || ''))}" placeholder="10-digit mobile number" maxlength="20" inputmode="numeric" oninput="this.value=cleanPhone(this.value)" onpaste="setTimeout(()=>{ this.value=cleanPhone(this.value); },0)">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Handover to Service Date</label>
+              <input type="date" id="repairHandoverDate" value="${rep.givenToServiceDate || today()}">
+            </div>
+            <div class="form-group">
+              <label>Expected Return Date</label>
+              <input type="date" id="repairExpectedReturnDate" value="${rep.expectedReturnDate || ''}">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Date Picked up from Customer (if applicable)</label>
+            <input type="date" id="repairCollectedDate" value="${rep.collectedFromCustomerDate || ''}">
+          </div>
+          <div class="form-group">
+            <label>Repair Issue Description / Notes</label>
+            <textarea id="repairIssue" placeholder="e.g. Screen flickering / Keyboard replacement">${escHtml(rep.repairIssue || '')}</textarea>
+          </div>
+          <div class="form-group">
+            <label>Estimated / Actual Cost (₹)</label>
+            <input type="number" id="repairCost" value="${rep.repairCost || ''}" placeholder="e.g. 1500" min="0" step="1">
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-outline" onclick="UI.hideModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="UI.saveItem('${i.id}')">Update Device</button>
+        </div>
+        ${Auth.isAdmin() ? (!isRented ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"><button class="btn btn-danger btn-block btn-sm" onclick="UI.deleteItem('${i.id}')">Delete Item</button></div>` : '<div style="margin-top:8px;font-size:.8rem;color:var(--text-muted);text-align:center">Cannot delete — currently rented out.</div>') : ''}
+      </div>`);
+  },
+
+  switchItemTab(tab) {
+    const historyContainer = document.getElementById('itemHistoryContainer');
+    const specsContainer = document.getElementById('itemSpecsContainer');
+    const historyBtn = document.getElementById('tabItemHistoryBtn');
+    const specsBtn = document.getElementById('tabItemSpecsBtn');
+
+    if (tab === 'history') {
+      if (historyContainer) historyContainer.style.display = 'block';
+      if (specsContainer) specsContainer.style.display = 'none';
+      if (historyBtn) { historyBtn.style.borderBottom = '2px solid var(--accent)'; historyBtn.style.color = 'var(--text-bright)'; }
+      if (specsBtn) { specsBtn.style.borderBottom = '2px solid transparent'; specsBtn.style.color = 'var(--text-dim)'; }
+    } else {
+      if (historyContainer) historyContainer.style.display = 'none';
+      if (specsContainer) specsContainer.style.display = 'block';
+      if (specsBtn) { specsBtn.style.borderBottom = '2px solid var(--accent)'; specsBtn.style.color = 'var(--text-bright)'; }
+      if (historyBtn) { historyBtn.style.borderBottom = '2px solid transparent'; historyBtn.style.color = 'var(--text-dim)'; }
+    }
   },
 
   saveItem(id) {
@@ -4724,21 +5012,20 @@ const UI = {
     const finalAsset = assetNo || serial;
     const finalSerial = serial || assetNo;
 
-    // Check duplicate Composite Primary Key (Asset Number + Serial Number)
-    if (assetNo && serial) {
-      const dup = state.items.find(it => 
-        it.id !== id && 
-        it.assetNo && it.assetNo.trim().toLowerCase() === assetNo.toLowerCase() &&
-        it.serial && it.serial.trim().toLowerCase() === serial.toLowerCase()
-      );
+    const cleanAsset = assetNo.trim().toLowerCase();
+    const cleanSerial = serial.trim().toLowerCase();
+
+    // STRICT ASSET NUMBER UNIQUENESS: Asset Number itself is the sole primary unique identifier
+    if (cleanAsset) {
+      const dup = state.items.find(it => it.id !== id && it.assetNo && it.assetNo.trim().toLowerCase() === cleanAsset);
       if (dup) {
-        UI.showToast(`Device with Asset #${assetNo} & Serial #${serial} already exists (${dup.brand} ${dup.model})!`, 'error');
+        UI.showToast(`Asset Number "${assetNo}" is already assigned to ${dup.brand || ''} ${dup.model || ''}! Asset Number must be unique.`, 'error');
         return;
       }
-    } else if (assetNo) {
-      const dup = state.items.find(it => it.id !== id && it.assetNo && it.assetNo.trim().toLowerCase() === assetNo.toLowerCase());
+    } else if (cleanSerial) {
+      const dup = state.items.find(it => it.id !== id && it.serial && it.serial.trim().toLowerCase() === cleanSerial);
       if (dup) {
-        UI.showToast(`Asset Number "${assetNo}" already exists on ${dup.brand} ${dup.model}!`, 'error');
+        UI.showToast(`Serial Number "${serial}" already exists on ${dup.brand || ''} ${dup.model || ''}!`, 'error');
         return;
       }
     }
@@ -5757,7 +6044,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         UI.showToast(`Signed in as ${Auth.isAdmin() ? '🛡️ Admin' : '👤 Employee'}`, 'success');
       } else {
         if (loginErr) {
-          loginErr.textContent = `Incorrect password for ${role === 'admin' ? 'Admin (use rent123)' : 'Employee (use staff123)'}`;
+          loginErr.textContent = 'Incorrect password (use 1202)';
           loginErr.classList.remove('hidden');
         }
       }
@@ -5771,6 +6058,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     loginPw.addEventListener('input', () => {
       if (loginErr) loginErr.classList.add('hidden');
     });
+  }
+
+  // App Lock: Require password when opening or resuming app if enabled
+  document.addEventListener('visibilitychange', () => {
+    const alwaysAsk = localStorage.getItem('tt_always_ask_pw') !== 'false';
+    if (document.visibilityState === 'hidden') {
+      if (alwaysAsk) Auth._sessionUnlocked = false;
+    } else if (document.visibilityState === 'visible') {
+      if (alwaysAsk && !Auth.isLoggedIn()) {
+        UI.showLogin();
+      }
+    }
+  });
+
+  if (window.Capacitor?.Plugins?.App) {
+    try {
+      window.Capacitor.Plugins.App.addListener('appStateChange', (appState) => {
+        const alwaysAsk = localStorage.getItem('tt_always_ask_pw') !== 'false';
+        if (!appState.isActive) {
+          if (alwaysAsk) Auth._sessionUnlocked = false;
+        } else {
+          if (alwaysAsk && !Auth.isLoggedIn()) {
+            UI.showLogin();
+          }
+        }
+      });
+    } catch(e) {}
   }
 
   if (Auth.isLoggedIn()) {
@@ -6623,32 +6937,14 @@ UI.confirmDCImport = function() {
       if (item.serial) delete state._deleted[item.serial];
     }
 
-    // COMPOSITE PRIMARY KEY: Asset Number AND Serial Number act together as the single unique identifier
+    // PRIMARY KEY: Asset Number itself is the primary unique identifier
     let existing = null;
-    if (cleanAsset && cleanSerial) {
-      // 1. Both Asset Number and Serial Number match together
-      existing = state.items.find(it => {
-        const itAsset = (it.assetNo || '').trim().toLowerCase();
-        const itSerial = (it.serial || '').trim().toLowerCase();
-        return itAsset === cleanAsset && itSerial === cleanSerial;
-      });
+    if (cleanAsset) {
+      existing = state.items.find(it => (it.assetNo || '').trim().toLowerCase() === cleanAsset);
     }
-
-    // 2. Fallback: If not matched by both together, check if an existing item has matching Asset or Serial
-    // where the other half was missing/generic, uniting them into the full composite key
-    if (!existing && cleanAsset) {
-      existing = state.items.find(it => {
-        const itAsset = (it.assetNo || '').trim().toLowerCase();
-        const itSerial = (it.serial || '').trim().toLowerCase();
-        return itAsset === cleanAsset && (!itSerial || itSerial.startsWith('dc-') || itSerial.startsWith('sn-') || itSerial === cleanAsset);
-      });
-    }
+    // Fallback: If no assetNo was given, match by Serial Number
     if (!existing && cleanSerial) {
-      existing = state.items.find(it => {
-        const itAsset = (it.assetNo || '').trim().toLowerCase();
-        const itSerial = (it.serial || '').trim().toLowerCase();
-        return itSerial === cleanSerial && (!itAsset || itAsset === cleanSerial);
-      });
+      existing = state.items.find(it => (it.serial || '').trim().toLowerCase() === cleanSerial);
     }
 
     let itemId;
@@ -6664,7 +6960,7 @@ UI.confirmDCImport = function() {
       existing.updatedAt = new Date().toISOString();
       updatedExistingCount++;
     } else {
-      // NEW FLEET PRODUCT: ADD TO INVENTORY WITH COMPOSITE KEY
+      // NEW FLEET PRODUCT: ADD TO INVENTORY
       itemId = 'item-' + Date.now().toString(36) + '-' + (i + 1);
       const newItem = {
         id: itemId,
@@ -6714,9 +7010,9 @@ UI.confirmDCImport = function() {
   Data.save();
   UI.hideModal();
   const summaryMsg = newlyAddedCount > 0 && updatedExistingCount > 0
-    ? `✓ ${currentParsedDC.challanNo}: ${newlyAddedCount} new unit(s) added, ${updatedExistingCount} existing recognized by (Asset + Serial)!`
+    ? `✓ ${currentParsedDC.challanNo}: ${newlyAddedCount} new unit(s) added, ${updatedExistingCount} existing recognized by Asset Number!`
     : updatedExistingCount > 0
-    ? `✓ ${currentParsedDC.challanNo}: All ${updatedExistingCount} units recognized by (Asset + Serial) composite key & updated (0 duplicates)!`
+    ? `✓ ${currentParsedDC.challanNo}: All ${updatedExistingCount} units recognized by Asset Number & updated (0 duplicates)!`
     : `✓ ${currentParsedDC.challanNo}: ${newlyAddedCount} unit(s) imported!`;
   UI.showToast(summaryMsg, 'success');
 
@@ -6795,7 +7091,7 @@ function setupApp() {
 }
 
 /* AUTOMATIC INSTANT UPDATE CHECKER & CONTINUOUS BACKGROUND DATA SYNC */
-const CURRENT_BUILD_VERSION = 'v6.3-tombstone-cascade';
+const CURRENT_BUILD_VERSION = typeof APP_VERSION !== 'undefined' ? APP_VERSION : '2.0';
 
 function initAutoUpdateChecker() {
   let checking = false;
